@@ -676,6 +676,11 @@ nav {
 
     <div class="card" style="margin-bottom:14px">
       <div class="field">
+        <label>Descripción</label>
+        <input type="text" id="desc" placeholder="¿En qué fue?">
+      </div>
+
+      <div class="field">
         <label>Monto</label>
         <div class="amount-row">
           <select class="cur-sel" id="currency" onchange="onCurChange()">
@@ -701,16 +706,19 @@ nav {
         </div>
         <!-- Propina panel -->
         <div id="propina-panel" style="display:none;margin-top:12px;padding:12px;background:var(--surface2);border-radius:var(--radius-sm);">
-          <!-- Included / Additional toggle -->
-          <div style="display:flex;background:var(--surface);border-radius:100px;padding:3px;gap:2px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,0.08),0 0 0 1px var(--border2);">
-            <button id="propina-incl-btn" onclick="setPropinaIncluida(true)" style="flex:1;padding:6px 10px;border-radius:100px;border:none;background:var(--accent);color:white;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;transition:all 0.18s;">Incluida en el monto</button>
-            <button id="propina-adic-btn" onclick="setPropinaIncluida(false)" style="flex:1;padding:6px 10px;border-radius:100px;border:none;background:transparent;color:var(--text3);font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;transition:all 0.18s;">Adicional al monto</button>
-          </div>
-          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-            <div style="display:flex;background:var(--surface);border-radius:100px;padding:3px;gap:2px;flex-shrink:0;box-shadow:0 1px 4px rgba(0,0,0,0.12),0 0 0 1px var(--border2);">
-              <button id="propina-chip-pct" onclick="setPropinaType('pct')" style="padding:6px 14px;border-radius:100px;border:none;background:var(--accent);color:white;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;transition:all 0.18s;">%</button>
-              <button id="propina-chip-monto" onclick="setPropinaType('monto')" style="padding:6px 14px;border-radius:100px;border:none;background:transparent;color:var(--text3);font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;transition:all 0.18s;">$</button>
+          <!-- Row 1: incl/adic toggle + % / $ toggle -->
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
+            <div style="display:flex;background:var(--surface);border-radius:100px;padding:3px;gap:2px;flex-shrink:0;box-shadow:0 1px 3px rgba(0,0,0,0.08),0 0 0 1px var(--border2);">
+              <button id="propina-incl-btn" onclick="setPropinaIncluida(true)" style="padding:5px 10px;border-radius:100px;border:none;background:var(--accent);color:white;font-family:inherit;font-size:11px;font-weight:600;cursor:pointer;transition:all 0.18s;">Incluida</button>
+              <button id="propina-adic-btn" onclick="setPropinaIncluida(false)" style="padding:5px 10px;border-radius:100px;border:none;background:transparent;color:var(--text3);font-family:inherit;font-size:11px;font-weight:600;cursor:pointer;transition:all 0.18s;">Adicional</button>
             </div>
+            <div style="display:flex;background:var(--surface);border-radius:100px;padding:3px;gap:2px;flex-shrink:0;box-shadow:0 1px 4px rgba(0,0,0,0.12),0 0 0 1px var(--border2);">
+              <button id="propina-chip-pct" onclick="setPropinaType('pct')" style="padding:5px 12px;border-radius:100px;border:none;background:var(--accent);color:white;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;transition:all 0.18s;">%</button>
+              <button id="propina-chip-monto" onclick="setPropinaType('monto')" style="padding:5px 12px;border-radius:100px;border:none;background:transparent;color:var(--text3);font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;transition:all 0.18s;">$</button>
+            </div>
+          </div>
+          <!-- Row 2: input + preview -->
+          <div style="display:flex;align-items:center;gap:10px;">
             <input type="number" id="propina-pct" placeholder="" inputmode="decimal" step="0.5" min="0" max="100" oninput="calcPropinaPreview()" style="width:160px;padding:9px 12px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-family:inherit;font-size:15px;outline:none;-webkit-appearance:none;appearance:none;">
             <input type="number" id="propina-monto" placeholder="0.00" inputmode="decimal" step="0.01" min="0" oninput="calcPropinaPreview()" style="width:160px;padding:9px 12px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-family:inherit;font-size:15px;outline:none;display:none;-webkit-appearance:none;appearance:none;">
             <span id="propina-calc" style="font-size:13px;color:var(--text3);"></span>
@@ -740,11 +748,6 @@ nav {
             <div class="cat-grid-ui" id="ben-type-blocks"></div>
           </div>
         </div>
-      </div>
-
-      <div class="field">
-        <label>Descripción</label>
-        <input type="text" id="desc" placeholder="¿En qué fue?">
       </div>
 
       <div class="field" id="method-field">
@@ -846,9 +849,16 @@ nav {
 <div class="page" id="page-presupuesto">
   <div class="page-header"><h1>Presupuesto</h1><p>Objetivos mensuales por categoría</p></div>
   <div style="padding:0 16px;margin-bottom:12px;">
-    <div class="month-sel-row" style="padding:0;margin-bottom:0">
+    <div class="month-sel-row" style="padding:0;margin-bottom:12px">
       <select id="bud-month-sel" onchange="renderBudget()"></select>
       <select id="bud-year-sel" onchange="renderBudget()"></select>
+    </div>
+    <div class="card" style="padding:14px;margin-bottom:0">
+      <div style="font-size:13px;font-weight:600;color:var(--text2);margin-bottom:6px;">Presupuesto total del mes</div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <input type="number" id="bud-total-mes" placeholder="Sin límite general" inputmode="decimal" min="0" oninput="validateBudgetLive()" style="flex:1;padding:11px 13px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface2);color:var(--text);font-family:inherit;font-size:15px;outline:none;">
+        <span id="bud-total-used" style="font-size:12px;color:var(--text3);flex-shrink:0;"></span>
+      </div>
     </div>
   </div>
   <div class="sec-lbl">Egresos</div>
@@ -1326,8 +1336,9 @@ function setType(t) {
     if(pp) pp.style.display='none';
     if(bp) bp.style.display='none';
     propinaOn=false; benOn=false;
-    updateInlineBtn('inline-propina-btn', false);
-    updateInlineBtn('inline-ben-btn', false);
+    _propinaVisible=false; _benVisible=false;
+    updateInlineBtn('inline-propina-btn', false, false);
+    updateInlineBtn('inline-ben-btn', false, false);
     resetPropina();
   }
   buildCatBlocks();
@@ -1403,13 +1414,11 @@ let _benVisible=false;
 
 function inlineTogglePropina(){
   if(_propinaVisible){
-    // Close
     _propinaVisible=false;
     document.getElementById('propina-panel').style.display='none';
     updateInlineBtn('inline-propina-btn', false, propinaHasData());
   } else {
-    // Open propina, close ben
-    _propinaVisible=true;
+    _propinaVisible=true; propinaOn=true;
     _benVisible=false;
     document.getElementById('propina-panel').style.display='block';
     document.getElementById('ben-panel').style.display='none';
@@ -1420,13 +1429,11 @@ function inlineTogglePropina(){
 
 function inlineToggleBen(){
   if(_benVisible){
-    // Close
     _benVisible=false;
     document.getElementById('ben-panel').style.display='none';
     updateInlineBtn('inline-ben-btn', false, benHasData());
   } else {
-    // Open ben, close propina
-    _benVisible=true;
+    _benVisible=true; benOn=true;
     _propinaVisible=false;
     document.getElementById('ben-panel').style.display='block';
     document.getElementById('propina-panel').style.display='none';
@@ -1515,8 +1522,8 @@ function selectSubcat(sub, el, colorCls) {
 
 function setMethod(m,el){
   selMethod=m;
-  document.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
-  el.classList.add('active');
+  document.querySelectorAll('#method-field .chip').forEach(c=>c&&c.classList.remove('active'));
+  if(el) el.classList.add('active');
 }
 
 const BEN_TYPES = ['Cashback','Puntos','Puntos de tarjeta de crédito','Millas aéreas','Descuentos y promociones','Otros'];
@@ -2795,12 +2802,63 @@ function getBudgetForMonth(y,m){
   return budgets[prevKey]||{};
 }
 
+function validateBudgetLive(){
+  const mSel=document.getElementById('bud-month-sel');
+  const ySel=document.getElementById('bud-year-sel');
+  if(!mSel||!ySel) return;
+  const m=parseInt(mSel.value), yr=parseInt(ySel.value);
+  const totalMesEl=document.getElementById('bud-total-mes');
+  const totalMes=parseFloat(totalMesEl?.value)||0;
+
+  // Collect current input values
+  const currentVals={};
+  document.querySelectorAll('#budget-list input[data-key]').forEach(inp=>{
+    const v=parseFloat(inp.value)||0;
+    if(v>0) currentVals[inp.dataset.key]=v;
+  });
+
+  // Validate each category vs its subcategories
+  Object.keys(CATS.egreso).forEach(cat=>{
+    const catLimit=currentVals[cat];
+    const catInput=document.querySelector(`#budget-list input[data-key="${cat}"]`);
+    const subcatTotal=Object.entries(currentVals)
+      .filter(([k])=>k.startsWith(cat+':'))
+      .reduce((s,[,v])=>s+v,0);
+    if(catInput){
+      catInput.style.borderColor=(catLimit&&subcatTotal>catLimit)?'var(--danger)':'var(--border2)';
+    }
+    // Mark subcategory inputs that push over cat limit
+    Object.keys(currentVals).filter(k=>k.startsWith(cat+':')).forEach(k=>{
+      const inp=document.querySelector(`#budget-list input[data-key="${k}"]`);
+      if(inp) inp.style.borderColor=(catLimit&&subcatTotal>catLimit)?'var(--danger)':'var(--border2)';
+    });
+  });
+
+  // Validate total vs category sum
+  const catSum=Object.entries(currentVals).filter(([k])=>!k.includes(':')).reduce((s,[,v])=>s+v,0);
+  const totalUsedEl=document.getElementById('bud-total-used');
+  if(totalMes>0){
+    const over=catSum>totalMes;
+    if(totalMesEl) totalMesEl.style.borderColor=over?'var(--danger)':'var(--border2)';
+    if(totalUsedEl) totalUsedEl.textContent=`${fmt(catSum)} de ${fmt(totalMes)}`;
+    if(totalUsedEl) totalUsedEl.style.color=over?'var(--danger)':'var(--text3)';
+  } else {
+    if(totalMesEl) totalMesEl.style.borderColor='var(--border2)';
+    if(totalUsedEl) totalUsedEl.textContent=catSum>0?fmt(catSum):'';
+  }
+}
+
 function renderBudget(){
   const mSel=document.getElementById('bud-month-sel');
   const ySel=document.getElementById('bud-year-sel');
   if(!mSel||!ySel) return;
   const m=parseInt(mSel.value), yr=parseInt(ySel.value);
   const bud=getBudgetForMonth(yr,m);
+
+  // Populate monthly total field
+  const totalMesEl=document.getElementById('bud-total-mes');
+  if(totalMesEl) totalMesEl.value=bud['__total__']||'';
+
   const md=data.filter(e=>{
     const d=parseDate(e.date);
     return d.getMonth()===m&&d.getFullYear()===yr&&e.type==='egreso';
@@ -2830,7 +2888,7 @@ function renderBudget(){
     body.className='bud-cat-body';
     const catField=document.createElement('div');
     catField.className='bud-field';
-    catField.innerHTML=`<label>${cat} — presupuesto total</label><input type="number" placeholder="Sin límite" inputmode="decimal" min="0" data-key="${cat}" value="${catBud||''}">`;
+    catField.innerHTML=`<label>${cat} — presupuesto total</label><input type="number" placeholder="Sin límite" inputmode="decimal" min="0" data-key="${cat}" value="${catBud||''}" oninput="validateBudgetLive()">`;
     body.appendChild(catField);
     subcats.filter(s=>s!=='—').forEach(sub=>{
       const subBud=bud[`${cat}:${sub}`]||0;
@@ -2842,13 +2900,14 @@ function renderBudget(){
           <span>${sub}</span>
           ${subBud>0?`<span style="font-weight:400;color:var(--text3)">${fmt(subSpent)} gastado</span>`:''}
         </label>
-        <input type="number" placeholder="Sin límite" inputmode="decimal" min="0" data-key="${cat}:${sub}" value="${subBud||''}">`;
+        <input type="number" placeholder="Sin límite" inputmode="decimal" min="0" data-key="${cat}:${sub}" value="${subBud||''}" oninput="validateBudgetLive()">`;
       body.appendChild(sf);
     });
     row.appendChild(body);
     row.querySelector('.bud-cat-hdr').onclick=()=>row.classList.toggle('open');
     list.appendChild(row);
   });
+  validateBudgetLive();
 }
 
 function saveBudget(){
@@ -2857,26 +2916,27 @@ function saveBudget(){
   const m=parseInt(mSel.value), yr=parseInt(ySel.value);
   const key=getBudgetKey(yr,m);
   const newBud={};
+  // Save monthly total
+  const totalMes=parseFloat(document.getElementById('bud-total-mes')?.value)||0;
+  if(totalMes>0) newBud['__total__']=totalMes;
   document.querySelectorAll('#budget-list input[data-key]').forEach(inp=>{
     const val=parseFloat(inp.value);
     if(val>0) newBud[inp.dataset.key]=val;
   });
-  // Validate: sum of subcategory budgets cannot exceed category budget
+  // Validate subcats vs category
   const errors=[];
   Object.keys(CATS.egreso).forEach(cat=>{
     const catLimit=newBud[cat];
     if(!catLimit) return;
-    const subcatTotal=Object.entries(newBud)
-      .filter(([k])=>k.startsWith(cat+':'))
-      .reduce((s,[,v])=>s+v,0);
-    if(subcatTotal>catLimit){
-      errors.push(`${cat}: subcategorías suman ${fmt(subcatTotal)} > límite ${fmt(catLimit)}`);
-    }
+    const subcatTotal=Object.entries(newBud).filter(([k])=>k.startsWith(cat+':')).reduce((s,[,v])=>s+v,0);
+    if(subcatTotal>catLimit) errors.push(`${cat}: subcategorías (${fmt(subcatTotal)}) superan el límite de ${fmt(catLimit)}`);
   });
-  if(errors.length>0){
-    toast('⚠️ '+errors[0]);
-    return;
+  // Validate category sum vs monthly total
+  if(totalMes>0){
+    const catSum=Object.entries(newBud).filter(([k])=>!k.includes(':')&&k!=='__total__').reduce((s,[,v])=>s+v,0);
+    if(catSum>totalMes) errors.push(`Categorías suman ${fmt(catSum)}, supera el total del mes ${fmt(totalMes)}`);
   }
+  if(errors.length>0){ toast('⚠️ '+errors[0]); return; }
   budgets[key]=newBud;
   localStorage.setItem(SK_BUDGET,JSON.stringify(budgets));
   toast('✓ Presupuesto guardado');
@@ -2888,7 +2948,7 @@ function getBudgetBars(cat, subcat, spent, yr, m){
   const bud=getBudgetForMonth(yr,m);
   const key=subcat?`${cat}:${subcat}`:cat;
   const limit=bud[key];
-  if(!limit) return '';
+  if(!limit||key==='__total__') return '';
   const pct=Math.min((spent/limit)*100,100);
   const over=spent>limit;
   const color=over?'var(--danger)':catColor(cat);
