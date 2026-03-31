@@ -666,11 +666,13 @@ nav {
       </div>
     </div>
 
-    <!-- Ahorro sub-type buttons — shown above monto when ahorro selected -->
-    <div id="ahorro-sub-toggle" style="display:none;margin-bottom:10px;">
-      <div style="display:flex;gap:8px;">
-        <button onclick="setAhorroSubType('ahorro')" id="ahorro-sub-activo" style="flex:1;padding:8px 0;border-radius:100px;border:none;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;background:var(--blue);color:white;transition:all 0.15s;">◎ Activo</button>
-        <button onclick="setAhorroSubType('ahorro-pasivo')" id="ahorro-sub-pasivo" style="flex:1;padding:8px 0;border-radius:100px;border:none;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;background:var(--surface2);color:var(--text3);transition:all 0.15s;">★ Pasivo</button>
+    <!-- Ahorro sub-type selector — shown above monto when ahorro selected -->
+    <div id="ahorro-sub-toggle" style="display:none;margin-bottom:12px;">
+      <div style="display:flex;gap:8px;width:100%;">
+        <button onclick="setAhorroSubType('ahorro')" id="ahorro-sub-activo"
+          style="flex:1;padding:10px 0;border-radius:100px;border:none;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;background:var(--blue);color:white;transition:all 0.2s;">◎ Activo</button>
+        <button onclick="setAhorroSubType('ahorro-pasivo')" id="ahorro-sub-pasivo"
+          style="flex:1;padding:10px 0;border-radius:100px;border:none;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;background:var(--surface2);color:var(--text3);transition:all 0.2s;">★ Pasivo</button>
       </div>
     </div>
 
@@ -706,11 +708,11 @@ nav {
         </div>
         <!-- Propina panel -->
         <div id="propina-panel" style="display:none;margin-top:12px;padding:12px;background:var(--surface2);border-radius:var(--radius-sm);">
-          <!-- Row 1: incl/adic toggle + % / $ toggle -->
+          <!-- Row 1: adic/incl toggle + % / $ toggle -->
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
             <div style="display:flex;background:var(--surface);border-radius:100px;padding:3px;gap:2px;flex-shrink:0;box-shadow:0 1px 3px rgba(0,0,0,0.08),0 0 0 1px var(--border2);">
-              <button id="propina-incl-btn" onclick="setPropinaIncluida(true)" style="padding:5px 10px;border-radius:100px;border:none;background:var(--accent);color:white;font-family:inherit;font-size:11px;font-weight:600;cursor:pointer;transition:all 0.18s;">Incluida</button>
-              <button id="propina-adic-btn" onclick="setPropinaIncluida(false)" style="padding:5px 10px;border-radius:100px;border:none;background:transparent;color:var(--text3);font-family:inherit;font-size:11px;font-weight:600;cursor:pointer;transition:all 0.18s;">Adicional</button>
+              <button id="propina-adic-btn" onclick="setPropinaIncluida(false)" style="padding:5px 10px;border-radius:100px;border:none;background:var(--accent);color:white;font-family:inherit;font-size:11px;font-weight:600;cursor:pointer;transition:all 0.18s;">Adicional</button>
+              <button id="propina-incl-btn" onclick="setPropinaIncluida(true)" style="padding:5px 10px;border-radius:100px;border:none;background:transparent;color:var(--text3);font-family:inherit;font-size:11px;font-weight:600;cursor:pointer;transition:all 0.18s;">Incluida</button>
             </div>
             <div style="display:flex;background:var(--surface);border-radius:100px;padding:3px;gap:2px;flex-shrink:0;box-shadow:0 1px 4px rgba(0,0,0,0.12),0 0 0 1px var(--border2);">
               <button id="propina-chip-pct" onclick="setPropinaType('pct')" style="padding:5px 12px;border-radius:100px;border:none;background:var(--accent);color:white;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;transition:all 0.18s;">%</button>
@@ -877,7 +879,16 @@ nav {
     </div>
   </div>
   <div style="padding: 0 20px; margin-top:-10px; margin-bottom:10px;" class="edit-hint">Toca un registro para editarlo · ✕ para eliminar</div>
-  <div class="month-sel-row">
+  <!-- Search bar -->
+  <div style="padding:0 16px;margin-bottom:10px;">
+    <div style="display:flex;align-items:center;gap:8px;background:var(--surface);border-radius:var(--radius-sm);box-shadow:var(--shadow);padding:10px 14px;">
+      <span style="color:var(--text3);font-size:15px;">🔍</span>
+      <input type="text" id="hist-search" placeholder="Buscar por descripción..." oninput="renderHistorial()" style="flex:1;border:none;background:none;font-family:inherit;font-size:14px;color:var(--text);outline:none;">
+      <button onclick="clearSearch()" id="hist-search-clear" style="display:none;background:none;border:none;cursor:pointer;color:var(--text3);font-size:16px;padding:0;line-height:1;">✕</button>
+    </div>
+  </div>
+  <!-- Month/year selectors (hidden in search mode) -->
+  <div id="hist-date-row" class="month-sel-row">
     <select id="hist-month-sel" onchange="renderHistorial()"></select>
     <select id="hist-year-sel" onchange="renderHistorial()"></select>
   </div>
@@ -887,6 +898,13 @@ nav {
     <button class="f-chip" onclick="setFilter('ingreso',this)">Ingresos</button>
     <button class="f-chip" onclick="setFilter('ahorro',this)">Ahorro activo</button>
     <button class="f-chip" onclick="setFilter('ahorro-pasivo',this)">Ahorro pasivo</button>
+    <span style="color:var(--border2);margin:0 2px;">|</span>
+    <button class="f-chip" id="method-filter-all" onclick="setMethodFilter(null,this)">Todos métodos</button>
+    <button class="f-chip" onclick="setMethodFilter('Tarjeta de crédito',this)">Crédito</button>
+    <button class="f-chip" onclick="setMethodFilter('Efectivo',this)">Efectivo</button>
+    <button class="f-chip" onclick="setMethodFilter('Débito',this)">Débito</button>
+    <button class="f-chip" onclick="setMethodFilter('SPEI',this)">SPEI</button>
+    <button class="f-chip" onclick="setMethodFilter('Bono de despensa',this)">Bono</button>
   </div>
   <div class="sub-filter-panel" id="sub-filter-panel">
     <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
@@ -1027,6 +1045,23 @@ let benOn = false;
 let histFilter = 'todos';
 let histSelCats = [];
 let histSelSubcats = [];
+let histMethodFilter = null; // null = all methods
+
+function clearSearch(){
+  const s=document.getElementById('hist-search');
+  if(s) s.value='';
+  document.getElementById('hist-search-clear').style.display='none';
+  document.getElementById('hist-date-row').style.display='flex';
+  renderHistorial();
+}
+
+function setMethodFilter(method, btn){
+  histMethodFilter=method;
+  document.querySelectorAll('.filter-bar .f-chip[onclick*="setMethodFilter"]').forEach(b=>b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  else document.getElementById('method-filter-all')?.classList.add('active');
+  renderHistorial();
+}
 let viewMonth = new Date().getMonth();
 let viewYear  = new Date().getFullYear();
 let rates = {USD:17.2, CAD:12.6, EUR:18.5};
@@ -1037,19 +1072,19 @@ const CATS = {
     'Sueldo':['—'],'Bono de despensa':['—'],'Aguinaldo':['—'],
     'Utilidades':['—'],'Fondo de ahorro':['—'],'Reembolsos':['—'],
     'Rendimientos':['—'],'Renta de propiedad':['—'],'Ventas':['—'],
-    'Regalos':['—'],'Otros':['—']
+    'Regalos':['—'],'Otros (Ingresos)':['—']
   },
   egreso: {
-    'Casa':       ['Renta','Hipoteca','Mantenimiento','Servicios','Seguridad','Muebles y decoración','Servicio de limpieza','Equipamiento','Otros'],
-    'Personal':   ['Salud y médicos','Dentista','Medicamentos','Gimnasio','Ropa y calzado','Cuidado personal','Educación','Finanzas / Impuestos','Compras personales','Otros'],
-    'Alimentos':  ['Despensa','Restaurantes y cafés','Comida rápida','Snacks','Otros'],
-    'Ocio':       ['Cine','Espectáculos y conciertos','Antros','Videojuegos','Suscripciones','Renta y venta digital','Museos','Media física','Otros'],
-    'Transporte': ['Gasolina','Uber / taxi','Transporte público','Mantenimiento de auto','Seguro de auto','Estacionamiento','Autopartes','Vuelos','Otros pasajes','Seguro de viaje','Otros'],
-    'Mascotas':   ['Comida','Veterinario','Accesorios y juguetes','Estética / grooming','Medicamentos','Otros'],
-    'Generosidad':['Regalos','Donativos','Propinas','Préstamos','Otros']
+    'Casa':       ['Renta','Hipoteca','Mantenimiento','Servicios','Seguridad','Muebles y decoración','Servicio de limpieza','Equipamiento','Otros (Casa)'],
+    'Personal':   ['Salud y médicos','Dentista','Medicamentos','Gimnasio','Ropa y calzado','Cuidado personal','Educación','Finanzas / Impuestos','Compras personales','Otros (Personal)'],
+    'Alimentos':  ['Despensa','Restaurantes y cafés','Comida rápida','Snacks','Otros (Alimentos)'],
+    'Ocio':       ['Cine','Espectáculos y conciertos','Antros','Videojuegos','Suscripciones','Renta y venta digital','Museos','Media física','Otros (Ocio)'],
+    'Transporte': ['Gasolina','Uber / taxi','Transporte público','Mantenimiento de auto','Seguro de auto','Estacionamiento','Autopartes','Vuelos','Otros pasajes','Seguro de viaje','Otros (Transporte)'],
+    'Mascotas':   ['Comida','Veterinario','Accesorios y juguetes','Estética / grooming','Medicamentos','Otros (Mascotas)'],
+    'Generosidad':['Regalos','Donativos','Propinas','Préstamos','Otros (Generosidad)']
   },
   ahorro: {
-    'Inversiones':['—'],'Otros':['—']
+    'Inversiones':['—'],'Otros (Ahorro)':['—']
   },
   'ahorro-pasivo': {
     'Cashback':['—'],'Puntos TDC':['—'],'Puntos de lealtad':['—'],
@@ -1077,7 +1112,10 @@ const ICONS = {
   'Estacionamiento':'🅿️','Autopartes':'⚙️','Vuelos':'✈️',
   'Otros pasajes':'🎫','Seguro de viaje':'🛡️','Comida':'🐟',
   'Veterinario':'💉','Accesorios y juguetes':'🦴','Estética / grooming':'✂️',
-  'Donativos':'❤️','Propinas':'💰','Préstamos':'🤝'
+  'Donativos':'❤️','Propinas':'💰','Préstamos':'🤝',
+  'Otros (Casa)':'📌','Otros (Personal)':'📌','Otros (Alimentos)':'📌',
+  'Otros (Ocio)':'📌','Otros (Transporte)':'📌','Otros (Mascotas)':'📌',
+  'Otros (Generosidad)':'📌','Otros (Ingresos)':'📌','Otros (Ahorro)':'📌'
 };
 
 // ── CATEGORY COLORS (consistent across all views) ──
@@ -1475,10 +1513,11 @@ document.addEventListener('click', function(ev){
 let curAhorroSubType = 'ahorro'; // 'ahorro' | 'ahorro-pasivo'
 
 function setAhorroType(){
-  // If already on ahorro, show the sub-toggle; otherwise activate ahorro
   setType(curAhorroSubType);
   const wrap=document.getElementById('ahorro-sub-toggle');
-  if(wrap) wrap.style.display='flex';
+  if(wrap) wrap.style.display='block';
+  // Ensure correct button states
+  setAhorroSubType(curAhorroSubType);
 }
 
 function setAhorroSubType(t){
@@ -1553,9 +1592,9 @@ function toggleBen(){
 }
 function updateBenUI(){
   const b=document.getElementById('t-box');
-  b.classList.toggle('on',benOn);
-  b.textContent=benOn?'✓':'';
-  document.getElementById('ben-extra').classList.toggle('vis',benOn);
+  if(b){ b.classList.toggle('on',benOn); b.textContent=benOn?'✓':''; }
+  const extra=document.getElementById('ben-extra');
+  if(extra) extra.classList.toggle('vis',benOn);
 }
 
 function submitEntry(){
@@ -1908,7 +1947,6 @@ function renderBalanceCats(){
   }
 
   if(isAhorro){
-    // Show categories with expandable individual movements
     const sign = balView==='ahorro-pasivo' ? '★' : '→';
     const amtColor = balView==='ahorro-pasivo' ? 'var(--amber)' : 'var(--blue)';
     Object.entries(catTotals).sort((a,b)=>b[1]-a[1]).forEach(([cat,tot])=>{
@@ -1938,7 +1976,41 @@ function renderBalanceCats(){
     });
   } else {
     buildExpandCatList(cl, catTotals, catSubTotals, viewYear, viewMonth);
+    // Payment method breakdown
+    renderMethodBreakdown(cl, subset);
   }
+}
+
+function renderMethodBreakdown(container, entries){
+  const methods={};
+  entries.forEach(e=>{ if(e.method) methods[e.method]=(methods[e.method]||0)+e.amountMXN; });
+  if(!Object.keys(methods).length) return;
+  const total=Object.values(methods).reduce((s,v)=>s+v,0);
+  const methodColors={'Tarjeta de crédito':'#007aff','Efectivo':'#34c759','Bono de despensa':'#ff9500','SPEI':'#af52de','Débito':'#00c7be'};
+  const sorted=Object.entries(methods).sort((a,b)=>b[1]-a[1]);
+  const wrap=document.createElement('div');
+  wrap.style.cssText='padding:12px 16px;margin-top:8px;';
+  // Color bar
+  const bar=document.createElement('div');
+  bar.style.cssText='display:flex;height:5px;border-radius:100px;overflow:hidden;margin-bottom:8px;gap:1px;';
+  sorted.forEach(([m,v])=>{
+    const seg=document.createElement('div');
+    seg.style.cssText=`flex:${v};background:${methodColors[m]||'#8e8e93'};`;
+    bar.appendChild(seg);
+  });
+  wrap.appendChild(bar);
+  // Labels
+  const labels=document.createElement('div');
+  labels.style.cssText='display:flex;flex-wrap:wrap;gap:6px 12px;';
+  sorted.forEach(([m,v])=>{
+    const pct=((v/total)*100).toFixed(0);
+    const lbl=document.createElement('span');
+    lbl.style.cssText='font-size:11px;color:var(--text3);display:flex;align-items:center;gap:4px;';
+    lbl.innerHTML=`<span style="width:7px;height:7px;border-radius:50%;background:${methodColors[m]||'#8e8e93'};display:inline-block"></span>${m} ${pct}%`;
+    labels.appendChild(lbl);
+  });
+  wrap.appendChild(labels);
+  container.appendChild(wrap);
 }
 
 function buildExpandCatList(container, catTotals, catSubTotals){
@@ -2009,6 +2081,9 @@ function renderPie(filtered) {
 
   // Hide pie if only 1 category has data (100% is obvious) — applies to non-egreso only
   if(!isEgreso && catsSorted.length===1){ wrap.style.display='none'; return; }
+
+  // Hide pie if only 1 subcat active (in egreso mode)
+  if(isEgreso && histSelSubcats.length===1){ wrap.style.display='none'; return; }
 
   wrap.style.display='block';
 
@@ -2342,25 +2417,43 @@ function renderHistorial(){
   if(!hl) return;
   hl.innerHTML='';
 
+  const searchEl=document.getElementById('hist-search');
+  const searchQuery=(searchEl?.value||'').trim().toLowerCase();
+  const isSearchMode=searchQuery.length>0;
+
+  // Show/hide search clear button and date row
+  const clearBtn=document.getElementById('hist-search-clear');
+  if(clearBtn) clearBtn.style.display=isSearchMode?'inline':'none';
+  const dateRow=document.getElementById('hist-date-row');
+  if(dateRow) dateRow.style.display=isSearchMode?'none':'flex';
+
   const mSel=document.getElementById('hist-month-sel');
   const ySel=document.getElementById('hist-year-sel');
   const selMonth=mSel?parseInt(mSel.value):new Date().getMonth();
   const selYear=ySel?parseInt(ySel.value):new Date().getFullYear();
 
-  let filtered=data.filter(e=>{
-    const d=parseDate(e.date);
-    return d.getMonth()===selMonth&&d.getFullYear()===selYear;
-  });
-  if(histFilter!=='todos') filtered=filtered.filter(e=>e.type===histFilter);
-  // Non-egreso: if user explicitly deselected all cats, show nothing
-  if(histFilter!=='todos' && histFilter!=='egreso' && histSelCats.length===0){
-    hl.innerHTML='<div class="empty"><div class="e-ico">🔍</div>Sin categorías seleccionadas</div>';
-    renderPie([]);
-    return;
+  let filtered;
+  if(isSearchMode){
+    // Search across all data regardless of month/year
+    filtered=data.filter(e=>(e.desc||'').toLowerCase().includes(searchQuery));
+  } else {
+    filtered=data.filter(e=>{
+      const d=parseDate(e.date);
+      return d.getMonth()===selMonth&&d.getFullYear()===selYear;
+    });
+    if(histFilter!=='todos') filtered=filtered.filter(e=>e.type===histFilter);
+    if(histFilter!=='todos' && histFilter!=='egreso' && histSelCats.length===0){
+      hl.innerHTML='<div class="empty"><div class="e-ico">🔍</div>Sin categorías seleccionadas</div>';
+      renderPie([]);
+      return;
+    }
+    if(histSelCats.length>0) filtered=filtered.filter(e=>histSelCats.includes(e.category));
+    if(histSelSubcats.length>0) filtered=filtered.filter(e=>histSelSubcats.includes(e.subcategory));
   }
-  // Apply cat and subcat filters only when explicitly set
-  if(histSelCats.length>0) filtered=filtered.filter(e=>histSelCats.includes(e.category));
-  if(histSelSubcats.length>0) filtered=filtered.filter(e=>histSelSubcats.includes(e.subcategory));
+
+  // Apply method filter
+  if(histMethodFilter) filtered=filtered.filter(e=>e.method===histMethodFilter);
+
   filtered.sort((a,b)=>parseDate(b.date)-parseDate(a.date)||b.id-a.id);
 
   if(!filtered.length){
@@ -2385,7 +2478,7 @@ function renderHistorial(){
     const d=parseDate(dateKey);
     const hdr=document.createElement('div');
     hdr.className='day-group-hdr';
-    hdr.textContent=d.toLocaleDateString('es-MX',{weekday:'long',day:'numeric',month:'long'});
+    hdr.textContent=d.toLocaleDateString('es-MX',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
     container.appendChild(hdr);
 
     const listWrap=document.createElement('div');
@@ -2693,7 +2786,7 @@ function updatePropinaUI(){
 }
 
 let propinaSelMethod = null;
-let propinaIncluida = true; // true = included in total, false = additional
+let propinaIncluida = false; // false = adicional (default), true = incluida en monto
 
 function setPropinaIncluida(val){
   propinaIncluida=val;
@@ -2782,7 +2875,7 @@ function resetPropina(){
   if(methodWrap) methodWrap.style.display='none';
   document.querySelectorAll('#propina-method-chips .chip').forEach(c=>c.classList.remove('active'));
   // Reset incl/adic buttons
-  setPropinaIncluida(true);
+  setPropinaIncluida(false); // Adicional by default
 }
 
 // ══════════════════════════════════════
@@ -2802,46 +2895,65 @@ function getBudgetForMonth(y,m){
   return budgets[prevKey]||{};
 }
 
+function saveBudgetField(key){
+  const mSel=document.getElementById('bud-month-sel');
+  const ySel=document.getElementById('bud-year-sel');
+  const m=parseInt(mSel.value), yr=parseInt(ySel.value);
+  const budKey=getBudgetKey(yr,m);
+  if(!budgets[budKey]) budgets[budKey]={};
+  const inp=document.querySelector(`#budget-list input[data-key="${key}"]`);
+  const val=parseFloat(inp?.value)||0;
+  if(val>0) budgets[budKey][key]=val;
+  else delete budgets[budKey][key];
+  localStorage.setItem(SK_BUDGET,JSON.stringify(budgets));
+  toast('✓ Guardado');
+  validateBudgetLive();
+  renderBalance();
+}
+
 function validateBudgetLive(){
   const mSel=document.getElementById('bud-month-sel');
   const ySel=document.getElementById('bud-year-sel');
   if(!mSel||!ySel) return;
-  const m=parseInt(mSel.value), yr=parseInt(ySel.value);
+
   const totalMesEl=document.getElementById('bud-total-mes');
   const totalMes=parseFloat(totalMesEl?.value)||0;
 
-  // Collect current input values
+  // Read all current input values
   const currentVals={};
   document.querySelectorAll('#budget-list input[data-key]').forEach(inp=>{
     const v=parseFloat(inp.value)||0;
-    if(v>0) currentVals[inp.dataset.key]=v;
+    currentVals[inp.dataset.key]=v;
   });
+
+  let anyError=false;
 
   // Validate each category vs its subcategories
   Object.keys(CATS.egreso).forEach(cat=>{
-    const catLimit=currentVals[cat];
+    const catLimit=currentVals[cat]||0;
     const catInput=document.querySelector(`#budget-list input[data-key="${cat}"]`);
-    const subcatTotal=Object.entries(currentVals)
-      .filter(([k])=>k.startsWith(cat+':'))
-      .reduce((s,[,v])=>s+v,0);
-    if(catInput){
-      catInput.style.borderColor=(catLimit&&subcatTotal>catLimit)?'var(--danger)':'var(--border2)';
-    }
-    // Mark subcategory inputs that push over cat limit
-    Object.keys(currentVals).filter(k=>k.startsWith(cat+':')).forEach(k=>{
+    const subcatEntries=Object.entries(currentVals).filter(([k])=>k.startsWith(cat+':'));
+    const subcatTotal=subcatEntries.reduce((s,[,v])=>s+v,0);
+    const catOver=catLimit>0&&subcatTotal>catLimit;
+    if(catInput) catInput.style.borderColor=catOver?'var(--danger)':'var(--border2)';
+    subcatEntries.forEach(([k])=>{
       const inp=document.querySelector(`#budget-list input[data-key="${k}"]`);
-      if(inp) inp.style.borderColor=(catLimit&&subcatTotal>catLimit)?'var(--danger)':'var(--border2)';
+      if(inp) inp.style.borderColor=catOver?'var(--danger)':'var(--border2)';
     });
+    if(catOver) anyError=true;
   });
 
-  // Validate total vs category sum
-  const catSum=Object.entries(currentVals).filter(([k])=>!k.includes(':')).reduce((s,[,v])=>s+v,0);
+  // Validate category sum vs monthly total
+  const catSum=Object.entries(currentVals).filter(([k])=>!k.includes(':')&&k!=='__total__').reduce((s,[,v])=>s+v,0);
   const totalUsedEl=document.getElementById('bud-total-used');
   if(totalMes>0){
     const over=catSum>totalMes;
     if(totalMesEl) totalMesEl.style.borderColor=over?'var(--danger)':'var(--border2)';
-    if(totalUsedEl) totalUsedEl.textContent=`${fmt(catSum)} de ${fmt(totalMes)}`;
-    if(totalUsedEl) totalUsedEl.style.color=over?'var(--danger)':'var(--text3)';
+    if(totalUsedEl){
+      totalUsedEl.textContent=`${fmt(catSum)} / ${fmt(totalMes)}`;
+      totalUsedEl.style.color=over?'var(--danger)':'var(--text3)';
+    }
+    if(over) anyError=true;
   } else {
     if(totalMesEl) totalMesEl.style.borderColor='var(--border2)';
     if(totalUsedEl) totalUsedEl.textContent=catSum>0?fmt(catSum):'';
@@ -2888,19 +3000,28 @@ function renderBudget(){
     body.className='bud-cat-body';
     const catField=document.createElement('div');
     catField.className='bud-field';
-    catField.innerHTML=`<label>${cat} — presupuesto total</label><input type="number" placeholder="Sin límite" inputmode="decimal" min="0" data-key="${cat}" value="${catBud||''}" oninput="validateBudgetLive()">`;
+    const catInpId=`bud-inp-${cat.replace(/\s/g,'_')}`;
+    catField.innerHTML=`<label>${cat} — presupuesto total</label>
+      <div style="display:flex;gap:6px;align-items:center;">
+        <input type="number" id="${catInpId}" placeholder="Sin límite" inputmode="decimal" min="0" data-key="${cat}" value="${catBud||''}" oninput="validateBudgetLive()" style="flex:1;padding:9px 12px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface2);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
+        <button onclick="saveBudgetField('${cat}')" style="padding:7px 12px;border-radius:var(--radius-sm);border:none;background:var(--accent);color:white;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;flex-shrink:0;">✓</button>
+      </div>`;
     body.appendChild(catField);
     subcats.filter(s=>s!=='—').forEach(sub=>{
       const subBud=bud[`${cat}:${sub}`]||0;
       const subSpent=md.filter(e=>e.category===cat&&e.subcategory===sub).reduce((s,e)=>s+e.amountMXN,0);
       const sf=document.createElement('div');
       sf.className='bud-field';
+      const subKey=`${cat}:${sub}`;
       sf.innerHTML=`
         <label style="display:flex;justify-content:space-between">
           <span>${sub}</span>
           ${subBud>0?`<span style="font-weight:400;color:var(--text3)">${fmt(subSpent)} gastado</span>`:''}
         </label>
-        <input type="number" placeholder="Sin límite" inputmode="decimal" min="0" data-key="${cat}:${sub}" value="${subBud||''}" oninput="validateBudgetLive()">`;
+        <div style="display:flex;gap:6px;align-items:center;">
+          <input type="number" placeholder="Sin límite" inputmode="decimal" min="0" data-key="${subKey}" value="${subBud||''}" oninput="validateBudgetLive()" style="flex:1;padding:9px 12px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface2);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
+          <button onclick="saveBudgetField('${subKey}')" style="padding:7px 12px;border-radius:var(--radius-sm);border:none;background:var(--accent);color:white;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;flex-shrink:0;">✓</button>
+        </div>`;
       body.appendChild(sf);
     });
     row.appendChild(body);
