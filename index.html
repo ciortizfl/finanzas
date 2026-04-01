@@ -856,10 +856,20 @@ nav {
       <select id="bud-year-sel" onchange="renderBudget()"></select>
     </div>
     <div class="card" style="padding:14px;margin-bottom:0">
-      <div style="font-size:13px;font-weight:600;color:var(--text2);margin-bottom:6px;">Presupuesto total del mes</div>
-      <div style="display:flex;align-items:center;gap:8px;">
-        <input type="number" id="bud-total-mes" placeholder="Sin límite general" inputmode="decimal" min="0" oninput="validateBudgetLive()" style="flex:1;padding:11px 13px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface2);color:var(--text);font-family:inherit;font-size:15px;outline:none;">
-        <span id="bud-total-used" style="font-size:12px;color:var(--text3);flex-shrink:0;"></span>
+      <div style="font-size:13px;font-weight:600;color:var(--text2);margin-bottom:10px;">Presupuesto total del mes</div>
+      <!-- Display mode (default) -->
+      <div id="bud-total-display" style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+        <div>
+          <div id="bud-total-display-val" style="font-size:28px;font-weight:700;color:var(--text);line-height:1.1;">Sin limite</div>
+          <div id="bud-total-used" style="font-size:12px;color:var(--text3);margin-top:3px;"></div>
+        </div>
+        <button onclick="toggleBudTotalEdit(true)" style="display:flex;align-items:center;gap:5px;padding:7px 14px;border-radius:100px;border:1.5px solid var(--border2);background:var(--surface2);font-family:inherit;font-size:13px;font-weight:600;color:var(--text2);cursor:pointer;flex-shrink:0;">Editar</button>
+      </div>
+      <!-- Edit mode (hidden by default) -->
+      <div id="bud-total-edit" style="display:none;gap:8px;align-items:center;">
+        <input type="number" id="bud-total-mes" placeholder="Sin limite general" inputmode="decimal" min="0" oninput="validateBudgetLive()" style="flex:1;padding:11px 13px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface2);color:var(--text);font-family:inherit;font-size:15px;outline:none;">
+        <button onclick="saveBudTotalInline()" style="padding:9px 14px;border-radius:var(--radius-sm);border:none;background:var(--accent);color:white;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;flex-shrink:0;">Guardar</button>
+        <button onclick="toggleBudTotalEdit(false)" style="padding:9px 10px;border-radius:var(--radius-sm);border:1px solid var(--border2);background:none;font-family:inherit;font-size:13px;color:var(--text3);cursor:pointer;flex-shrink:0;">X</button>
       </div>
     </div>
   </div>
@@ -898,13 +908,21 @@ nav {
     <button class="f-chip" onclick="setFilter('ingreso',this)">Ingresos</button>
     <button class="f-chip" onclick="setFilter('ahorro',this)">Ahorro activo</button>
     <button class="f-chip" onclick="setFilter('ahorro-pasivo',this)">Ahorro pasivo</button>
-    <span style="color:var(--border2);margin:0 2px;">|</span>
-    <button class="f-chip" id="method-filter-all" onclick="setMethodFilter(null,this)">Todos métodos</button>
-    <button class="f-chip" onclick="setMethodFilter('Tarjeta de crédito',this)">Crédito</button>
-    <button class="f-chip" onclick="setMethodFilter('Efectivo',this)">Efectivo</button>
-    <button class="f-chip" onclick="setMethodFilter('Débito',this)">Débito</button>
-    <button class="f-chip" onclick="setMethodFilter('SPEI',this)">SPEI</button>
-    <button class="f-chip" onclick="setMethodFilter('Bono de despensa',this)">Bono</button>
+    <button id="method-filter-toggle-btn" onclick="toggleMethodFilters()" style="display:flex;align-items:center;gap:4px;padding:6px 12px;border-radius:100px;border:1.5px solid var(--border2);background:var(--surface2);font-family:inherit;font-size:12px;font-weight:600;color:var(--text2);cursor:pointer;white-space:nowrap;">
+      <span id="method-filter-indicator" style="width:7px;height:7px;border-radius:50%;background:var(--border2);flex-shrink:0;transition:background 0.2s;"></span>
+      Método <span id="method-filter-arrow" style="font-size:10px;transition:transform 0.2s;display:inline-block;">▸</span>
+    </button>
+  </div>
+  <!-- Method filter row — hidden by default -->
+  <div id="method-filter-row" style="display:none;padding:6px 16px 2px;overflow-x:auto;">
+    <div style="display:flex;gap:6px;flex-wrap:nowrap;padding-bottom:4px;">
+      <button class="f-chip active" id="method-filter-all" onclick="setMethodFilter(null,this)">Todos</button>
+      <button class="f-chip" onclick="setMethodFilter('Tarjeta de crédito',this)">Crédito</button>
+      <button class="f-chip" onclick="setMethodFilter('Efectivo',this)">Efectivo</button>
+      <button class="f-chip" onclick="setMethodFilter('Débito',this)">Débito</button>
+      <button class="f-chip" onclick="setMethodFilter('SPEI',this)">SPEI</button>
+      <button class="f-chip" onclick="setMethodFilter('Bono de despensa',this)">Bono</button>
+    </div>
   </div>
   <div class="sub-filter-panel" id="sub-filter-panel">
     <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
@@ -1055,11 +1073,26 @@ function clearSearch(){
   renderHistorial();
 }
 
+function toggleMethodFilters(){
+  const row=document.getElementById('method-filter-row');
+  const arrow=document.getElementById('method-filter-arrow');
+  const isOpen = row.style.display !== 'none';
+  row.style.display = isOpen ? 'none' : 'block';
+  if(arrow) arrow.style.transform = isOpen ? '' : 'rotate(90deg)';
+}
+
+function updateMethodIndicator(){
+  const dot=document.getElementById('method-filter-indicator');
+  if(!dot) return;
+  dot.style.background = histMethodFilter ? 'var(--accent)' : 'var(--border2)';
+}
+
 function setMethodFilter(method, btn){
   histMethodFilter=method;
-  document.querySelectorAll('.filter-bar .f-chip[onclick*="setMethodFilter"]').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('#method-filter-row .f-chip').forEach(b=>b.classList.remove('active'));
   if(btn) btn.classList.add('active');
   else document.getElementById('method-filter-all')?.classList.add('active');
+  updateMethodIndicator();
   renderHistorial();
 }
 let viewMonth = new Date().getMonth();
@@ -1292,14 +1325,16 @@ function toggleNoteField(forceOpen){
 }
 
 function onCurChange() {
+  const cur = document.getElementById('currency').value;
+  const badge = document.getElementById('rate-note');
   const noteEl = document.getElementById('note');
   // Remove any previous auto-injected rate from note
   if(noteEl && noteEl.dataset.autoRate) {
     noteEl.value = noteEl.value.replace(' | '+noteEl.dataset.autoRate, '').replace(noteEl.dataset.autoRate, '').trim();
     delete noteEl.dataset.autoRate;
   }
-  if(cur==='MXN'){ badge.style.display='none'; return; }
-  badge.style.display='flex';
+  if(cur==='MXN'){ if(badge) badge.style.display='none'; return; }
+  if(badge) badge.style.display='flex';
   const r = rates[cur]||1;
   const rateStr = `TC: 1 ${cur} = $${r.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})} MXN${ratesLoaded?'':' (est.)'}`;
   document.getElementById('rate-text').textContent = rateStr;
@@ -2886,6 +2921,37 @@ let budgets = JSON.parse(localStorage.getItem(SK_BUDGET)||'{}');
 
 function getBudgetKey(y,m){ return `${y}-${String(m+1).padStart(2,'0')}`; }
 
+function toggleBudTotalEdit(show){
+  document.getElementById('bud-total-display').style.display = show ? 'none' : 'flex';
+  const editRow = document.getElementById('bud-total-edit');
+  editRow.style.display = show ? 'flex' : 'none';
+  if(show) document.getElementById('bud-total-mes').focus();
+}
+
+function saveBudTotalInline(){
+  const mSel=document.getElementById('bud-month-sel');
+  const ySel=document.getElementById('bud-year-sel');
+  const m=parseInt(mSel.value), yr=parseInt(ySel.value);
+  const key=getBudgetKey(yr,m);
+  if(!budgets[key]) budgets[key]={};
+  const val=parseFloat(document.getElementById('bud-total-mes').value)||0;
+  if(val>0) budgets[key]['__total__']=val;
+  else delete budgets[key]['__total__'];
+  localStorage.setItem(SK_BUDGET,JSON.stringify(budgets));
+  updateBudTotalDisplay(val);
+  toggleBudTotalEdit(false);
+  validateBudgetLive();
+  renderBalance();
+  toast('Presupuesto del mes guardado');
+}
+
+function updateBudTotalDisplay(val){
+  const el=document.getElementById('bud-total-display-val');
+  if(!el) return;
+  el.textContent = val>0 ? fmt(val) : 'Sin limite';
+  el.style.color = val>0 ? 'var(--accent)' : 'var(--text3)';
+}
+
 function getBudgetForMonth(y,m){
   const key=getBudgetKey(y,m);
   if(budgets[key]) return budgets[key];
@@ -2970,6 +3036,8 @@ function renderBudget(){
   // Populate monthly total field
   const totalMesEl=document.getElementById('bud-total-mes');
   if(totalMesEl) totalMesEl.value=bud['__total__']||'';
+  updateBudTotalDisplay(bud['__total__']||0);
+  toggleBudTotalEdit(false);
 
   const md=data.filter(e=>{
     const d=parseDate(e.date);
