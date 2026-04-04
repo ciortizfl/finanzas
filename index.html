@@ -499,25 +499,33 @@ nav {
   overflow: hidden; margin-bottom: 2px;
 }
 .pie-legend-cat-hdr {
-  display: flex; align-items: center; gap: 8px; padding: 8px 12px;
+  display: grid;
+  grid-template-columns: 18px 1fr 44px 76px 14px;
+  align-items: center; gap: 4px; padding: 8px 12px;
   cursor: pointer; transition: background 0.15s;
 }
 .pie-legend-cat-hdr:active { background: var(--surface3); }
-.pie-legend-cat-body { display: none; padding: 0 12px 8px 30px; }
+.pie-legend-cat-body { display: none; padding: 0 12px 8px 0; }
 .pie-legend-cat.open .pie-legend-cat-body { display: block; }
 .pie-legend-cat.open .pie-legend-chevron { transform: rotate(90deg); }
-.pie-legend-chevron { font-size: 11px; color: var(--text3); transition: transform 0.2s; margin-left: auto; }
+.pie-legend-chevron { font-size: 11px; color: var(--text3); transition: transform 0.2s; text-align: center; }
+.pie-legend-chevron-spacer { width: 14px; flex-shrink: 0; }
 .pie-legend-item {
   display: flex; align-items: center; gap: 8px; font-size: 13px; padding: 3px 0;
 }
 .pie-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
-.pie-legend-name { flex: 1; color: var(--text2); }
-.pie-legend-pct { font-weight: 600; color: var(--text); min-width: 36px; text-align: right; font-size: 12px; }
-.pie-legend-amt { color: var(--text3); font-size: 11px; min-width: 68px; text-align: right; }
-.pie-sub-item { display: flex; align-items: center; gap: 8px; font-size: 12px; padding: 2px 0; }
-.pie-sub-name { flex: 1; color: var(--text3); }
-.pie-sub-pct { font-size: 11px; color: var(--text2); min-width: 32px; text-align: right; }
-.pie-sub-amt { font-size: 11px; color: var(--text3); min-width: 64px; text-align: right; }
+.pie-legend-name { color: var(--text2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pie-legend-pct { font-weight: 600; color: var(--text); text-align: right; font-size: 12px; }
+.pie-legend-amt { color: var(--text3); font-size: 11px; text-align: right; }
+/* Sub-items usan el mismo grid que el header: dot | name | pct | amt | spacer-chevron */
+.pie-sub-item {
+  display: grid;
+  grid-template-columns: 18px 1fr 44px 76px 14px;
+  align-items: center; gap: 4px; font-size: 12px; padding: 3px 12px;
+}
+.pie-sub-name { color: var(--text3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pie-sub-pct { font-size: 11px; color: var(--text2); text-align: right; }
+.pie-sub-amt { font-size: 11px; color: var(--text3); text-align: right; }
 
 /* MONTH SELECTORS */
 .month-sel-row {
@@ -2368,7 +2376,7 @@ function renderPie(filtered) {
         <span class="pie-legend-name" style="font-weight:600;color:var(--text)">${cat}</span>
         <span class="pie-legend-pct">${catPct}%</span>
         <span class="pie-legend-amt">${fmt(total)}</span>
-        ${hasSubs?'<span class="pie-legend-chevron">›</span>':''}
+        <span class="${hasSubs?'pie-legend-chevron':'pie-legend-chevron-spacer'}">${hasSubs?'›':''}</span>
       </div>`;
 
     if(hasSubs){
@@ -2380,10 +2388,11 @@ function renderPie(filtered) {
         const line=document.createElement('div');
         line.className='pie-sub-item';
         line.innerHTML=`
-          <span class="pie-dot" style="background:${subColor};width:8px;height:8px"></span>
+          <span class="pie-dot" style="background:${subColor};width:8px;height:8px;margin-left:1px"></span>
           <span class="pie-sub-name">${sub}</span>
           <span class="pie-sub-pct">${subPct}%</span>
-          <span class="pie-sub-amt">${fmt(amt)}</span>`;
+          <span class="pie-sub-amt">${fmt(amt)}</span>
+          <span></span>`;
         body.appendChild(line);
       });
       catEl.appendChild(body);
