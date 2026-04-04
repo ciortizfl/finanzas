@@ -679,7 +679,7 @@ nav {
     <div class="card" style="margin-bottom:14px">
       <div class="field">
         <label>Descripción</label>
-        <input type="text" id="desc" placeholder="¿En qué fue?">
+        <input type="text" id="desc" placeholder="¿En qué fue?" oninput="predictCategory()">
       </div>
 
       <div class="field">
@@ -1592,6 +1592,62 @@ function selectSubcat(sub, el, colorCls) {
   curSubcat = sub;
   document.querySelectorAll('#subcat-blocks .cat-block').forEach(b=>b.classList.remove('sel-in','sel-eg','sel-ah','sel-pa'));
   el.classList.add(colorCls);
+}
+
+function predictCategory(){
+  const desc = document.getElementById('desc').value.trim().toLowerCase();
+  if(desc.length < 3) return;
+  if(curType !== 'egreso') return;
+
+  // Contar frecuencia de cat+subcat en registros con descripción similar
+  const freq = {};
+  data.forEach(e => {
+    if(e.type !== 'egreso') return;
+    const d = (e.desc || '').toLowerCase();
+    if(d.length < 2) return;
+    // Coincide si la descripción histórica contiene lo escrito, o lo escrito contiene la histórica
+    if(d.includes(desc) || desc.includes(d)){
+      const key = (e.category || '') + '||' + (e.subcategory || '');
+      freq[key] = (freq[key] || 0) + 1;
+    }
+  });
+
+  const entries = Object.entries(freq);
+  if(entries.length === 0) return;
+
+  const [bestKey] = entries.sort((a,b) => b[1] - a[1])[0];
+  const sep = bestKey.indexOf('||');
+  const bestCat = bestKey.substring(0, sep);
+  const bestSub = bestKey.substring(sep + 2);
+  if(!bestCat) return;
+  // No hacer nada si ya está seleccionado lo mismo
+  if(curCat === bestCat && curSubcat === bestSub) return;
+
+  // Clic en bloque de categoría — buscar por data o texto exacto
+  const colorCls = 'sel-eg';
+  let catFound = false;
+  document.querySelectorAll('#cat-blocks .cat-block').forEach(b => {
+    // El texto del bloque es "ICONO\nNOMBRE", comparamos con textContent limpio
+    const lines = (b.textContent || '').split('\n').map(s => s.trim()).filter(Boolean);
+    const catName = lines[lines.length - 1]; // última línea es el nombre
+    if(catName === bestCat){
+      selectCat(bestCat, b, colorCls);
+      catFound = true;
+    }
+  });
+
+  // Clic en subcategoría (después de que selectCat construye los bloques)
+  if(catFound && bestSub){
+    setTimeout(() => {
+      document.querySelectorAll('#subcat-blocks .cat-block').forEach(b => {
+        const lines = (b.textContent || '').split('\n').map(s => s.trim()).filter(Boolean);
+        const subName = lines[lines.length - 1];
+        if(subName === bestSub){
+          selectSubcat(bestSub, b, colorCls);
+        }
+      });
+    }, 0);
+  }
 }
 
 function setMethod(m,el){
