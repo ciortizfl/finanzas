@@ -1652,25 +1652,37 @@ function _submitEntry(){
   if(!date) return toast('Selecciona una fecha');
   if(curType!=='ahorro-pasivo'&&!selMethod) return toast('Selecciona un método de pago');
 
-  const amountMXN=toMXN(amount,cur);
+  // Si la propina está incluida en el monto, el gasto real = monto - propina
+  let mainAmount = amount;
+  if(curType==='egreso' && propinaOn && propinaIncluida){
+    const propinaAmt = getPropinaAmount();
+    if(propinaAmt > 0) mainAmount = +(amount - propinaAmt).toFixed(2);
+  }
+  const amountMXN = toMXN(mainAmount, cur);
 
-  // Build main entry note — use whatever is already in the note field (includes auto-injected TC)
-  // Then append propina pct if applicable (don't re-add TC, it's already in the field)
+  // Nota principal del registro
   let mainNote = note;
-  if(curType==='egreso' && propinaOn && propinaType==='pct'){
-    const pct=parseFloat(document.getElementById('propina-pct').value)||0;
-    if(pct>0){
-      const propinaAmt=getPropinaAmount();
-      if(propinaAmt>0){
-        const sym=cur==='MXN'?'$':`${cur} `;
-        const label=propinaIncluida?`Propina ${pct}% incluida en el monto = ${sym}${propinaAmt.toFixed(2)}`:`Propina ${pct}% adicional = ${sym}${propinaAmt.toFixed(2)}`;
-        mainNote=[mainNote,label].filter(Boolean).join(' | ');
+  if(curType==='egreso' && propinaOn){
+    const propinaAmt=getPropinaAmount();
+    if(propinaAmt>0){
+      const sym=cur==='MXN'?'$':`${cur} `;
+      let label='';
+      if(propinaType==='pct'){
+        const pct=parseFloat(document.getElementById('propina-pct').value)||0;
+        label=propinaIncluida
+          ?`Propina ${pct}% incluida = ${sym}${propinaAmt.toFixed(2)} (total cobrado: ${sym}${amount.toFixed(2)})`
+          :`Propina ${pct}% adicional = ${sym}${propinaAmt.toFixed(2)}`;
+      } else {
+        label=propinaIncluida
+          ?`Propina incluida = ${sym}${propinaAmt.toFixed(2)} (total cobrado: ${sym}${amount.toFixed(2)})`
+          :`Propina adicional = ${sym}${propinaAmt.toFixed(2)}`;
       }
+      if(label) mainNote=[mainNote,label].filter(Boolean).join(' | ');
     }
   }
 
   const entry={
-    id:Date.now(), type:curType, amount, amountMXN, currency:cur,
+    id:Date.now(), type:curType, amount:mainAmount, amountMXN, currency:cur,
     desc, category:curCat, subcategory:subcat,
     method:curType!=='ahorro-pasivo'?selMethod:null,
     date, note:mainNote
