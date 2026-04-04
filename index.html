@@ -176,7 +176,12 @@ nav {
 .subcat-lbl { font-size: 12px; font-weight: 600; color: var(--text2); margin-bottom: 7px; }
 
 /* CHIPS */
-.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chips {
+  display: flex; flex-wrap: nowrap; gap: 6px;
+  overflow-x: auto; -webkit-overflow-scrolling: touch;
+  scrollbar-width: none; padding-bottom: 2px;
+}
+.chips::-webkit-scrollbar { display: none; }
 .chip {
   padding: 7px 14px; border-radius: 100px;
   border: none; background: var(--surface2);
@@ -665,41 +670,51 @@ nav {
 }
 .date-cal-btn:active { color: var(--accent); }
 .date-strip-wrap {
-  display: flex; align-items: center; gap: 4px;
+  display: flex; align-items: center; gap: 0;
 }
 .date-strip-nav {
   background: none; border: none; cursor: pointer;
-  width: 32px; height: 48px; display: flex; align-items: center;
+  width: 28px; height: 56px; display: flex; align-items: center;
   justify-content: center; border-radius: var(--radius-xs);
   color: var(--text3); font-size: 18px; flex-shrink: 0;
-  transition: background 0.15s, color 0.15s;
+  transition: background 0.15s, color 0.15s; z-index: 1;
 }
 .date-strip-nav:active { background: var(--surface3); color: var(--accent); }
 .date-strip-scroll {
-  flex: 1; overflow: hidden; position: relative;
+  flex: 1;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
+  position: relative;
 }
+.date-strip-scroll::-webkit-scrollbar { display: none; }
 .date-strip-inner {
-  display: flex; gap: 6px;
-  transition: transform 0.25s cubic-bezier(0.4,0,0.2,1);
+  display: flex; gap: 5px;
+  padding: 0 2px;
+  width: max-content;
 }
 .date-day-btn {
   flex-shrink: 0;
-  width: calc((100% - 30px) / 7);
-  min-width: 40px;
+  width: 46px;
   display: flex; flex-direction: column; align-items: center;
   justify-content: center; gap: 2px;
-  padding: 8px 0; border-radius: var(--radius-sm);
+  padding: 9px 0; border-radius: var(--radius-sm);
   border: 1.5px solid transparent;
   background: var(--surface2);
-  cursor: pointer; transition: all 0.18s;
+  cursor: pointer; transition: background 0.15s, border-color 0.15s;
   font-family: inherit;
+  scroll-snap-align: center;
+  -webkit-tap-highlight-color: transparent;
 }
 .date-day-btn .day-name {
   font-size: 10px; font-weight: 600; color: var(--text3);
   text-transform: uppercase; letter-spacing: 0.04em;
 }
 .date-day-btn .day-num {
-  font-size: 18px; font-weight: 600; color: var(--text);
+  font-size: 19px; font-weight: 700; color: var(--text);
   line-height: 1;
 }
 .date-day-btn.selected {
@@ -707,9 +722,7 @@ nav {
 }
 .date-day-btn.selected .day-name,
 .date-day-btn.selected .day-num { color: white; }
-.date-day-btn.today-marker .day-num {
-  color: var(--accent);
-}
+.date-day-btn.today-marker .day-num { color: var(--accent); }
 .date-day-btn.today-marker.selected .day-num { color: white; }
 /* hidden native input */
 .date-native-hidden {
@@ -3446,105 +3459,80 @@ function addDays(isoDate, n){
   return dateToISO(d);
 }
 
+// Renderiza RANGE días centrados en centerDate
+// Range grande para que se pueda scrollear sin recargar
+const STRIP_RANGE = 60; // 60 días antes y 60 después = 121 botones
+
 function renderStrip(stripId, centerDate){
-  const strip = document.getElementById(stripId);
-  if(!strip) return;
-  strip.innerHTML='';
+  const strip  = document.getElementById(stripId);
+  const scroll = document.getElementById(stripId + '-scroll');
+  if(!strip || !scroll) return;
+
+  const inputId = stripId === 'tx-date-strip' ? 'tx-date' : 'e-date';
+  const selected = document.getElementById(inputId)?.value || localToday();
   const today = localToday();
-  const DAYS = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
-  // 7 botones: center-3 .. center+3
-  for(let i=-3; i<=3; i++){
+  const DAYS  = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+
+  strip.innerHTML = '';
+  let selectedBtn = null;
+
+  for(let i = -STRIP_RANGE; i <= STRIP_RANGE; i++){
     const iso = addDays(centerDate, i);
     const d   = parseDate(iso);
     const btn = document.createElement('button');
-    btn.type = 'button';
+    btn.type  = 'button';
     btn.className = 'date-day-btn';
-    if(iso === today) btn.classList.add('today-marker');
-    // Get currently selected date from hidden input
-    const inputId = stripId === 'tx-date-strip' ? 'tx-date' : 'e-date';
-    const selected = document.getElementById(inputId)?.value || today;
-    if(iso === selected) btn.classList.add('selected');
+    btn.dataset.iso = iso;
+    if(iso === today)    btn.classList.add('today-marker');
+    if(iso === selected){ btn.classList.add('selected'); selectedBtn = btn; }
     btn.innerHTML = `<span class="day-name">${DAYS[d.getDay()]}</span><span class="day-num">${d.getDate()}</span>`;
     btn.onclick = () => selectStripDate(stripId, iso);
     strip.appendChild(btn);
+  }
+
+  // Scroll al botón seleccionado (centrado), sin animación en init
+  if(selectedBtn){
+    requestAnimationFrame(()=>{
+      const btnLeft   = selectedBtn.offsetLeft;
+      const btnWidth  = selectedBtn.offsetWidth;
+      const scrollW   = scroll.offsetWidth;
+      scroll.scrollLeft = btnLeft - scrollW/2 + btnWidth/2;
+    });
   }
 }
 
 function selectStripDate(stripId, iso){
   const inputId = stripId === 'tx-date-strip' ? 'tx-date' : 'e-date';
   document.getElementById(inputId).value = iso;
-  // Update strip visuals without re-rendering (just swap selected class)
-  document.querySelectorAll(`#${stripId} .date-day-btn`).forEach(b=>{
-    const d = b.querySelector('.day-num').textContent;
-    // Rebuild selection based on ISO
-    b.classList.remove('selected');
+  // Actualizar clase selected sin re-renderizar
+  const strip = document.getElementById(stripId);
+  strip.querySelectorAll('.date-day-btn').forEach(b=>{
+    b.classList.toggle('selected', b.dataset.iso === iso);
   });
-  // Re-render to reflect new selection
-  const centerKey = stripId;
-  renderStrip(stripId, stripOffsets[centerKey] || iso);
-  // Ensure selected btn is visible — re-center if selected is at edge
+  // Scroll suave al botón seleccionado
+  const selectedBtn = strip.querySelector('.date-day-btn.selected');
+  const scroll = document.getElementById(stripId + '-scroll');
+  if(selectedBtn && scroll){
+    const btnLeft  = selectedBtn.offsetLeft;
+    const btnWidth = selectedBtn.offsetWidth;
+    const scrollW  = scroll.offsetWidth;
+    scroll.scrollTo({ left: btnLeft - scrollW/2 + btnWidth/2, behavior: 'smooth' });
+  }
 }
 
 function shiftStrip(stripId, delta){
-  const inputId = stripId === 'tx-date-strip' ? 'tx-date' : 'e-date';
-  const currentCenter = stripOffsets[stripId] || document.getElementById(inputId)?.value || localToday();
-  const newCenter = addDays(currentCenter, delta * 7);
-  stripOffsets[stripId] = newCenter;
-  // Animate
-  const scrollEl = document.getElementById(stripId + '-scroll');
-  if(scrollEl){
-    scrollEl.style.opacity='0';
-    setTimeout(()=>{
-      renderStrip(stripId, newCenter);
-      scrollEl.style.opacity='1';
-    }, 120);
-    scrollEl.style.transition='opacity 0.12s';
-  } else {
-    renderStrip(stripId, newCenter);
+  // Con scroll nativo, los botones de nav simplemente desplazan el scroll
+  const scroll = document.getElementById(stripId + '-scroll');
+  if(scroll){
+    const amount = delta * (46 + 5) * 7; // 7 días x (ancho + gap)
+    scroll.scrollBy({ left: amount, behavior: 'smooth' });
   }
 }
 
 function initStrip(stripId, isoDate){
   stripOffsets[stripId] = isoDate;
   renderStrip(stripId, isoDate);
-  initStripTouch(stripId);
-}
-
-function initStripTouch(stripId){
-  const scrollEl = document.getElementById(stripId + '-scroll');
-  if(!scrollEl || scrollEl._touchInit) return;
-  scrollEl._touchInit = true;
-
-  let startX = 0;
-  let startY = 0;
-  let tracking = false;
-
-  scrollEl.addEventListener('touchstart', e => {
-    startX = e.touches[0].clientX;
-    startY = e.touches[0].clientY;
-    tracking = true;
-  }, { passive: true });
-
-  scrollEl.addEventListener('touchmove', e => {
-    if(!tracking) return;
-    const dx = e.touches[0].clientX - startX;
-    const dy = e.touches[0].clientY - startY;
-    // Solo bloquear scroll vertical si el gesto es claramente horizontal
-    if(Math.abs(dx) > Math.abs(dy)) e.preventDefault();
-  }, { passive: false });
-
-  scrollEl.addEventListener('touchend', e => {
-    if(!tracking) return;
-    tracking = false;
-    const dx = e.changedTouches[0].clientX - startX;
-    const dy = e.changedTouches[0].clientY - startY;
-    // Ignorar si el gesto fue más vertical que horizontal
-    if(Math.abs(dy) > Math.abs(dx)) return;
-    // Umbral mínimo de 40px para contar como swipe
-    if(Math.abs(dx) < 40) return;
-    // Swipe izquierda = avanzar días, swipe derecha = retroceder
-    shiftStrip(stripId, dx < 0 ? 1 : -1);
-  }, { passive: true });
+  // No necesitamos touch handlers — el scroll nativo ya lo maneja
 }
 
 function openDatePicker(inputId, stripId){
@@ -3554,8 +3542,17 @@ function openDatePicker(inputId, stripId){
 function onNativeDateChange(inputId, stripId){
   const inp = document.getElementById(inputId);
   if(!inp || !inp.value) return;
-  stripOffsets[stripId] = inp.value;
-  renderStrip(stripId, inp.value);
+  const iso = inp.value;
+  // Si el día elegido está dentro del rango renderizado, solo scroll
+  // Si está fuera, re-renderizar centrado en esa fecha
+  const strip = document.getElementById(stripId);
+  const existing = strip ? strip.querySelector(`[data-iso="${iso}"]`) : null;
+  if(existing){
+    selectStripDate(stripId, iso);
+  } else {
+    stripOffsets[stripId] = iso;
+    renderStrip(stripId, iso);
+  }
 }
 
 // ══════════════════════════════════════
