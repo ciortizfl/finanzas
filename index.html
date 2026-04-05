@@ -1812,7 +1812,7 @@ function setMethod(m,el){
   if(el) el.classList.add('active');
 }
 
-const BEN_TYPES = ['Cashback','Puntos','Puntos de tarjeta de crédito','Millas aéreas','Descuentos y promociones','Otros'];
+const BEN_TYPES = ['Cashback','Puntos','Puntos de tarjeta de crédito','Millas aéreas','Descuentos y promociones','Otros beneficios'];
 let curBenType = 'Cashback';
 let editBenType = 'Cashback';
 
@@ -2389,7 +2389,7 @@ function renderPie(filtered) {
     const catPct=((total/grandTotal)*100).toFixed(1);
     const baseColor=catColor(cat);
     const subEntries=Object.entries(subcats).filter(([k])=>k!=='—').sort((a,b)=>b[1]-a[1]);
-    const hasSubs=isEgreso&&subEntries.length>1;
+    const hasSubs=isEgreso&&subEntries.length>=1;
 
     const catEl=document.createElement('div');
     catEl.className='pie-legend-cat';
