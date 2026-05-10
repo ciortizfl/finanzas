@@ -1210,6 +1210,22 @@ const SK = 'finanzas_v3';
 const SK_USAGE = 'finanzas_usage';
 let data = JSON.parse(localStorage.getItem(SK)||'[]');
 let usage = JSON.parse(localStorage.getItem(SK_USAGE)||'{}');
+
+// ── Migración de nombres legacy ──────────────────────────────────────────
+const _migrations = {
+  category: {
+    'Puntos de tarjeta de crédito': 'Puntos TDC',
+  }
+};
+let _migrated = false;
+data.forEach(e => {
+  if(_migrations.category[e.category]){
+    e.category = _migrations.category[e.category];
+    _migrated = true;
+  }
+});
+if(_migrated) localStorage.setItem(SK, JSON.stringify(data));
+// ────────────────────────────────────────────────────────────────────────
 let curType = 'ingreso';
 let curCat = '';
 let selMethod = 'Tarjeta de crédito';
