@@ -1900,7 +1900,7 @@ function _submitEntry(){
   }
 
   const entry={
-    id:Date.now(), type:curType, amount:mainAmount, amountMXN, currency:cur,
+    id:genId(), type:curType, amount:mainAmount, amountMXN, currency:cur,
     desc, category:curCat, subcategory:subcat,
     method:curType!=='ahorro-pasivo'?selMethod:null,
     date, note:mainNote
@@ -1913,7 +1913,7 @@ function _submitEntry(){
     if(ba>0){
       const baMXN=toMXN(ba,cur);
       data.unshift({
-        id:Date.now()+1, type:'ahorro-pasivo',
+        id:genId(), type:'ahorro-pasivo',
         amount:ba, amountMXN:baMXN, currency:cur,
         desc:desc, category:bt, subcategory:'',
         method:null, date,
@@ -1941,7 +1941,7 @@ function _submitEntry(){
         if(r) propinaNoteparts.push(`TC: 1 ${cur} = $${r.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})} MXN`);
       }
       propinaEntry={
-        id:Date.now()+2, type:'egreso',
+        id:genId(), type:'egreso',
         amount:propinaAmt, amountMXN:propinaAmtMXN, currency:cur,
         desc:desc, category:'Generosidad', subcategory:'Propinas',
         method:getPropinaMethod(), date,
@@ -3083,7 +3083,7 @@ function saveEdit(){
     const bt=editBenType;
     if(ba>0){
       data.unshift({
-        id:Date.now()+1, type:'ahorro-pasivo',
+        id:genId(), type:'ahorro-pasivo',
         amount:ba, amountMXN:ba, currency:'MXN',
         desc:desc, category:bt, subcategory:'',
         method:null, date,
@@ -3232,6 +3232,9 @@ function resetPropina(){
 // ══════════════════════════════════════
 const SK_BUDGET = 'finanzas_budget';
 let budgets = JSON.parse(localStorage.getItem(SK_BUDGET)||'{}');
+
+let _idCounter = 0;
+function genId(){ return Date.now() * 1000 + (++_idCounter % 1000); }
 
 function getBudgetKey(y,m){ return `${y}-${String(m+1).padStart(2,'0')}`; }
 
