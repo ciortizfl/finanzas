@@ -1215,6 +1215,9 @@ let usage = JSON.parse(localStorage.getItem(SK_USAGE)||'{}');
 const _migrations = {
   category: {
     'Puntos de tarjeta de crédito': 'Puntos TDC',
+    'Puntos de Tarjeta de Crédito': 'Puntos TDC',
+    'Puntos tarjeta': 'Puntos TDC',
+    'Puntos': 'Puntos TDC',
   }
 };
 let _migrated = false;
@@ -2209,7 +2212,7 @@ function renderBalanceCats(){
 
   // For ahorro types: use ALL data (not just this month), show movements per category
   const isAhorro = balView==='ahorro'||balView==='ahorro-pasivo';
-  const subset = isAhorro ? data.filter(e=>e.type===balView) : md.filter(e=>e.type===balView);
+  const subset = md.filter(e=>e.type===balView);
 
   const catTotals={}, catSubTotals={}, catItems={};
   subset.forEach(e=>{
