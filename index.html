@@ -2172,12 +2172,21 @@ function clearBalView(){
   document.querySelectorAll('#page-balance .grid2 .stat').forEach(s=>s.classList.remove('active-filter'));
   document.getElementById('dash-detail-lbl').style.display='none';
   document.getElementById('dash-cats').innerHTML='';
+  const bonoDetail=document.getElementById('bono-detail-row');
+  if(bonoDetail) bonoDetail.style.display='none';
+  const bonoStat=document.getElementById('bono-stat');
+  if(bonoStat) bonoStat.classList.remove('active-filter');
 }
 
 function setBalView(type, el) {
   if(balView===type){ clearBalView(); return; }
   balView=type;
   document.querySelectorAll('#page-balance .grid2 .stat').forEach(s=>s.classList.remove('active-filter'));
+  // Cerrar detalle del bono al abrir cualquier otra vista
+  const bonoDetail=document.getElementById('bono-detail-row');
+  if(bonoDetail) bonoDetail.style.display='none';
+  const bonoStat=document.getElementById('bono-stat');
+  if(bonoStat) bonoStat.classList.remove('active-filter');
   if(el) el.classList.add('active-filter');
   renderBalanceCats();
 }
@@ -2263,8 +2272,22 @@ function renderBalance(){
 
 function toggleBonoDetail(){
   const detail=document.getElementById('bono-detail-row');
+  const bonoStat=document.getElementById('bono-stat');
   if(!detail) return;
-  detail.style.display = detail.style.display==='none' ? 'block' : 'none';
+  const isOpen = detail.style.display!=='none';
+  if(isOpen){
+    // Cerrar
+    detail.style.display='none';
+    if(bonoStat) bonoStat.classList.remove('active-filter');
+  } else {
+    // Abrir bono → cerrar cualquier otra vista (ingresos/egresos/pasivo)
+    balView=null;
+    document.querySelectorAll('#page-balance .grid2 .stat').forEach(s=>s.classList.remove('active-filter'));
+    document.getElementById('dash-detail-lbl').style.display='none';
+    document.getElementById('dash-cats').innerHTML='';
+    detail.style.display='block';
+    if(bonoStat) bonoStat.classList.add('active-filter');
+  }
 }
 
 function renderBalanceCats(){
