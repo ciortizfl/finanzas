@@ -934,13 +934,16 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
     <div class="stat" style="cursor:pointer" onclick="setBalView('egreso',this)">
       <div class="lbl">Egresos</div><div class="val r" id="d-egr">$0</div>
     </div>
-    <div class="stat" style="cursor:pointer;display:none" onclick="setBalView('ahorro',this)">
-      <div class="lbl">Ahorro activo</div><div class="val b" id="d-aho">$0</div>
+    <div class="stat" id="bono-stat" style="cursor:pointer" onclick="toggleBonoDetail()">
+      <div class="lbl">Bono despensa</div><div class="val" id="d-bono" style="color:var(--green)">$0</div>
+      <div class="sub" id="bono-stat-sub">Disponible</div>
     </div>
-    <div class="stat" style="cursor:pointer;grid-column:1/-1" onclick="setBalView('ahorro-pasivo',this)">
+    <div class="stat" id="pasivo-stat" style="cursor:pointer" onclick="setBalView('ahorro-pasivo',this)">
       <div class="lbl">Ahorro pasivo</div><div class="val a" id="d-pas">$0</div>
       <div class="sub">Bonus acumulado</div>
     </div>
+    <!-- Detalle desplegable del bono (ocupa todo el ancho cuando se abre) -->
+    <div id="bono-detail-row" style="display:none;grid-column:1/-1;background:var(--surface2);border-radius:var(--radius-sm);padding:12px 14px;margin-top:-4px;"></div>
   </div>
   <div class="sec-lbl" id="dash-detail-lbl" style="display:none"></div>
   <div class="cat-list" id="dash-cats"></div>
@@ -2210,40 +2213,58 @@ function renderBalance(){
   }
   document.getElementById('d-ing').textContent=fmt(ing);
   document.getElementById('d-egr').textContent=fmt(egr);
-  document.getElementById('d-aho').textContent=fmt(aho);
+  const dAho=document.getElementById('d-aho'); if(dAho) dAho.textContent=fmt(aho);
   document.getElementById('d-pas').textContent=fmt(pas);
+  // Ocultar tarjetón de ahorro pasivo si no hay movimientos en el mes
+  const pasivoStat=document.getElementById('pasivo-stat');
+  if(pasivoStat) pasivoStat.style.display = pas>0 ? '' : 'none';
 
-  // Bono de despensa — expandable in hero
+  // ── Bono de despensa — ahora en su propio tarjetón del grid ──
   const bonoEgr=md.filter(e=>e.method==='Bono de despensa'&&e.type==='egreso').reduce((s,e)=>s+e.amountMXN,0);
   const bonoIng=md.filter(e=>e.category==='Bono de despensa'&&e.type==='ingreso').reduce((s,e)=>s+e.amountMXN,0);
-  let bonoLine=hero.querySelector('.bono-line');
-  let bonoBody=hero.querySelector('.bono-expand-body');
-  if(!bonoLine){
-    bonoLine=document.createElement('div'); bonoLine.className='bono-line'; bonoLine.style.cursor='pointer';
-    bonoBody=document.createElement('div'); bonoBody.className='bono-expand-body';
-    hero.appendChild(bonoLine); hero.appendChild(bonoBody);
-    bonoLine.onclick=()=>bonoBody.classList.toggle('open');
-  }
-  if(bonoEgr>0||bonoIng>0){
-    const net=bonoIng-bonoEgr;
-    bonoLine.innerHTML=`<span>Bono despensa</span><span class="bono-val">${net>=0?'+':''}${fmt(net)} ›</span>`;
-    bonoLine.style.display='flex';
-    bonoBody.innerHTML=`
-      ${bonoIng>0?`<div class="bono-detail-line"><span>Ingresado</span><span class="bv">+${fmt(bonoIng)}</span></div>`:''}
-      ${bonoEgr>0?`<div class="bono-detail-line"><span>Gastado</span><span class="bv">−${fmt(bonoEgr)}</span></div>`:''}`;
+  const bonoNet=bonoIng-bonoEgr;
+  const bonoStat=document.getElementById('bono-stat');
+  const dBono=document.getElementById('d-bono');
+  const bonoSub=document.getElementById('bono-stat-sub');
+  const bonoDetail=document.getElementById('bono-detail-row');
+  const bonoHasMov = bonoEgr>0||bonoIng>0;
+  if(bonoHasMov){
+    if(bonoStat) bonoStat.style.display='';
+    if(dBono){
+      dBono.textContent=(bonoNet>=0?'':'')+fmt(bonoNet);
+      dBono.style.color=bonoNet>=0?'var(--green)':'var(--danger)';
+    }
+    if(bonoSub) bonoSub.textContent='Disponible';
+    if(bonoDetail){
+      bonoDetail.innerHTML=`
+        ${bonoIng>0?`<div style="display:flex;justify-content:space-between;font-size:13px;padding:3px 0;color:var(--text2)"><span>Ingresado</span><span style="font-weight:600;color:var(--green)">+${fmt(bonoIng)}</span></div>`:''}
+        ${bonoEgr>0?`<div style="display:flex;justify-content:space-between;font-size:13px;padding:3px 0;color:var(--text2)"><span>Gastado</span><span style="font-weight:600;color:var(--danger)">−${fmt(bonoEgr)}</span></div>`:''}
+        <div style="display:flex;justify-content:space-between;font-size:13px;padding:6px 0 0;margin-top:4px;border-top:1px solid var(--border2);color:var(--text)"><span style="font-weight:600">Disponible</span><span style="font-weight:700;color:${bonoNet>=0?'var(--green)':'var(--danger)'}">${fmt(bonoNet)}</span></div>`;
+    }
   } else {
-    bonoLine.style.display='none';
-    if(bonoBody) bonoBody.classList.remove('open');
+    if(bonoStat) bonoStat.style.display='none';
+    if(bonoDetail) bonoDetail.style.display='none';
   }
 
-  // Re-highlight active stat card
+  // Si solo uno de los dos tarjetones (bono / pasivo) está visible, que ocupe todo el ancho
+  const pasivoVisible = pas>0;
+  if(bonoStat)   bonoStat.style.gridColumn   = (bonoHasMov && !pasivoVisible) ? '1/-1' : '';
+  if(pasivoStat) pasivoStat.style.gridColumn = (pasivoVisible && !bonoHasMov) ? '1/-1' : '';
+
+  // Re-highlight active stat card (bono no es navegable, se omite)
   if(balView){
+    const navMap={ingreso:0,egreso:1,'ahorro-pasivo':3};
     document.querySelectorAll('#page-balance .grid2 .stat').forEach((s,i)=>{
-      const types=['ingreso','egreso','ahorro','ahorro-pasivo'];
-      s.classList.toggle('active-filter', types[i]===balView);
+      s.classList.toggle('active-filter', navMap[balView]===i);
     });
   }
   renderBalanceCats();
+}
+
+function toggleBonoDetail(){
+  const detail=document.getElementById('bono-detail-row');
+  if(!detail) return;
+  detail.style.display = detail.style.display==='none' ? 'block' : 'none';
 }
 
 function renderBalanceCats(){
