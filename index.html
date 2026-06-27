@@ -751,11 +751,11 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
       <button class="type-btn active t-egreso" data-t="egreso" onclick="setType('egreso')"><span class="icon">↓</span>Egreso</button>
       <button class="type-btn t-ingreso" data-t="ingreso" onclick="setType('ingreso')"><span class="icon">↑</span>Ingreso</button>
       <div id="ahorro-type-wrap" style="position:relative;flex:1">
-        <button class="type-btn t-ahorro" id="type-btn-ahorro" data-t="ahorro" onclick="setAhorroType()" style="width:100%"><span class="icon">◎</span><span id="ahorro-type-lbl">Ahorro</span></button>
+        <button class="type-btn t-pasivo" id="type-btn-ahorro" data-t="ahorro-pasivo" onclick="setType('ahorro-pasivo')" style="width:100%"><span class="icon">★</span><span id="ahorro-type-lbl">Pasivo</span></button>
       </div>
     </div>
 
-    <!-- Ahorro sub-type selector — shown above monto when ahorro selected -->
+    <!-- Ahorro sub-type selector — oculto: solo se usa ahorro pasivo -->
     <div id="ahorro-sub-toggle" style="display:none;margin-bottom:12px;">
       <div style="display:flex;gap:8px;width:100%;">
         <button onclick="setAhorroSubType('ahorro')" id="ahorro-sub-activo"
@@ -827,12 +827,22 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
         </div>
         <!-- Beneficio panel -->
         <div id="ben-panel" style="display:none;margin-top:12px;padding:12px;background:var(--surface2);border-radius:var(--radius-sm);">
-          <div style="margin-bottom:10px;">
-            <label style="font-size:13px;font-weight:600;color:var(--text2);">Monto del beneficio <span id="ben-amount-lbl" style="font-weight:400;color:var(--text3)"></span></label>
-            <div style="display:flex;align-items:center;gap:8px;margin-top:6px;">
-              <input type="number" id="ben-amount" placeholder="Ej. 45.00" inputmode="decimal" step="0.01" min="0" oninput="calcBenPreview()" style="flex:1;padding:11px 13px;border:none;border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-family:inherit;font-size:15px;outline:none;">
-              <span id="ben-calc" style="font-size:13px;color:var(--text3);flex-shrink:0;"></span>
+          <!-- Row 1: adic/incl toggle + % / $ toggle -->
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
+            <div style="display:flex;background:var(--surface);border-radius:100px;padding:3px;gap:2px;flex-shrink:0;box-shadow:0 1px 3px rgba(0,0,0,0.08),0 0 0 1px var(--border2);">
+              <button id="ben-adic-btn" onclick="setBenIncluida(false)" style="padding:5px 10px;border-radius:100px;border:none;background:var(--accent);color:white;font-family:inherit;font-size:11px;font-weight:600;cursor:pointer;transition:all 0.18s;">Adicional</button>
+              <button id="ben-incl-btn" onclick="setBenIncluida(true)" style="padding:5px 10px;border-radius:100px;border:none;background:transparent;color:var(--text3);font-family:inherit;font-size:11px;font-weight:600;cursor:pointer;transition:all 0.18s;">Incluido</button>
             </div>
+            <div style="display:flex;background:var(--surface);border-radius:100px;padding:3px;gap:2px;flex-shrink:0;box-shadow:0 1px 4px rgba(0,0,0,0.12),0 0 0 1px var(--border2);">
+              <button id="ben-chip-pct" onclick="setBenType('pct')" style="padding:5px 12px;border-radius:100px;border:none;background:transparent;color:var(--text3);font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;transition:all 0.18s;">%</button>
+              <button id="ben-chip-monto" onclick="setBenType('monto')" style="padding:5px 12px;border-radius:100px;border:none;background:var(--accent);color:white;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;transition:all 0.18s;">$</button>
+            </div>
+          </div>
+          <!-- Row 2: input + preview -->
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+            <input type="number" id="ben-pct" placeholder="" inputmode="decimal" step="0.5" min="0" max="100" oninput="calcBenPreview()" style="width:160px;padding:9px 12px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-family:inherit;font-size:15px;outline:none;-webkit-appearance:none;appearance:none;display:none;">
+            <input type="number" id="ben-amount" placeholder="Ej. 45.00" inputmode="decimal" step="0.01" min="0" oninput="calcBenPreview()" style="width:160px;padding:9px 12px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-family:inherit;font-size:15px;outline:none;-webkit-appearance:none;appearance:none;">
+            <span id="ben-calc" style="font-size:13px;color:var(--text3);"></span>
           </div>
           <div>
             <label style="font-size:13px;font-weight:600;color:var(--text2);display:block;margin-bottom:6px;">Tipo de beneficio</label>
@@ -915,7 +925,7 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
   <div class="bal-hero" id="bal-hero" style="margin:0 16px 16px;cursor:pointer" onclick="clearBalView()">
     <div class="lbl">Balance del mes</div>
     <div class="val" id="bal-val">$0.00</div>
-    <div class="sub">Ingresos − Egresos − Ahorro activo</div>
+    <div class="sub" id="bal-hero-sub">Ingresos − Egresos</div>
   </div>
   <div class="grid2">
     <div class="stat" style="cursor:pointer" onclick="setBalView('ingreso',this)">
@@ -924,10 +934,10 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
     <div class="stat" style="cursor:pointer" onclick="setBalView('egreso',this)">
       <div class="lbl">Egresos</div><div class="val r" id="d-egr">$0</div>
     </div>
-    <div class="stat" style="cursor:pointer" onclick="setBalView('ahorro',this)">
+    <div class="stat" style="cursor:pointer;display:none" onclick="setBalView('ahorro',this)">
       <div class="lbl">Ahorro activo</div><div class="val b" id="d-aho">$0</div>
     </div>
-    <div class="stat" style="cursor:pointer" onclick="setBalView('ahorro-pasivo',this)">
+    <div class="stat" style="cursor:pointer;grid-column:1/-1" onclick="setBalView('ahorro-pasivo',this)">
       <div class="lbl">Ahorro pasivo</div><div class="val a" id="d-pas">$0</div>
       <div class="sub">Bonus acumulado</div>
     </div>
@@ -1011,7 +1021,7 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
     <button class="f-chip active" onclick="setFilter('todos',this)">Todos</button>
     <button class="f-chip" onclick="setFilter('egreso',this)">Egresos</button>
     <button class="f-chip" onclick="setFilter('ingreso',this)">Ingresos</button>
-    <button class="f-chip" onclick="setFilter('ahorro',this)">Ahorro activo</button>
+    <button class="f-chip" onclick="setFilter('ahorro',this)" style="display:none">Ahorro activo</button>
     <button class="f-chip" onclick="setFilter('ahorro-pasivo',this)">Ahorro pasivo</button>
     <button id="method-filter-toggle-btn" onclick="toggleMethodFilters()" style="display:flex;align-items:center;gap:4px;padding:6px 12px;border-radius:100px;border:1.5px solid var(--border2);background:var(--surface2);font-family:inherit;font-size:12px;font-weight:600;color:var(--text2);cursor:pointer;white-space:nowrap;">
       <span id="method-filter-indicator" style="width:7px;height:7px;border-radius:50%;background:var(--border2);flex-shrink:0;transition:background 0.2s;"></span>
@@ -1067,7 +1077,7 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
         <button class="type-btn t-egreso" data-et="egreso" onclick="setEditType('egreso',this)"><span class="icon">↓</span>Egreso</button>
         <button class="type-btn t-ingreso" data-et="ingreso" onclick="setEditType('ingreso',this)"><span class="icon">↑</span>Ingreso</button>
         <div id="e-ahorro-type-wrap" style="position:relative;flex:1">
-          <button class="type-btn t-ahorro" id="e-type-btn-ahorro" data-et="ahorro" onclick="setEditAhorroType()" style="width:100%"><span class="icon">◎</span><span id="e-ahorro-type-lbl">Ahorro</span></button>
+          <button class="type-btn t-pasivo" id="e-type-btn-ahorro" data-et="ahorro-pasivo" onclick="setEditType('ahorro-pasivo',this)" style="width:100%"><span class="icon">★</span><span id="e-ahorro-type-lbl">Pasivo</span></button>
         </div>
       </div>
 
@@ -1292,10 +1302,7 @@ const CATS = {
   ahorro: {
     'Inversiones':['—'],'Otros (Ahorro)':['—']
   },
-  'ahorro-pasivo': {
-    'Cashback':['—'],'Puntos TDC':['—'],'Puntos de lealtad':['—'],
-    'Millas aéreas':['—'],'Descuento':['—'],'Otro beneficio':['—']
-  }
+  'ahorro-pasivo': {} // Se llena dinámicamente desde BEN_TYPES (ver más abajo)
 };
 
 const ICONS = {
@@ -1304,7 +1311,7 @@ const ICONS = {
   'Aguinaldo':'🎄','Utilidades':'📊','Fondo de ahorro':'🏦','Reembolsos':'↩️',
   'Rendimientos':'📈','Renta de propiedad':'🏢','Ventas':'🛍️','Regalos':'🎁',
   'Inversiones':'💹','Cashback':'💳','Puntos TDC':'💎',
-  'Puntos de lealtad':'⭐','Millas aéreas':'✈️','Descuento':'🏷️','Otro beneficio':'🎁',
+  'Puntos de lealtad':'⭐','Puntos':'🎯','Millas aéreas':'✈️','Descuentos y promociones':'🏷️','Otros beneficios':'🎁','Descuento':'🏷️','Otro beneficio':'🎁',
   'Renta':'🏠','Hipoteca':'🔑','Mantenimiento':'🔧','Servicios':'⚡',
   'Seguridad':'🔒','Muebles y decoración':'🛋️','Servicio de limpieza':'🧹',
   'Equipamiento':'📦','Salud y médicos':'🏥','Dentista':'🦷','Medicamentos':'💊','Gimnasio':'💪','Finanzas / Impuestos':'💼',
@@ -1523,21 +1530,35 @@ function onCurChange() {
 }
 
 function calcBenPreview(){
-  const benEl=document.getElementById('ben-amount');
   const calcEl=document.getElementById('ben-calc');
-  const lblEl=document.getElementById('ben-amount-lbl');
-  if(!benEl||!calcEl) return;
+  if(!calcEl) return;
   const cur=document.getElementById('currency').value;
-  const benVal=parseFloat(benEl.value)||0;
-  if(cur==='MXN'){
-    if(lblEl) lblEl.textContent='(MXN)';
-    calcEl.textContent='';
+  const sym=cur==='MXN'?'$':`${cur} `;
+
+  if(benType==='monto'){
+    // Monto directo: solo mostrar conversión a MXN si aplica
+    const benVal=parseFloat(document.getElementById('ben-amount').value)||0;
+    if(cur!=='MXN' && benVal>0){
+      const mxn=toMXN(benVal,cur);
+      calcEl.textContent=`= $${mxn.toFixed(2)} MXN`;
+    } else {
+      calcEl.textContent='';
+    }
     return;
   }
-  if(lblEl) lblEl.textContent=`(${cur})`;
-  if(benVal>0){
-    const mxn=toMXN(benVal,cur);
-    calcEl.textContent=`= $${mxn.toFixed(2)} MXN`;
+
+  // Modo porcentaje
+  const pct=parseFloat(document.getElementById('ben-pct').value)||0;
+  const amount=parseFloat(document.getElementById('amount').value)||0;
+  if(pct>0 && amount>0){
+    let benAmt;
+    if(benIncluida){
+      benAmt = amount * pct / (100 + pct);
+    } else {
+      benAmt = amount * pct / 100;
+    }
+    const label = benIncluida ? 'del total' : 'adicional';
+    calcEl.textContent=`= ${sym}${benAmt.toFixed(2)} ${label}`;
   } else {
     calcEl.textContent='';
   }
@@ -1573,7 +1594,7 @@ function setType(t) {
     else ahorroBtn.classList.remove('active');
   }
   const subToggle=document.getElementById('ahorro-sub-toggle');
-  if(subToggle) subToggle.style.display=(t==='ahorro'||t==='ahorro-pasivo')?'block':'none';
+  if(subToggle) subToggle.style.display='none'; // Oculto: solo se usa ahorro pasivo
   // Show/hide inline toggles (propina + beneficio)
   const inlineToggles=document.getElementById('inline-toggles');
   if(inlineToggles) inlineToggles.style.display=t==='egreso'?'block':'none';
@@ -1654,7 +1675,8 @@ function propinaHasData(){
 
 function benHasData(){
   const amt=parseFloat(document.getElementById('ben-amount')?.value)||0;
-  return benOn && amt>0;
+  const pct=parseFloat(document.getElementById('ben-pct')?.value)||0;
+  return benOn && (amt>0||pct>0);
 }
 
 let _propinaVisible=false;
@@ -1690,6 +1712,9 @@ function inlineToggleBen(){
     if(!document.querySelector('#ben-type-blocks .cat-block')){
       buildBenTypeBlocks('ben-type-blocks', curBenType, t=>{ curBenType=t; });
     }
+    // Sincronizar estado visual de los toggles
+    setBenType(benType);
+    setBenIncluida(benIncluida);
   }
 }
 
@@ -1832,6 +1857,10 @@ function setMethod(m,el){
 }
 
 const BEN_TYPES = ['Cashback','Puntos','Puntos TDC','Millas aéreas','Descuentos y promociones','Otros beneficios'];
+
+// Unificar: las categorías de ahorro pasivo SON los tipos de beneficio.
+// Así coinciden sin importar si se registra dentro de un gasto o por separado.
+BEN_TYPES.forEach(t=>{ CATS['ahorro-pasivo'][t]=['—']; });
 let curBenType = 'Cashback';
 let editBenType = 'Cashback';
 
@@ -1889,9 +1918,10 @@ function _submitEntry(){
     const propinaAmt = getPropinaAmount();
     if(propinaAmt > 0) mainAmount = +(mainAmount - propinaAmt).toFixed(2);
   }
-  // Si hay un beneficio (descuento/cashback), también se resta del monto principal
-  if(curType==='egreso' && benOn){
-    const ba = parseFloat(document.getElementById('ben-amount').value)||0;
+  // Beneficio: solo se resta del monto principal si está INCLUIDO en el monto.
+  // Si es adicional, es un beneficio recibido por encima y no altera el gasto.
+  if(curType==='egreso' && benOn && benIncluida){
+    const ba = getBenAmount();
     if(ba > 0) mainAmount = +(mainAmount - ba).toFixed(2);
     if(mainAmount < 0) mainAmount = 0;
   }
@@ -1927,16 +1957,26 @@ function _submitEntry(){
   data.unshift(entry);
 
   if(curType==='egreso'&&benOn){
-    const ba=parseFloat(document.getElementById('ben-amount').value);
+    const ba=getBenAmount();
     const bt=curBenType;
     if(ba>0){
       const baMXN=toMXN(ba,cur);
+      const sym=cur==='MXN'?'$':`${cur} `;
+      let benNote='Vinculado a: '+desc;
+      if(benType==='pct'){
+        const pct=parseFloat(document.getElementById('ben-pct').value)||0;
+        benNote += benIncluida
+          ? ` | ${pct}% incluido en ${sym}${amount.toFixed(2)}`
+          : ` | ${pct}% adicional`;
+      } else {
+        benNote += benIncluida ? ' | incluido en el monto' : ' | adicional';
+      }
       data.unshift({
         id:genId(), type:'ahorro-pasivo',
         amount:ba, amountMXN:baMXN, currency:cur,
         desc:desc, category:bt, subcategory:'',
         method:null, date,
-        note:'Vinculado a: '+desc, linkedTo:entry.id
+        note:benNote, linkedTo:entry.id
       });
     }
   }
@@ -1984,7 +2024,7 @@ function _submitEntry(){
 }
 
 function resetForm(){
-  ['amount','desc','note','ben-amount'].forEach(id=>document.getElementById(id).value='');
+  ['amount','desc','note','ben-amount','ben-pct'].forEach(id=>{const el=document.getElementById(id); if(el) el.value='';});
   document.getElementById('currency').value='MXN';
   const _today = localToday();
   document.getElementById('tx-date').value = _today;
@@ -2009,6 +2049,10 @@ function resetForm(){
   const noteLbl=document.getElementById('note-toggle-lbl');
   if(noteLbl) noteLbl.textContent=' Agregar nota';
   curBenType='Cashback';
+  // Reset estado del beneficio a default (monto directo, adicional)
+  benType='monto'; benIncluida=false;
+  setBenType('monto'); setBenIncluida(false);
+  const benCalc=document.getElementById('ben-calc'); if(benCalc) benCalc.textContent='';
   benOn=false; updateBenUI(); onCurChange(); resetPropina(); setType('egreso');
 }
 
@@ -2145,6 +2189,10 @@ function renderBalance(){
   const ing=sum(md,'ingreso'), egr=sum(md,'egreso');
   const aho=sum(md,'ahorro'), pas=sum(md,'ahorro-pasivo');
   const bal=ing-egr-aho;
+
+  // Subtítulo dinámico: solo menciona ahorro activo si el mes tiene registros de ese tipo
+  const subEl=document.getElementById('bal-hero-sub');
+  if(subEl) subEl.textContent = aho>0 ? 'Ingresos − Egresos − Ahorro activo' : 'Ingresos − Egresos';
 
   document.getElementById('bal-val').textContent=(bal>=0?'+':'')+fmt(bal);
   const hasData=ing>0||egr>0||aho>0||pas>0;
@@ -2885,9 +2933,10 @@ function openEdit(id) {
   } else {
     document.querySelector(`[data-et="${e.type}"]`)?.classList.add('active');
   }
-  // Sub-toggle ahorro
+  // Sub-toggle ahorro: solo visible al editar un registro legacy de ahorro ACTIVO
+  // (permite convertirlo a pasivo si se desea). Para pasivo normal, se oculta.
   const ahorroSub = document.getElementById('e-ahorro-sub-toggle');
-  ahorroSub.style.display = isAhorro ? 'block' : 'none';
+  ahorroSub.style.display = (e.type==='ahorro') ? 'block' : 'none';
   if(isAhorro){
     const activo = document.getElementById('e-ahorro-sub-activo');
     const pasivo = document.getElementById('e-ahorro-sub-pasivo');
@@ -2999,7 +3048,7 @@ function setEditType(t,btn){
   document.querySelectorAll('[data-et]').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
   document.getElementById('e-ahorro-sub-toggle').style.display='none';
-  document.getElementById('e-ahorro-type-lbl').textContent='Ahorro';
+  document.getElementById('e-ahorro-type-lbl').textContent = t==='ahorro-pasivo'?'Pasivo':'Ahorro';
   document.getElementById('e-inline-toggles').style.display=t==='egreso'?'block':'none';
   document.getElementById('e-method-field').style.display=t==='ahorro-pasivo'?'none':'block';
   if(t!=='egreso'){ editBenOn=false; updateEBenUI(); }
@@ -3140,6 +3189,47 @@ function deleteEntry(){
 // ══════════════════════════════════════
 let propinaOn=false;
 let propinaType='pct'; // 'pct' | 'monto'
+
+// ── Estado del beneficio (espejo de propina) ──
+let benType='monto';       // 'pct' | 'monto' — default monto directo
+let benIncluida=false;     // false = adicional (default), true = incluido en el monto
+
+function setBenIncluida(val){
+  benIncluida=val;
+  const inclBtn=document.getElementById('ben-incl-btn');
+  const adicBtn=document.getElementById('ben-adic-btn');
+  if(inclBtn){ inclBtn.style.background=val?'var(--accent)':'transparent'; inclBtn.style.color=val?'white':'var(--text3)'; }
+  if(adicBtn){ adicBtn.style.background=!val?'var(--accent)':'transparent'; adicBtn.style.color=!val?'white':'var(--text3)'; }
+  calcBenPreview();
+}
+
+function setBenType(t){
+  benType=t;
+  const pctBtn=document.getElementById('ben-chip-pct');
+  const montoBtn=document.getElementById('ben-chip-monto');
+  const pctInput=document.getElementById('ben-pct');
+  const montoInput=document.getElementById('ben-amount');
+  if(pctBtn){ pctBtn.style.background=t==='pct'?'var(--accent)':'transparent'; pctBtn.style.color=t==='pct'?'white':'var(--text3)'; }
+  if(montoBtn){ montoBtn.style.background=t==='monto'?'var(--accent)':'transparent'; montoBtn.style.color=t==='monto'?'white':'var(--text3)'; }
+  if(pctInput) pctInput.style.display=t==='pct'?'':'none';
+  if(montoInput) montoInput.style.display=t==='monto'?'':'none';
+  calcBenPreview();
+}
+
+function getBenAmount(){
+  if(!benOn) return 0;
+  if(benType==='monto') return parseFloat(document.getElementById('ben-amount').value)||0;
+  const pct=parseFloat(document.getElementById('ben-pct').value)||0;
+  const amount=parseFloat(document.getElementById('amount').value)||0;
+  if(benIncluida){
+    // Extraer del total: ben = total * pct / (100 + pct)
+    return +(amount * pct / (100 + pct)).toFixed(2);
+  } else {
+    // Adicional: ben = total * pct / 100
+    return +(amount * pct / 100).toFixed(2);
+  }
+}
+
 
 function togglePropina(){
   propinaOn=!propinaOn;
