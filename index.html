@@ -2318,7 +2318,7 @@ function renderBalanceCats(){
     const amtColor = balView==='ahorro-pasivo' ? 'var(--amber)' : 'var(--blue)';
     Object.entries(catTotals).sort((a,b)=>b[1]-a[1]).forEach(([cat,tot])=>{
       const color=catColor(cat);
-      const items=(catItems[cat]||[]).sort((a,b)=>b.id-a.id);
+      const items=(catItems[cat]||[]).sort((a,b)=>b.amountMXN-a.amountMXN);
       const row=document.createElement('div');
       row.className='cat-expand-row';
       row.innerHTML=`
