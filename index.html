@@ -1121,11 +1121,19 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
           </div>
           <!-- Beneficio panel -->
           <div id="e-ben-panel" style="display:none;margin-top:12px;padding:12px;background:var(--surface2);border-radius:var(--radius-sm);">
-            <div style="margin-bottom:10px;">
-              <label style="font-size:13px;font-weight:600;color:var(--text2);">Monto del beneficio</label>
-              <div style="display:flex;align-items:center;gap:8px;margin-top:6px;">
-                <input type="number" id="e-ben-amount" placeholder="Ej. 45.00" inputmode="decimal" step="0.01" min="0" style="flex:1;padding:11px 13px;border:none;border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-family:inherit;font-size:15px;outline:none;">
+            <!-- Row 1: % / $ toggle -->
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+              <div style="display:flex;background:var(--surface);border-radius:100px;padding:3px;gap:2px;flex-shrink:0;box-shadow:0 1px 4px rgba(0,0,0,0.12),0 0 0 1px var(--border2);">
+                <button id="e-ben-chip-pct" onclick="setEditBenType('pct')" style="padding:5px 12px;border-radius:100px;border:none;background:transparent;color:var(--text3);font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;transition:all 0.18s;">%</button>
+                <button id="e-ben-chip-monto" onclick="setEditBenType('monto')" style="padding:5px 12px;border-radius:100px;border:none;background:var(--accent);color:white;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;transition:all 0.18s;">$</button>
               </div>
+              <span style="font-size:12px;color:var(--text3);">Se resta del monto y se suma a ahorro pasivo</span>
+            </div>
+            <!-- Row 2: input + preview -->
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+              <input type="number" id="e-ben-pct" placeholder="" inputmode="decimal" step="0.5" min="0" max="100" oninput="calcEditBenPreview()" style="width:160px;padding:9px 12px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-family:inherit;font-size:15px;outline:none;-webkit-appearance:none;appearance:none;display:none;">
+              <input type="number" id="e-ben-amount" placeholder="Ej. 45.00" inputmode="decimal" step="0.01" min="0" oninput="calcEditBenPreview()" style="width:160px;padding:9px 12px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-family:inherit;font-size:15px;outline:none;-webkit-appearance:none;appearance:none;">
+              <span id="e-ben-calc" style="font-size:13px;color:var(--text3);"></span>
             </div>
             <div>
               <label style="font-size:13px;font-weight:600;color:var(--text2);display:block;margin-bottom:6px;">Tipo de beneficio</label>
@@ -1850,6 +1858,50 @@ function setMethod(m,el){
 }
 
 const BEN_TYPES = ['Cashback','Puntos de lealtad','Puntos TDC','Millas aéreas','Descuentos y promociones','Otros beneficios'];
+
+// ── Estado del beneficio en edición (espejo del registro) ──
+let editBenType_mode = 'monto'; // 'pct' | 'monto'
+
+function setEditBenType(t){
+  editBenType_mode=t;
+  const pctBtn=document.getElementById('e-ben-chip-pct');
+  const montoBtn=document.getElementById('e-ben-chip-monto');
+  const pctInput=document.getElementById('e-ben-pct');
+  const montoInput=document.getElementById('e-ben-amount');
+  if(pctBtn){ pctBtn.style.background=t==='pct'?'var(--accent)':'transparent'; pctBtn.style.color=t==='pct'?'white':'var(--text3)'; }
+  if(montoBtn){ montoBtn.style.background=t==='monto'?'var(--accent)':'transparent'; montoBtn.style.color=t==='monto'?'white':'var(--text3)'; }
+  if(pctInput) pctInput.style.display=t==='pct'?'':'none';
+  if(montoInput) montoInput.style.display=t==='monto'?'':'none';
+  calcEditBenPreview();
+}
+
+function getEditBenAmount(){
+  if(!editBenOn) return 0;
+  if(editBenType_mode==='monto') return parseFloat(document.getElementById('e-ben-amount').value)||0;
+  const pct=parseFloat(document.getElementById('e-ben-pct').value)||0;
+  const amount=parseFloat(document.getElementById('e-amount').value)||0;
+  return +(amount * pct / 100).toFixed(2);
+}
+
+function calcEditBenPreview(){
+  const calcEl=document.getElementById('e-ben-calc');
+  if(!calcEl) return;
+  const cur=document.getElementById('e-currency').value;
+  const sym=cur==='MXN'?'$':`${cur} `;
+  if(editBenType_mode==='monto'){
+    const benVal=parseFloat(document.getElementById('e-ben-amount').value)||0;
+    if(cur!=='MXN' && benVal>0){
+      calcEl.textContent=`= $${toMXN(benVal,cur).toFixed(2)} MXN`;
+    } else { calcEl.textContent=''; }
+    return;
+  }
+  const pct=parseFloat(document.getElementById('e-ben-pct').value)||0;
+  const amount=parseFloat(document.getElementById('e-amount').value)||0;
+  if(pct>0 && amount>0){
+    calcEl.textContent=`= ${sym}${(amount*pct/100).toFixed(2)}`;
+  } else { calcEl.textContent=''; }
+}
+
 
 // Unificar: las categorías de ahorro pasivo SON los tipos de beneficio.
 // Así coinciden sin importar si se registra dentro de un gasto o por separado.
@@ -2981,7 +3033,11 @@ function openEdit(id) {
 
   // --- Campos base ---
   document.getElementById('e-desc').value     = e.desc;
-  document.getElementById('e-amount').value   = e.amount;
+  // El monto guardado ya tiene el beneficio restado. Para editar mostramos el monto
+  // ORIGINAL (sumando de vuelta el beneficio vinculado), así no se descuenta doble.
+  const _linkedBen = e.type==='egreso' ? data.find(x=>x.linkedTo===id&&x.type==='ahorro-pasivo') : null;
+  const _origAmount = _linkedBen ? +(e.amount + _linkedBen.amount).toFixed(2) : e.amount;
+  document.getElementById('e-amount').value   = _origAmount;
   document.getElementById('e-currency').value = e.currency||'MXN';
   document.getElementById('e-date').value     = e.date;
   initStrip('e-date-strip', e.date);
@@ -3017,6 +3073,10 @@ function openEdit(id) {
     editBenOn=false; editBenType='Cashback';
     document.getElementById('e-ben-amount').value='';
   }
+  // El beneficio se guarda como monto MXN final; al editar siempre se muestra como monto directo
+  editBenType_mode='monto';
+  const ePctInput=document.getElementById('e-ben-pct'); if(ePctInput) ePctInput.value='';
+  setEditBenType('monto');
   buildBenTypeBlocks('e-ben-type-blocks', editBenType, t=>{ editBenType=t; });
   updateEBenUI();
   onECurChange();
@@ -3160,7 +3220,17 @@ function saveEdit(){
   if(subcatWrap.classList.contains('vis')&&!subcat) return toast('Selecciona una subcategoría');
   if(!date) return toast('Selecciona una fecha');
 
-  const amountMXN=toMXN(amount,cur);
+  // Calcular monto del beneficio (respeta %/$). Se resta SIEMPRE del monto registrado.
+  let benAmt = 0;
+  if(editType==='egreso' && editBenOn){
+    benAmt = getEditBenAmount();
+  }
+  let mainAmount = amount;
+  if(benAmt > 0){
+    mainAmount = +(amount - benAmt).toFixed(2);
+    if(mainAmount < 0) mainAmount = 0;
+  }
+  const amountMXN=toMXN(mainAmount,cur);
   const noteWithRate=[note,rateNote(cur)].filter(Boolean).join(' | ');
 
   const idx=data.findIndex(x=>x.id===editId);
@@ -3172,25 +3242,29 @@ function saveEdit(){
 
   data[idx]={
     ...data[idx],
-    type:editType, amount, amountMXN, currency:cur,
+    type:editType, amount:mainAmount, amountMXN, currency:cur,
     desc, category:editCat, subcategory:subcat,
     method:editType!=='ahorro-pasivo'?editMethod:null,
     date, note:noteWithRate
   };
 
   // Save new benefit if applicable
-  if(editType==='egreso'&&editBenOn){
-    const ba=parseFloat(document.getElementById('e-ben-amount').value);
+  if(editType==='egreso'&&editBenOn&&benAmt>0){
     const bt=editBenType;
-    if(ba>0){
-      data.unshift({
-        id:genId(), type:'ahorro-pasivo',
-        amount:ba, amountMXN:ba, currency:'MXN',
-        desc:desc, category:bt, subcategory:'',
-        method:null, date,
-        note:'Vinculado a: '+desc, linkedTo:editId
-      });
+    const baMXN=toMXN(benAmt,cur);
+    let benNote='Vinculado a: '+desc;
+    if(editBenType_mode==='pct'){
+      const pct=parseFloat(document.getElementById('e-ben-pct').value)||0;
+      const sym=cur==='MXN'?'$':`${cur} `;
+      benNote += ` | ${pct}% de ${sym}${amount.toFixed(2)}`;
     }
+    data.unshift({
+      id:genId(), type:'ahorro-pasivo',
+      amount:benAmt, amountMXN:baMXN, currency:cur,
+      desc:desc, category:bt, subcategory:'',
+      method:null, date,
+      note:benNote, linkedTo:editId
+    });
   }
 
   save();
