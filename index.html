@@ -131,6 +131,70 @@ nav {
 .type-btn.active.t-ahorro  { background: var(--blue-light);   color: var(--blue); }
 .type-btn.active.t-pasivo  { background: var(--amber-light);  color: var(--amber); }
 
+/* ── Animación de despliegue estilo apple.com (revela de arriba a abajo) ── */
+@keyframes revealDown {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.reveal-down {
+  animation: revealDown 0.34s cubic-bezier(0.32, 0.72, 0, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .reveal-down { animation: none; }
+  .seg-thumb { transition: none; }
+}
+
+/* ── Segmented control deslizante estilo iOS ── */
+.seg-control {
+  position: relative;
+  display: flex;
+  background: var(--surface2);
+  border-radius: 12px;
+  padding: 3px;
+  margin-bottom: 28px;
+  isolation: isolate;
+}
+.seg-thumb {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  left: 3px;
+  width: calc((100% - 6px) / 3);
+  background: var(--surface);
+  border-radius: 9px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.14), 0 1px 2px rgba(0,0,0,0.10);
+  transition: transform 0.32s cubic-bezier(0.32, 0.72, 0, 1), background 0.25s ease;
+  z-index: -1;
+}
+.seg-option {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 4px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text3);
+  transition: color 0.25s ease;
+  -webkit-tap-highlight-color: transparent;
+  z-index: 1;
+}
+.seg-option .seg-ico { font-size: 15px; line-height: 1; }
+.seg-option.active { color: var(--text); }
+/* Colores del thumb según tipo activo */
+.seg-control[data-active="egreso"]  .seg-thumb { background: var(--danger-light); }
+.seg-control[data-active="egreso"]  .seg-option.active { color: var(--danger); }
+.seg-control[data-active="ingreso"] .seg-thumb { background: var(--green-light); }
+.seg-control[data-active="ingreso"] .seg-option.active { color: var(--green); }
+.seg-control[data-active="ahorro-pasivo"] .seg-thumb { background: #af52de22; }
+.seg-control[data-active="ahorro-pasivo"] .seg-option.active { color: #af52de; }
+
 /* FIELDS */
 .field { margin-bottom: 14px; }
 .field label {
@@ -747,12 +811,12 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
     <p id="hdr-date"></p>
   </div>
   <div class="form-wrap">
-    <div class="type-grid">
-      <button class="type-btn active t-egreso" data-t="egreso" onclick="setType('egreso')"><span class="icon">↓</span>Egreso</button>
-      <button class="type-btn t-ingreso" data-t="ingreso" onclick="setType('ingreso')"><span class="icon">↑</span>Ingreso</button>
-      <div id="ahorro-type-wrap" style="position:relative;flex:1">
-        <button class="type-btn t-pasivo" id="type-btn-ahorro" data-t="ahorro-pasivo" onclick="setType('ahorro-pasivo')" style="width:100%"><span class="icon">★</span><span id="ahorro-type-lbl">Beneficio</span></button>
-      </div>
+    <!-- Segmented control deslizante estilo iOS -->
+    <div class="seg-control" id="type-seg" data-active="egreso">
+      <div class="seg-thumb" id="seg-thumb"></div>
+      <button class="seg-option active" data-t="egreso" onclick="setType('egreso')"><span class="seg-ico">↓</span><span>Egreso</span></button>
+      <button class="seg-option" data-t="ingreso" onclick="setType('ingreso')"><span class="seg-ico">↑</span><span>Ingreso</span></button>
+      <button class="seg-option" data-t="ahorro-pasivo" onclick="setType('ahorro-pasivo')"><span class="seg-ico">★</span><span>Beneficio</span></button>
     </div>
 
     <!-- Ahorro sub-type selector — oculto: solo se usa ahorro pasivo -->
@@ -1582,15 +1646,39 @@ function rateNote(c){
 function goNav(id, btn) {
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
-  document.getElementById('page-'+id).classList.add('active');
+  const page=document.getElementById('page-'+id);
+  page.classList.add('active');
+  revealAnimate(page);
   btn.classList.add('active');
   if(id==='balance')     { loadFromSheets(); }
   if(id==='presupuesto') { populateSelectors(); renderBudget(); }
   if(id==='historial')   { loadFromSheets(); }
 }
 
+// Aplica la animación de despliegue estilo apple.com a un elemento
+function revealAnimate(el){
+  if(!el) return;
+  el.classList.remove('reveal-down');
+  // Forzar reflow para reiniciar la animación
+  void el.offsetWidth;
+  el.classList.add('reveal-down');
+}
+
 function setType(t) {
   curType=t; curCat=''; curSubcat='';
+  // Segmented control: mover thumb y actualizar estado activo
+  const seg=document.getElementById('type-seg');
+  const thumb=document.getElementById('seg-thumb');
+  if(seg){
+    seg.setAttribute('data-active', t);
+    const order={egreso:0, ingreso:1, 'ahorro-pasivo':2};
+    const idx=order[t] !== undefined ? order[t] : 0;
+    if(thumb) thumb.style.transform=`translateX(${idx*100}%)`;
+    seg.querySelectorAll('.seg-option').forEach(b=>{
+      b.classList.toggle('active', b.dataset.t===t);
+    });
+  }
+  // Compatibilidad con botones viejos (por si quedan referencias)
   document.querySelectorAll('.type-btn').forEach(b=>{
     b.classList.remove('active');
     if(b.dataset.t===t) b.classList.add('active');
@@ -1697,7 +1785,9 @@ function inlineTogglePropina(){
   } else {
     _propinaVisible=true; propinaOn=true;
     _benVisible=false;
-    document.getElementById('propina-panel').style.display='block';
+    const ppanel=document.getElementById('propina-panel');
+    ppanel.style.display='block';
+    revealAnimate(ppanel);
     document.getElementById('ben-panel').style.display='none';
     updateInlineBtn('inline-propina-btn', true, false);
     updateInlineBtn('inline-ben-btn', false, benHasData());
@@ -1712,7 +1802,9 @@ function inlineToggleBen(){
   } else {
     _benVisible=true; benOn=true;
     _propinaVisible=false;
-    document.getElementById('ben-panel').style.display='block';
+    const bpanel=document.getElementById('ben-panel');
+    bpanel.style.display='block';
+    revealAnimate(bpanel);
     document.getElementById('propina-panel').style.display='none';
     updateInlineBtn('inline-ben-btn', true, false);
     updateInlineBtn('inline-propina-btn', false, propinaHasData());
@@ -1792,6 +1884,7 @@ function selectCat(cat,el,colorCls) {
     container.appendChild(b);
   });
   wrap.classList.add('vis');
+  revealAnimate(wrap);
 }
 
 function selectSubcat(sub, el, colorCls) {
@@ -2353,6 +2446,7 @@ function toggleBonoDetail(){
     document.getElementById('dash-detail-lbl').style.display='none';
     document.getElementById('dash-cats').innerHTML='';
     detail.style.display='block';
+    revealAnimate(detail);
     if(bonoStat) bonoStat.classList.add('active-filter');
   }
 }
@@ -2364,6 +2458,10 @@ function renderBalanceCats(){
   cl.innerHTML='';
 
   if(!balView){ lbl.style.display='none'; return; }
+
+  // Animación de despliegue al mostrar el desglose
+  revealAnimate(cl);
+  revealAnimate(lbl);
 
   const typeNames={ingreso:'Ingresos',egreso:'Egresos',ahorro:'Ahorro activo','ahorro-pasivo':'Beneficios'};
   lbl.style.display='block';
