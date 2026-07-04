@@ -751,7 +751,7 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
       <button class="type-btn active t-egreso" data-t="egreso" onclick="setType('egreso')"><span class="icon">↓</span>Egreso</button>
       <button class="type-btn t-ingreso" data-t="ingreso" onclick="setType('ingreso')"><span class="icon">↑</span>Ingreso</button>
       <div id="ahorro-type-wrap" style="position:relative;flex:1">
-        <button class="type-btn t-pasivo" id="type-btn-ahorro" data-t="ahorro-pasivo" onclick="setType('ahorro-pasivo')" style="width:100%"><span class="icon">★</span><span id="ahorro-type-lbl">Pasivo</span></button>
+        <button class="type-btn t-pasivo" id="type-btn-ahorro" data-t="ahorro-pasivo" onclick="setType('ahorro-pasivo')" style="width:100%"><span class="icon">★</span><span id="ahorro-type-lbl">Beneficio</span></button>
       </div>
     </div>
 
@@ -761,7 +761,7 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
         <button onclick="setAhorroSubType('ahorro')" id="ahorro-sub-activo"
           style="flex:1;padding:10px 0;border-radius:100px;border:none;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;background:var(--blue);color:white;transition:all 0.2s;">◎ Activo</button>
         <button onclick="setAhorroSubType('ahorro-pasivo')" id="ahorro-sub-pasivo"
-          style="flex:1;padding:10px 0;border-radius:100px;border:none;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;background:var(--surface2);color:var(--text3);transition:all 0.2s;">★ Pasivo</button>
+          style="flex:1;padding:10px 0;border-radius:100px;border:none;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;background:var(--surface2);color:var(--text3);transition:all 0.2s;">★ Beneficio</button>
       </div>
     </div>
 
@@ -833,7 +833,7 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
               <button id="ben-chip-pct" onclick="setBenType('pct')" style="padding:5px 12px;border-radius:100px;border:none;background:transparent;color:var(--text3);font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;transition:all 0.18s;">%</button>
               <button id="ben-chip-monto" onclick="setBenType('monto')" style="padding:5px 12px;border-radius:100px;border:none;background:var(--accent);color:white;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;transition:all 0.18s;">$</button>
             </div>
-            <span style="font-size:12px;color:var(--text3);">Se resta del monto y se suma a ahorro pasivo</span>
+            <span style="font-size:12px;color:var(--text3);">Se resta del monto y se suma a beneficios</span>
           </div>
           <!-- Row 2: input + preview -->
           <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
@@ -924,11 +924,11 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
     <div class="val" id="bal-val">$0.00</div>
     <div class="sub" id="bal-hero-sub">Ingresos − Egresos</div>
   </div>
-  <div class="grid2">
-    <div class="stat" style="cursor:pointer" onclick="setBalView('ingreso',this)">
+  <div class="grid2" id="bal-stats-grid">
+    <div class="stat" id="ingreso-stat" style="cursor:pointer" onclick="setBalView('ingreso',this)">
       <div class="lbl">Ingresos</div><div class="val g" id="d-ing">$0</div>
     </div>
-    <div class="stat" style="cursor:pointer" onclick="setBalView('egreso',this)">
+    <div class="stat" id="egreso-stat" style="cursor:pointer" onclick="setBalView('egreso',this)">
       <div class="lbl">Egresos</div><div class="val r" id="d-egr">$0</div>
     </div>
     <div class="stat" id="bono-stat" style="cursor:pointer" onclick="toggleBonoDetail()">
@@ -936,10 +936,10 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
       <div class="sub" id="bono-stat-sub">Disponible</div>
     </div>
     <div class="stat" id="pasivo-stat" style="cursor:pointer" onclick="setBalView('ahorro-pasivo',this)">
-      <div class="lbl">Ahorro pasivo</div><div class="val a" id="d-pas">$0</div>
-      <div class="sub">Bonus acumulado</div>
+      <div class="lbl">Beneficios</div><div class="val a" id="d-pas">$0</div>
+      <div class="sub">Recompensas del mes</div>
     </div>
-    <!-- Detalle desplegable del bono (ocupa todo el ancho cuando se abre) -->
+    <!-- Detalle desplegable del bono -->
     <div id="bono-detail-row" style="display:none;grid-column:1/-1;background:var(--surface2);border-radius:var(--radius-sm);padding:12px 14px;margin-top:-4px;"></div>
   </div>
   <div class="sec-lbl" id="dash-detail-lbl" style="display:none"></div>
@@ -955,6 +955,11 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
     <div style="padding:0 16px;margin-bottom:20px;">
       <div class="card" style="padding:16px;">
         <canvas id="annual-canvas" height="200"></canvas>
+        <div style="display:flex;justify-content:center;gap:16px;margin-top:12px;flex-wrap:wrap;">
+          <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2);"><span style="width:10px;height:10px;border-radius:2px;background:#34c759;"></span>Ingresos</div>
+          <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2);"><span style="width:10px;height:10px;border-radius:2px;background:#ff3b30;"></span>Egresos</div>
+          <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2);"><span style="width:10px;height:10px;border-radius:2px;background:#ffcc00;"></span>Beneficios</div>
+        </div>
       </div>
     </div>
     <div class="sec-lbl" id="annual-month-lbl" style="display:none"></div>
@@ -1022,7 +1027,7 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
     <button class="f-chip" onclick="setFilter('egreso',this)">Egresos</button>
     <button class="f-chip" onclick="setFilter('ingreso',this)">Ingresos</button>
     <button class="f-chip" onclick="setFilter('ahorro',this)" style="display:none">Ahorro activo</button>
-    <button class="f-chip" onclick="setFilter('ahorro-pasivo',this)">Ahorro pasivo</button>
+    <button class="f-chip" onclick="setFilter('ahorro-pasivo',this)">Beneficios</button>
     <button id="method-filter-toggle-btn" onclick="toggleMethodFilters()" style="display:flex;align-items:center;gap:4px;padding:6px 12px;border-radius:100px;border:1.5px solid var(--border2);background:var(--surface2);font-family:inherit;font-size:12px;font-weight:600;color:var(--text2);cursor:pointer;white-space:nowrap;">
       <span id="method-filter-indicator" style="width:7px;height:7px;border-radius:50%;background:var(--border2);flex-shrink:0;transition:background 0.2s;"></span>
       Método <span id="method-filter-arrow" style="font-size:10px;transition:transform 0.2s;display:inline-block;">▸</span>
@@ -1077,7 +1082,7 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
         <button class="type-btn t-egreso" data-et="egreso" onclick="setEditType('egreso',this)"><span class="icon">↓</span>Egreso</button>
         <button class="type-btn t-ingreso" data-et="ingreso" onclick="setEditType('ingreso',this)"><span class="icon">↑</span>Ingreso</button>
         <div id="e-ahorro-type-wrap" style="position:relative;flex:1">
-          <button class="type-btn t-pasivo" id="e-type-btn-ahorro" data-et="ahorro-pasivo" onclick="setEditType('ahorro-pasivo',this)" style="width:100%"><span class="icon">★</span><span id="e-ahorro-type-lbl">Pasivo</span></button>
+          <button class="type-btn t-pasivo" id="e-type-btn-ahorro" data-et="ahorro-pasivo" onclick="setEditType('ahorro-pasivo',this)" style="width:100%"><span class="icon">★</span><span id="e-ahorro-type-lbl">Beneficio</span></button>
         </div>
       </div>
 
@@ -1087,7 +1092,7 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
           <button onclick="setEditAhorroSubType('ahorro')" id="e-ahorro-sub-activo"
             style="flex:1;padding:10px 0;border-radius:100px;border:none;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;background:var(--blue);color:white;transition:all 0.2s;">◎ Activo</button>
           <button onclick="setEditAhorroSubType('ahorro-pasivo')" id="e-ahorro-sub-pasivo"
-            style="flex:1;padding:10px 0;border-radius:100px;border:none;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;background:var(--surface2);color:var(--text3);transition:all 0.2s;">★ Pasivo</button>
+            style="flex:1;padding:10px 0;border-radius:100px;border:none;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;background:var(--surface2);color:var(--text3);transition:all 0.2s;">★ Beneficio</button>
         </div>
       </div>
 
@@ -1127,7 +1132,7 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
                 <button id="e-ben-chip-pct" onclick="setEditBenType('pct')" style="padding:5px 12px;border-radius:100px;border:none;background:transparent;color:var(--text3);font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;transition:all 0.18s;">%</button>
                 <button id="e-ben-chip-monto" onclick="setEditBenType('monto')" style="padding:5px 12px;border-radius:100px;border:none;background:var(--accent);color:white;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;transition:all 0.18s;">$</button>
               </div>
-              <span style="font-size:12px;color:var(--text3);">Se resta del monto y se suma a ahorro pasivo</span>
+              <span style="font-size:12px;color:var(--text3);">Se resta del monto y se suma a beneficios</span>
             </div>
             <!-- Row 2: input + preview -->
             <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
@@ -1765,7 +1770,7 @@ function setAhorroSubType(t){
   if(pasivoBtn){ pasivoBtn.style.background=t==='ahorro-pasivo'?'var(--amber)':'var(--surface2)'; pasivoBtn.style.color=t==='ahorro-pasivo'?'white':'var(--text3)'; }
   const mainBtn=document.getElementById('type-btn-ahorro');
   const lbl=document.getElementById('ahorro-type-lbl');
-  if(lbl) lbl.textContent=t==='ahorro'?'Ahorro':'Pasivo';
+  if(lbl) lbl.textContent=t==='ahorro'?'Ahorro':'Beneficio';
   if(mainBtn){ mainBtn.className='type-btn active '+(t==='ahorro'?'t-ahorro':'t-pasivo'); mainBtn.querySelector('.icon').textContent=t==='ahorro'?'◎':'★'; }
 }
 
@@ -2262,11 +2267,11 @@ function renderBalance(){
   document.getElementById('d-egr').textContent=fmt(egr);
   const dAho=document.getElementById('d-aho'); if(dAho) dAho.textContent=fmt(aho);
   document.getElementById('d-pas').textContent=fmt(pas);
-  // Ocultar tarjetón de ahorro pasivo si no hay movimientos en el mes
+  // Ocultar tarjetón de beneficios si no hay movimientos en el mes
   const pasivoStat=document.getElementById('pasivo-stat');
   if(pasivoStat) pasivoStat.style.display = pas>0 ? '' : 'none';
 
-  // ── Bono de despensa — ahora en su propio tarjetón del grid ──
+  // ── Bono de despensa — tarjetón propio del grid ──
   const bonoEgr=md.filter(e=>e.method==='Bono de despensa'&&e.type==='egreso').reduce((s,e)=>s+e.amountMXN,0);
   const bonoIng=md.filter(e=>e.category==='Bono de despensa'&&e.type==='ingreso').reduce((s,e)=>s+e.amountMXN,0);
   const bonoNet=bonoIng-bonoEgr;
@@ -2277,36 +2282,57 @@ function renderBalance(){
   const bonoHasMov = bonoEgr>0||bonoIng>0;
   if(bonoHasMov){
     if(bonoStat) bonoStat.style.display='';
+    const bonoNeg = bonoNet<0;
     if(dBono){
-      dBono.textContent=fmt(bonoNet);
-      // Usar clases g/r (en vez de color inline) para que active-filter respete el color
+      // fmt() usa valor absoluto; agregamos el signo − manualmente cuando hay sobregiro
+      dBono.textContent=(bonoNeg?'−':'')+fmt(bonoNet);
       dBono.classList.remove('g','r');
-      dBono.classList.add(bonoNet>=0?'g':'r');
+      dBono.classList.add(bonoNeg?'r':'g');
       dBono.style.color='';
     }
-    if(bonoSub) bonoSub.textContent='Disponible';
+    // Subtítulo: "Disponible" si hay saldo, "Excedido" si te pasaste
+    if(bonoSub) bonoSub.textContent = bonoNeg ? 'Excedido este mes' : 'Disponible';
     if(bonoDetail){
       bonoDetail.innerHTML=`
         ${bonoIng>0?`<div style="display:flex;justify-content:space-between;font-size:13px;padding:3px 0;color:var(--text2)"><span>Ingresado</span><span style="font-weight:600;color:var(--green)">+${fmt(bonoIng)}</span></div>`:''}
         ${bonoEgr>0?`<div style="display:flex;justify-content:space-between;font-size:13px;padding:3px 0;color:var(--text2)"><span>Gastado</span><span style="font-weight:600;color:var(--danger)">−${fmt(bonoEgr)}</span></div>`:''}
-        <div style="display:flex;justify-content:space-between;font-size:13px;padding:6px 0 0;margin-top:4px;border-top:1px solid var(--border2);color:var(--text)"><span style="font-weight:600">Disponible</span><span style="font-weight:700;color:${bonoNet>=0?'var(--green)':'var(--danger)'}">${fmt(bonoNet)}</span></div>`;
+        <div style="display:flex;justify-content:space-between;font-size:13px;padding:6px 0 0;margin-top:4px;border-top:1px solid var(--border2);color:var(--text)"><span style="font-weight:600">${bonoNeg?'Excedido':'Disponible'}</span><span style="font-weight:700;color:${bonoNeg?'var(--danger)':'var(--green)'}">${bonoNeg?'−':''}${fmt(bonoNet)}</span></div>`;
     }
   } else {
     if(bonoStat) bonoStat.style.display='none';
     if(bonoDetail) bonoDetail.style.display='none';
   }
 
-  // Si solo uno de los dos tarjetones (bono / pasivo) está visible, que ocupe todo el ancho
-  const pasivoVisible = pas>0;
-  if(bonoStat)   bonoStat.style.gridColumn   = (bonoHasMov && !pasivoVisible) ? '1/-1' : '';
-  if(pasivoStat) pasivoStat.style.gridColumn = (pasivoVisible && !bonoHasMov) ? '1/-1' : '';
+  // ── Visibilidad + orden por jerarquía ──
+  // Cada tarjetón aparece solo si tiene datos. Orden fijo: Ingresos, Egresos, Bono, Beneficios.
+  // Se reordenan en el DOM para que llenen la cuadrícula 2×2 sin huecos ni expansiones.
+  const ingresoStat=document.getElementById('ingreso-stat');
+  const egresoStat=document.getElementById('egreso-stat');
+  if(ingresoStat) ingresoStat.style.display = ing>0 ? '' : 'none';
+  if(egresoStat)  egresoStat.style.display  = egr>0 ? '' : 'none';
 
-  // Re-highlight active stat card (bono no es navegable, se omite)
+  // Ninguno ocupa todo el ancho — siempre media columna
+  [ingresoStat,egresoStat,bonoStat,pasivoStat].forEach(s=>{ if(s) s.style.gridColumn=''; });
+
+  // Reordenar según prioridad, colocando el detalle del bono al final
+  const grid=document.getElementById('bal-stats-grid');
+  if(grid){
+    const order=[
+      {stat:ingresoStat, show:ing>0},
+      {stat:egresoStat,  show:egr>0},
+      {stat:bonoStat,    show:bonoHasMov},
+      {stat:pasivoStat,  show:pas>0},
+    ];
+    order.forEach(o=>{ if(o.stat && o.show) grid.appendChild(o.stat); });
+    if(bonoDetail) grid.appendChild(bonoDetail); // el detalle siempre al final
+  }
+
+  // Re-highlight active stat card por ID (el orden del DOM ahora es dinámico)
   if(balView){
-    const navMap={ingreso:0,egreso:1,'ahorro-pasivo':3};
-    document.querySelectorAll('#page-balance .grid2 .stat').forEach((s,i)=>{
-      s.classList.toggle('active-filter', navMap[balView]===i);
-    });
+    const idMap={ingreso:'ingreso-stat',egreso:'egreso-stat','ahorro-pasivo':'pasivo-stat'};
+    document.querySelectorAll('#page-balance .grid2 .stat').forEach(s=>s.classList.remove('active-filter'));
+    const activeId=idMap[balView];
+    if(activeId){ const activeEl=document.getElementById(activeId); if(activeEl) activeEl.classList.add('active-filter'); }
   }
   renderBalanceCats();
 }
@@ -2339,7 +2365,7 @@ function renderBalanceCats(){
 
   if(!balView){ lbl.style.display='none'; return; }
 
-  const typeNames={ingreso:'Ingresos',egreso:'Egresos',ahorro:'Ahorro activo','ahorro-pasivo':'Ahorro pasivo'};
+  const typeNames={ingreso:'Ingresos',egreso:'Egresos',ahorro:'Ahorro activo','ahorro-pasivo':'Beneficios'};
   lbl.style.display='block';
   lbl.textContent=typeNames[balView];
 
@@ -3014,7 +3040,7 @@ function openEdit(id) {
   const isAhorro = e.type==='ahorro'||e.type==='ahorro-pasivo';
   if(isAhorro){
     document.getElementById('e-type-btn-ahorro').classList.add('active');
-    document.getElementById('e-ahorro-type-lbl').textContent = e.type==='ahorro-pasivo'?'Pasivo':'Ahorro';
+    document.getElementById('e-ahorro-type-lbl').textContent = e.type==='ahorro-pasivo'?'Beneficio':'Ahorro';
   } else {
     document.querySelector(`[data-et="${e.type}"]`)?.classList.add('active');
   }
@@ -3141,7 +3167,7 @@ function setEditType(t,btn){
   document.querySelectorAll('[data-et]').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
   document.getElementById('e-ahorro-sub-toggle').style.display='none';
-  document.getElementById('e-ahorro-type-lbl').textContent = t==='ahorro-pasivo'?'Pasivo':'Ahorro';
+  document.getElementById('e-ahorro-type-lbl').textContent = t==='ahorro-pasivo'?'Beneficio':'Ahorro';
   document.getElementById('e-inline-toggles').style.display=t==='egreso'?'block':'none';
   document.getElementById('e-method-field').style.display=t==='ahorro-pasivo'?'none':'block';
   if(t!=='egreso'){ editBenOn=false; updateEBenUI(); }
@@ -3161,7 +3187,7 @@ function setEditAhorroType(){
 function setEditAhorroSubType(sub){
   editType = sub;
   editCat=''; editSubcat='';
-  document.getElementById('e-ahorro-type-lbl').textContent = sub==='ahorro-pasivo'?'Pasivo':'Ahorro';
+  document.getElementById('e-ahorro-type-lbl').textContent = sub==='ahorro-pasivo'?'Beneficio':'Ahorro';
   const activo=document.getElementById('e-ahorro-sub-activo');
   const pasivo=document.getElementById('e-ahorro-sub-pasivo');
   activo.style.background = sub==='ahorro'?'var(--blue)':'var(--surface2)';
@@ -3819,7 +3845,9 @@ function renderAnnual(){
 
   const ingData=Array.from({length:12},(_,m)=>sum(data.filter(e=>{const d=parseDate(e.date);return d.getMonth()===m&&d.getFullYear()===yr;}),'ingreso'));
   const egrData=Array.from({length:12},(_,m)=>sum(data.filter(e=>{const d=parseDate(e.date);return d.getMonth()===m&&d.getFullYear()===yr;}),'egreso'));
-  const maxVal=Math.max(...ingData,...egrData,1);
+  const benData=Array.from({length:12},(_,m)=>sum(data.filter(e=>{const d=parseDate(e.date);return d.getMonth()===m&&d.getFullYear()===yr;}),'ahorro-pasivo'));
+  // El máximo considera la barra de egreso + beneficio apilado encima
+  const maxVal=Math.max(...ingData,...egrData.map((e,m)=>e+benData[m]),1);
 
   const padL=4,padR=4,padT=10,padB=24;
   const chartW=W-padL-padR;
@@ -3831,6 +3859,7 @@ function renderAnnual(){
     const x=padL+m*groupW+groupW/2;
     const iH=Math.max(0,(ingData[m]/maxVal)*chartH);
     const eH=Math.max(0,(egrData[m]/maxVal)*chartH);
+    const bH=Math.max(0,(benData[m]/maxVal)*chartH);
     if(iH>0){
       ctx.fillStyle='#34c759';
       ctx.beginPath();
@@ -3839,10 +3868,21 @@ function renderAnnual(){
       ctx.fill();
     }
     if(eH>0){
+      // Barra roja de egreso
       ctx.fillStyle='#ff3b30';
       ctx.beginPath();
-      if(ctx.roundRect) ctx.roundRect(x+1,padT+chartH-eH,barW,eH,[2,2,0,0]);
+      // Si hay beneficio encima, la esquina superior del egreso va cuadrada
+      const egrRadius = bH>0 ? [0,0,0,0] : [2,2,0,0];
+      if(ctx.roundRect) ctx.roundRect(x+1,padT+chartH-eH,barW,eH,egrRadius);
       else ctx.rect(x+1,padT+chartH-eH,barW,eH);
+      ctx.fill();
+    }
+    if(bH>0){
+      // Segmento amarillo de beneficios, apilado encima del egreso
+      ctx.fillStyle='#ffcc00';
+      ctx.beginPath();
+      if(ctx.roundRect) ctx.roundRect(x+1,padT+chartH-eH-bH,barW,bH,[2,2,0,0]);
+      else ctx.rect(x+1,padT+chartH-eH-bH,barW,bH);
       ctx.fill();
     }
     ctx.fillStyle='#8e8e93';
@@ -3880,7 +3920,7 @@ function showAnnualMonthDetail(m,yr){
     <div class="stat"><div class="lbl">Ingresos</div><div class="val g">${fmt(ing)}</div></div>
     <div class="stat"><div class="lbl">Egresos</div><div class="val r">${fmt(egr)}</div></div>
     <div class="stat"><div class="lbl">Balance</div><div class="val ${bal>=0?'g':'r'}">${bal>=0?'+':''}${fmt(bal)}</div></div>
-    <div class="stat"><div class="lbl">Ahorro</div><div class="val b">${fmt(aho+pas)}</div></div>`;
+    <div class="stat"><div class="lbl">Beneficios</div><div class="val a">${fmt(aho+pas)}</div></div>`;
   cats.appendChild(summary);
   if(egr>0){
     const sec=document.createElement('div'); sec.className='sec-lbl'; sec.textContent='Egresos por categoría';
