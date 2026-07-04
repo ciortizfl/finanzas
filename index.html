@@ -857,7 +857,7 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
       </div>
     </div>
 
-    <div class="card" style="margin-bottom:14px">
+    <div class="card" id="register-form-card" style="margin-bottom:14px">
       <div class="field">
         <label>Descripción</label>
         <input type="text" id="desc" placeholder="¿En qué fue?" oninput="predictCategory()">
@@ -1684,18 +1684,60 @@ function goNav(id, btn) {
 }
 
 // Aplica la animación de despliegue estilo apple.com a un elemento.
+// Usa la Web Animations API (más confiable en Safari iOS que las clases CSS).
 // stagger=true hace que los hijos aparezcan en cascada (para listas).
 function revealAnimate(el, stagger){
   if(!el) return;
-  const cls = stagger ? 'reveal-stagger' : 'reveal-down';
-  // Quitar la clase y forzar que el navegador registre el cambio
-  el.classList.remove('reveal-down','reveal-stagger');
-  // Doble rAF: garantiza que Safari iOS procese la remoción antes de re-agregar,
-  // lo que hace que la animación se reinicie de forma confiable en móvil.
-  requestAnimationFrame(()=>{
-    requestAnimationFrame(()=>{
-      el.classList.add(cls);
+  // Respetar preferencia de movimiento reducido
+  if(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+  const easing='cubic-bezier(0.22, 0.61, 0.36, 1)';
+
+  if(stagger){
+    const kids=Array.from(el.children);
+    kids.forEach((k, i)=>{
+      const delay=Math.min(i, 12) * 65; // 65ms entre cada uno, tope a 12
+      try {
+        k.animate([
+          { opacity: 0, transform: 'translate3d(0, -24px, 0)' },
+          { opacity: 1, transform: 'translate3d(0, 0, 0)' }
+        ], { duration: 600, delay: delay, easing: easing, fill: 'backwards' });
+      } catch(e){}
     });
+  } else {
+    try {
+      el.animate([
+        { opacity: 0, transform: 'translate3d(0, -24px, 0)' },
+        { opacity: 1, transform: 'translate3d(0, 0, 0)' }
+      ], { duration: 700, easing: easing, fill: 'backwards' });
+    } catch(e){}
+  }
+}
+
+// Anima los hijos de un grid de N columnas escalonando por COLUMNA:
+// primero la columna izquierda (de arriba a abajo), luego la siguiente, etc.
+// Usa Web Animations API para confiabilidad en móvil.
+function revealGridByColumns(container, cols){
+  if(!container) return;
+  if(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+  const kids=Array.from(container.children);
+  const total=kids.length;
+  const rows=Math.ceil(total/cols);
+  const easing='cubic-bezier(0.22, 0.61, 0.36, 1)';
+
+  kids.forEach((k, i)=>{
+    const col = i % cols;
+    const row = Math.floor(i / cols);
+    // Orden: columna izquierda completa antes que la derecha
+    const orderIdx = col * rows + row;
+    const delay = orderIdx * 55; // 55ms entre apariciones
+    try {
+      k.animate([
+        { opacity: 0, transform: 'translate3d(0, -24px, 0)' },
+        { opacity: 1, transform: 'translate3d(0, 0, 0)' }
+      ], { duration: 550, delay: delay, easing: easing, fill: 'backwards' });
+    } catch(e){}
   });
 }
 
@@ -1764,6 +1806,8 @@ function setType(t) {
   const badge=document.getElementById('rate-note');
   if(badge) badge.style.display='none';
   document.getElementById('method-field').style.display=t==='ahorro-pasivo'?'none':'block';
+  // Efecto de despliegue en el formulario al cambiar de tipo
+  revealAnimate(document.getElementById('register-form-card'));
 }
 
 function buildCatBlocks() {
@@ -1777,6 +1821,8 @@ function buildCatBlocks() {
     b.onclick=()=>selectCat(cat,b,colorCls);
     container.appendChild(b);
   });
+  // Animación escalonada por columnas (izquierda → derecha)
+  revealGridByColumns(container, 2);
 }
 
 function updateInlineBtn(id, active, hasData){
@@ -1919,7 +1965,8 @@ function selectCat(cat,el,colorCls) {
     container.appendChild(b);
   });
   wrap.classList.add('vis');
-  revealAnimate(wrap);
+  // Animación escalonada por columnas (izquierda → derecha)
+  revealGridByColumns(container, 2);
 }
 
 function selectSubcat(sub, el, colorCls) {
