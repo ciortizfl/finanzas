@@ -958,7 +958,7 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
         <div style="display:flex;justify-content:center;gap:16px;margin-top:12px;flex-wrap:wrap;">
           <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2);"><span style="width:10px;height:10px;border-radius:2px;background:#34c759;"></span>Ingresos</div>
           <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2);"><span style="width:10px;height:10px;border-radius:2px;background:#ff3b30;"></span>Egresos</div>
-          <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2);"><span style="width:10px;height:10px;border-radius:2px;background:#ffcc00;"></span>Beneficios</div>
+          <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2);"><span style="width:10px;height:10px;border-radius:2px;background:#af52de;"></span>Beneficios</div>
         </div>
       </div>
     </div>
@@ -3878,8 +3878,8 @@ function renderAnnual(){
       ctx.fill();
     }
     if(bH>0){
-      // Segmento amarillo de beneficios, apilado encima del egreso
-      ctx.fillStyle='#ffcc00';
+      // Segmento violeta de beneficios, apilado encima del egreso
+      ctx.fillStyle='#af52de';
       ctx.beginPath();
       if(ctx.roundRect) ctx.roundRect(x+1,padT+chartH-eH-bH,barW,bH,[2,2,0,0]);
       else ctx.rect(x+1,padT+chartH-eH-bH,barW,bH);
