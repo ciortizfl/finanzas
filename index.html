@@ -131,16 +131,39 @@ nav {
 .type-btn.active.t-ahorro  { background: var(--blue-light);   color: var(--blue); }
 .type-btn.active.t-pasivo  { background: var(--amber-light);  color: var(--amber); }
 
-/* ── Animación de despliegue estilo apple.com (revela de arriba a abajo) ── */
+/* ── Animación de despliegue estilo apple.com (revela de arriba a abajo con expansión) ── */
 @keyframes revealDown {
-  from { opacity: 0; transform: translateY(-8px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(-16px);
+    clip-path: inset(0 0 100% 0);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    clip-path: inset(0 0 0 0);
+  }
 }
 .reveal-down {
-  animation: revealDown 0.34s cubic-bezier(0.32, 0.72, 0, 1);
+  animation: revealDown 0.55s cubic-bezier(0.28, 0.11, 0.32, 1);
+  transform-origin: top center;
 }
+/* Escalonado: los hijos directos aparecen en cascada de arriba a abajo */
+.reveal-stagger > * {
+  opacity: 0;
+  animation: revealDown 0.5s cubic-bezier(0.28, 0.11, 0.32, 1) forwards;
+}
+.reveal-stagger > *:nth-child(1) { animation-delay: 0.04s; }
+.reveal-stagger > *:nth-child(2) { animation-delay: 0.09s; }
+.reveal-stagger > *:nth-child(3) { animation-delay: 0.14s; }
+.reveal-stagger > *:nth-child(4) { animation-delay: 0.19s; }
+.reveal-stagger > *:nth-child(5) { animation-delay: 0.24s; }
+.reveal-stagger > *:nth-child(6) { animation-delay: 0.29s; }
+.reveal-stagger > *:nth-child(7) { animation-delay: 0.34s; }
+.reveal-stagger > *:nth-child(8) { animation-delay: 0.39s; }
+.reveal-stagger > *:nth-child(n+9) { animation-delay: 0.44s; }
 @media (prefers-reduced-motion: reduce) {
-  .reveal-down { animation: none; }
+  .reveal-down, .reveal-stagger > * { animation: none; opacity: 1; }
   .seg-thumb { transition: none; }
 }
 
@@ -1655,13 +1678,19 @@ function goNav(id, btn) {
   if(id==='historial')   { loadFromSheets(); }
 }
 
-// Aplica la animación de despliegue estilo apple.com a un elemento
-function revealAnimate(el){
+// Aplica la animación de despliegue estilo apple.com a un elemento.
+// stagger=true hace que los hijos aparezcan en cascada (para listas).
+function revealAnimate(el, stagger){
   if(!el) return;
-  el.classList.remove('reveal-down');
-  // Forzar reflow para reiniciar la animación
-  void el.offsetWidth;
-  el.classList.add('reveal-down');
+  if(stagger){
+    el.classList.remove('reveal-stagger');
+    void el.offsetWidth; // reflow para reiniciar
+    el.classList.add('reveal-stagger');
+  } else {
+    el.classList.remove('reveal-down');
+    void el.offsetWidth; // reflow para reiniciar
+    el.classList.add('reveal-down');
+  }
 }
 
 function setType(t) {
@@ -2459,9 +2488,9 @@ function renderBalanceCats(){
 
   if(!balView){ lbl.style.display='none'; return; }
 
-  // Animación de despliegue al mostrar el desglose
-  revealAnimate(cl);
+  // Animación de despliegue: label suave + lista en cascada
   revealAnimate(lbl);
+  revealAnimate(cl, true);
 
   const typeNames={ingreso:'Ingresos',egreso:'Egresos',ahorro:'Ahorro activo','ahorro-pasivo':'Beneficios'};
   lbl.style.display='block';
@@ -3053,6 +3082,8 @@ function renderHistorial(){
   });
 
   hl.appendChild(container);
+  // Animación de despliegue en cascada para la lista del historial
+  revealAnimate(container, true);
 }
 
 function sum(arr,t){return arr.filter(e=>e.type===t).reduce((s,e)=>s+e.amountMXN,0);}
