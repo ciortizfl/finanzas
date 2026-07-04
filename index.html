@@ -135,35 +135,40 @@ nav {
 @keyframes revealDown {
   from {
     opacity: 0;
-    transform: translateY(-16px);
-    clip-path: inset(0 0 100% 0);
+    -webkit-transform: translate3d(0, -24px, 0);
+    transform: translate3d(0, -24px, 0);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
-    clip-path: inset(0 0 0 0);
+    -webkit-transform: translate3d(0, 0, 0);
+    transform: translate3d(0, 0, 0);
   }
 }
 .reveal-down {
-  animation: revealDown 0.55s cubic-bezier(0.28, 0.11, 0.32, 1);
-  transform-origin: top center;
+  -webkit-animation: revealDown 0.7s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  animation: revealDown 0.7s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  will-change: transform, opacity;
 }
 /* Escalonado: los hijos directos aparecen en cascada de arriba a abajo */
 .reveal-stagger > * {
   opacity: 0;
-  animation: revealDown 0.5s cubic-bezier(0.28, 0.11, 0.32, 1) forwards;
+  -webkit-animation: revealDown 0.6s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  animation: revealDown 0.6s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  will-change: transform, opacity;
 }
-.reveal-stagger > *:nth-child(1) { animation-delay: 0.04s; }
-.reveal-stagger > *:nth-child(2) { animation-delay: 0.09s; }
-.reveal-stagger > *:nth-child(3) { animation-delay: 0.14s; }
-.reveal-stagger > *:nth-child(4) { animation-delay: 0.19s; }
-.reveal-stagger > *:nth-child(5) { animation-delay: 0.24s; }
-.reveal-stagger > *:nth-child(6) { animation-delay: 0.29s; }
-.reveal-stagger > *:nth-child(7) { animation-delay: 0.34s; }
-.reveal-stagger > *:nth-child(8) { animation-delay: 0.39s; }
-.reveal-stagger > *:nth-child(n+9) { animation-delay: 0.44s; }
+.reveal-stagger > *:nth-child(1) { -webkit-animation-delay: 0.05s; animation-delay: 0.05s; }
+.reveal-stagger > *:nth-child(2) { -webkit-animation-delay: 0.12s; animation-delay: 0.12s; }
+.reveal-stagger > *:nth-child(3) { -webkit-animation-delay: 0.19s; animation-delay: 0.19s; }
+.reveal-stagger > *:nth-child(4) { -webkit-animation-delay: 0.26s; animation-delay: 0.26s; }
+.reveal-stagger > *:nth-child(5) { -webkit-animation-delay: 0.33s; animation-delay: 0.33s; }
+.reveal-stagger > *:nth-child(6) { -webkit-animation-delay: 0.40s; animation-delay: 0.40s; }
+.reveal-stagger > *:nth-child(7) { -webkit-animation-delay: 0.47s; animation-delay: 0.47s; }
+.reveal-stagger > *:nth-child(8) { -webkit-animation-delay: 0.54s; animation-delay: 0.54s; }
+.reveal-stagger > *:nth-child(9) { -webkit-animation-delay: 0.61s; animation-delay: 0.61s; }
+.reveal-stagger > *:nth-child(10) { -webkit-animation-delay: 0.68s; animation-delay: 0.68s; }
+.reveal-stagger > *:nth-child(n+11) { -webkit-animation-delay: 0.75s; animation-delay: 0.75s; }
 @media (prefers-reduced-motion: reduce) {
-  .reveal-down, .reveal-stagger > * { animation: none; opacity: 1; }
+  .reveal-down, .reveal-stagger > * { -webkit-animation: none; animation: none; opacity: 1; }
   .seg-thumb { transition: none; }
 }
 
@@ -1682,15 +1687,16 @@ function goNav(id, btn) {
 // stagger=true hace que los hijos aparezcan en cascada (para listas).
 function revealAnimate(el, stagger){
   if(!el) return;
-  if(stagger){
-    el.classList.remove('reveal-stagger');
-    void el.offsetWidth; // reflow para reiniciar
-    el.classList.add('reveal-stagger');
-  } else {
-    el.classList.remove('reveal-down');
-    void el.offsetWidth; // reflow para reiniciar
-    el.classList.add('reveal-down');
-  }
+  const cls = stagger ? 'reveal-stagger' : 'reveal-down';
+  // Quitar la clase y forzar que el navegador registre el cambio
+  el.classList.remove('reveal-down','reveal-stagger');
+  // Doble rAF: garantiza que Safari iOS procese la remoción antes de re-agregar,
+  // lo que hace que la animación se reinicie de forma confiable en móvil.
+  requestAnimationFrame(()=>{
+    requestAnimationFrame(()=>{
+      el.classList.add(cls);
+    });
+  });
 }
 
 function setType(t) {
