@@ -2534,9 +2534,8 @@ function renderBalanceCats(){
 
   if(!balView){ lbl.style.display='none'; return; }
 
-  // Animación de despliegue: label suave + lista en cascada
+  // Animación del label (la lista se anima al final, cuando ya tiene filas)
   revealAnimate(lbl);
-  revealAnimate(cl, true);
 
   const typeNames={ingreso:'Ingresos',egreso:'Egresos',ahorro:'Ahorro activo','ahorro-pasivo':'Beneficios'};
   lbl.style.display='block';
@@ -2597,6 +2596,9 @@ function renderBalanceCats(){
     // Payment method breakdown
     renderMethodBreakdown(cl, subset);
   }
+
+  // Animación en cascada: cada hilera aparece de arriba a abajo
+  revealAnimate(cl, true);
 }
 
 function renderMethodBreakdown(container, entries){
