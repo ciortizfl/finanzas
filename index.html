@@ -347,7 +347,10 @@ nav {
 .stat .val.b { color: var(--blue); }
 .stat .val.a { color: var(--amber); }
 .stat .sub { font-size: 11px; color: var(--text3); margin-top: 3px; }
-.stat.active-filter { background: var(--accent); box-shadow: 0 4px 16px rgba(0,113,227,0.3); }
+.stat.active-filter { box-shadow: 0 4px 16px rgba(0,0,0,0.15); }
+#ingreso-stat.active-filter { background: var(--green); }
+#egreso-stat.active-filter  { background: var(--danger); }
+#pasivo-stat.active-filter  { background: #af52de; }
 .stat.active-filter .lbl, .stat.active-filter .val, .stat.active-filter .sub { color: white !important; }
 
 /* EXPAND ROW VALUE COLORS */
@@ -688,13 +691,18 @@ nav {
 @keyframes spin { to { transform: rotate(360deg); } }
 
 /* STAT ACTIVE — preserve text colors */
-.stat.active-filter { background: var(--surface2) !important; box-shadow: 0 0 0 2px var(--accent) !important; }
-.stat.active-filter .val.g { color: var(--green) !important; }
-.stat.active-filter .val.r { color: var(--danger) !important; }
-.stat.active-filter .val.b { color: var(--blue) !important; }
-.stat.active-filter .val.a { color: var(--amber) !important; }
-.stat.active-filter .lbl   { color: var(--text3) !important; }
-.stat.active-filter .sub   { color: var(--text3) !important; }
+.stat.active-filter { box-shadow: 0 4px 16px rgba(0,0,0,0.15) !important; }
+/* Fondo sólido del color del tipo + texto blanco */
+#ingreso-stat.active-filter { background: var(--green) !important; }
+#egreso-stat.active-filter  { background: var(--danger) !important; }
+#pasivo-stat.active-filter  { background: #af52de !important; }
+.stat.active-filter .lbl,
+.stat.active-filter .val,
+.stat.active-filter .sub,
+.stat.active-filter .val.g,
+.stat.active-filter .val.r,
+.stat.active-filter .val.b,
+.stat.active-filter .val.a { color: white !important; }
 
 /* TX COLOR BAR */
 .tx-item { position: relative; overflow: hidden; }
@@ -748,7 +756,7 @@ nav {
   flex-shrink: 0; transition: color 0.15s; line-height: 1;
 }
 .tx-delete-btn:active { color: var(--danger); }
-.stat.active-filter { border-color: var(--accent); background: var(--accent-light); }
+.stat.active-filter { border-color: transparent; }
 
 /* ── DATE STRIP PICKER ── */
 .date-field-label {
@@ -1115,7 +1123,7 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
   <div style="padding:0 16px;margin-bottom:10px;">
     <div style="display:flex;align-items:center;gap:8px;background:var(--surface);border-radius:var(--radius-sm);box-shadow:var(--shadow);padding:10px 14px;">
       <span style="color:var(--text3);font-size:15px;">🔍</span>
-      <input type="text" id="hist-search" placeholder="Buscar por descripción..." oninput="renderHistorial()" style="flex:1;border:none;background:none;font-family:inherit;font-size:14px;color:var(--text);outline:none;">
+      <input type="text" id="hist-search" placeholder="Buscar por descripción..." oninput="updateResetButton();renderHistorial()" style="flex:1;border:none;background:none;font-family:inherit;font-size:14px;color:var(--text);outline:none;">
       <button onclick="clearSearch()" id="hist-search-clear" style="display:none;background:none;border:none;cursor:pointer;color:var(--text3);font-size:16px;padding:0;line-height:1;">✕</button>
     </div>
   </div>
@@ -1133,6 +1141,9 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
     <button id="method-filter-toggle-btn" onclick="toggleMethodFilters()" style="display:flex;align-items:center;gap:4px;padding:6px 12px;border-radius:100px;border:1.5px solid var(--border2);background:var(--surface2);font-family:inherit;font-size:12px;font-weight:600;color:var(--text2);cursor:pointer;white-space:nowrap;">
       <span id="method-filter-indicator" style="width:7px;height:7px;border-radius:50%;background:var(--border2);flex-shrink:0;transition:background 0.2s;"></span>
       Método <span id="method-filter-arrow" style="font-size:10px;transition:transform 0.2s;display:inline-block;">▸</span>
+    </button>
+    <button id="reset-filters-btn" onclick="resetAllFilters()" style="display:none;align-items:center;gap:4px;padding:6px 12px;border-radius:100px;border:1.5px solid var(--danger);background:var(--danger-light);font-family:inherit;font-size:12px;font-weight:600;color:var(--danger);cursor:pointer;white-space:nowrap;">
+      ✕ Limpiar filtros
     </button>
   </div>
   <!-- Method filter row — hidden by default -->
@@ -1391,6 +1402,7 @@ function setMethodFilter(method, btn){
   if(btn) btn.classList.add('active');
   else document.getElementById('method-filter-all')?.classList.add('active');
   updateMethodIndicator();
+  updateResetButton();
   renderHistorial();
 }
 let viewMonth = new Date().getMonth();
@@ -2817,6 +2829,50 @@ function setFilter(f,el){
   }
 
   buildSubFilterPanel();
+  updateResetButton();
+  renderHistorial();
+}
+
+// Muestra el botón "Limpiar filtros" solo cuando hay algún filtro activo
+function updateResetButton(){
+  const btn=document.getElementById('reset-filters-btn');
+  if(!btn) return;
+  const searchVal=(document.getElementById('hist-search')?.value||'').trim();
+  const hasActiveFilter =
+    histFilter!=='todos' ||
+    histMethodFilter!==null ||
+    searchVal.length>0;
+  btn.style.display = hasActiveFilter ? 'flex' : 'none';
+}
+
+// Restablece TODOS los filtros del historial a su estado inicial
+function resetAllFilters(){
+  histFilter='todos';
+  histSelCats=[];
+  histSelSubcats=[];
+  histMethodFilter=null;
+  // Reset chips de tipo
+  document.querySelectorAll('.filter-bar .f-chip').forEach(c=>c.classList.remove('active'));
+  const firstChip=document.querySelector('.filter-bar .f-chip');
+  if(firstChip) firstChip.classList.add('active'); // el primero siempre es "Todos"
+  // Reset método de pago
+  document.querySelectorAll('#method-filter-row .f-chip').forEach(b=>b.classList.remove('active'));
+  const methodAll=document.getElementById('method-filter-all');
+  if(methodAll) methodAll.classList.add('active');
+  updateMethodIndicator();
+  // Cerrar panel de métodos si está abierto
+  const methodRow=document.getElementById('method-filter-row');
+  const methodArrow=document.getElementById('method-filter-arrow');
+  if(methodRow) methodRow.style.display='none';
+  if(methodArrow) methodArrow.style.transform='';
+  // Reset búsqueda
+  const search=document.getElementById('hist-search');
+  if(search) search.value='';
+  const searchClear=document.getElementById('hist-search-clear');
+  if(searchClear) searchClear.style.display='none';
+  // Reconstruir y re-renderizar
+  buildSubFilterPanel();
+  updateResetButton();
   renderHistorial();
 }
 
