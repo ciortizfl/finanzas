@@ -1043,6 +1043,16 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
     <div class="month-sel-row">
       <select id="bal-annual-year-sel" onchange="renderAnnual()" style="flex:1"></select>
     </div>
+    <!-- Resumen anual hasta la fecha -->
+    <div class="bal-hero" id="annual-hero" style="cursor:default;margin-top:4px;">
+      <div class="lbl">Saldo del año</div>
+      <div class="val" id="annual-saldo-val">$0.00</div>
+      <div class="sub">Ingresos − Egresos del año</div>
+      <div id="annual-ben-line" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.18);align-items:center;justify-content:space-between;">
+        <span style="font-size:12px;opacity:0.85;">Ahorrado con beneficios</span>
+        <span id="annual-ben-val" style="font-size:14px;font-weight:600;">$0.00</span>
+      </div>
+    </div>
     <div class="sec-lbl">Ingresos vs Egresos por mes</div>
     <div style="padding:0 16px;margin-bottom:20px;">
       <div class="card" style="padding:16px;">
@@ -4024,6 +4034,34 @@ function renderAnnual(){
   const ingData=Array.from({length:12},(_,m)=>sum(data.filter(e=>{const d=parseDate(e.date);return d.getMonth()===m&&d.getFullYear()===yr;}),'ingreso'));
   const egrData=Array.from({length:12},(_,m)=>sum(data.filter(e=>{const d=parseDate(e.date);return d.getMonth()===m&&d.getFullYear()===yr;}),'egreso'));
   const benData=Array.from({length:12},(_,m)=>sum(data.filter(e=>{const d=parseDate(e.date);return d.getMonth()===m&&d.getFullYear()===yr;}),'ahorro-pasivo'));
+
+  // ── Resumen anual hasta la fecha ──
+  const totalIng=ingData.reduce((s,v)=>s+v,0);
+  const totalEgr=egrData.reduce((s,v)=>s+v,0);
+  const totalBen=benData.reduce((s,v)=>s+v,0);
+  const saldoAnual=totalIng-totalEgr;
+  const saldoEl=document.getElementById('annual-saldo-val');
+  const heroEl=document.getElementById('annual-hero');
+  if(saldoEl){
+    saldoEl.textContent=(saldoAnual>=0?'+':'−')+fmt(saldoAnual);
+  }
+  if(heroEl){
+    // Fondo verde si positivo, rojo si negativo (igual que el balance mensual)
+    heroEl.style.background = saldoAnual>=0
+      ? 'linear-gradient(135deg, #34c759, #248a3d)'
+      : 'linear-gradient(135deg, #ff3b30, #c1271d)';
+  }
+  const benLine=document.getElementById('annual-ben-line');
+  const benVal=document.getElementById('annual-ben-val');
+  if(benLine && benVal){
+    if(totalBen>0){
+      benLine.style.display='flex';
+      benVal.textContent=fmt(totalBen);
+    } else {
+      benLine.style.display='none';
+    }
+  }
+
   // El máximo considera la barra de egreso + beneficio apilado encima
   const maxVal=Math.max(...ingData,...egrData.map((e,m)=>e+benData[m]),1);
 
