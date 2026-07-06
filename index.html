@@ -1453,16 +1453,19 @@ const CAT_COLORS = {
   'Utilidades':       '#007aff',
   'Fondo de ahorro':  '#00c7be',
   'Reembolsos':       '#a2845e',
-  'Rendimientos':     '#34c759',
+  'Rendimientos':     '#5856d6',
   'Renta de propiedad':'#af52de',
-  'Ventas':           '#ff9500',
+  'Ventas':           '#ff3b30',
   'Regalos':          '#ff2d55',
-  // Ahorros
+  // Ahorros / Beneficios (nombres unificados con BEN_TYPES)
   'Inversiones':              '#007aff',
   'Cashback':                 '#ff9500',
   'Puntos TDC':               '#af52de',
   'Puntos de lealtad':        '#ffcc00',
   'Millas aéreas':            '#00c7be',
+  'Descuentos y promociones': '#ff2d55',
+  'Otros beneficios':         '#a2845e',
+  // Nombres antiguos (por si hay registros históricos)
   'Descuento':                '#ff2d55',
   'Otro beneficio':           '#a2845e',
 };
@@ -2399,7 +2402,7 @@ function setBalView(type, el) {
   const bonoStat=document.getElementById('bono-stat');
   if(bonoStat) bonoStat.classList.remove('active-filter');
   if(el) el.classList.add('active-filter');
-  renderBalanceCats();
+  renderBalanceCats(true);
 }
 
 function renderBalance(){
@@ -2526,7 +2529,7 @@ function toggleBonoDetail(){
   }
 }
 
-function renderBalanceCats(){
+function renderBalanceCats(animate){
   const md=monthData();
   const cl=document.getElementById('dash-cats');
   const lbl=document.getElementById('dash-detail-lbl');
@@ -2534,8 +2537,8 @@ function renderBalanceCats(){
 
   if(!balView){ lbl.style.display='none'; return; }
 
-  // Animación del label (la lista se anima al final, cuando ya tiene filas)
-  revealAnimate(lbl);
+  // Animación del label solo cuando el usuario abre la vista (no en re-renders automáticos)
+  if(animate) revealAnimate(lbl);
 
   const typeNames={ingreso:'Ingresos',egreso:'Egresos',ahorro:'Ahorro activo','ahorro-pasivo':'Beneficios'};
   lbl.style.display='block';
@@ -2597,8 +2600,8 @@ function renderBalanceCats(){
     renderMethodBreakdown(cl, subset);
   }
 
-  // Animación en cascada: cada hilera aparece de arriba a abajo
-  revealAnimate(cl, true);
+  // Animación en cascada solo cuando el usuario abre la vista (no en re-renders)
+  if(animate) revealAnimate(cl, true);
 }
 
 function renderMethodBreakdown(container, entries){
