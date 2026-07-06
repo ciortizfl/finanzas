@@ -1682,9 +1682,11 @@ function goNav(id, btn) {
   if(id==='balance'){
     const grid=document.getElementById('bal-stats-grid');
     if(grid) revealAnimate(grid, true);
+    else _animDebug('goNav balance: grid NO encontrado');
   } else if(id==='historial'){
     const hl=document.getElementById('hist-list');
     if(hl && hl.firstElementChild) revealAnimate(hl.firstElementChild, true);
+    else _animDebug('goNav historial: hist-list vacío ('+(hl?'existe':'null')+', hijos:'+(hl?hl.children.length:0)+')');
   }
 
   if(id==='balance')     { loadFromSheets(); }
@@ -1692,26 +1694,53 @@ function goNav(id, btn) {
   if(id==='historial')   { loadFromSheets(); }
 }
 
+// Diagnóstico visible en pantalla (temporal, para depurar en móvil)
+function _animDebug(msg){
+  let banner=document.getElementById('_anim-debug-banner');
+  if(!banner){
+    banner=document.createElement('div');
+    banner.id='_anim-debug-banner';
+    banner.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#000;color:#0f0;font-family:monospace;font-size:11px;padding:6px 10px;white-space:pre-wrap;max-height:120px;overflow:auto;';
+    document.body.appendChild(banner);
+  }
+  banner.textContent = msg;
+}
+
 // Aplica la animación de despliegue estilo apple.com a un elemento.
-// Usa la Web Animations API. Se anima de forma síncrona (igual que el test que
-// funciona en iOS) — envolver en requestAnimationFrame rompe la animación en Safari iOS.
 function revealAnimate(el, stagger){
-  if(!el) return;
-  if(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  if(!el){ _animDebug('revealAnimate: elemento NULO'); return; }
+
+  // Checar soporte de la API
+  const hasWAAPI = typeof el.animate === 'function';
+  const reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const kids = Array.from(el.children);
+
+  _animDebug(
+    'revealAnimate llamado\n'+
+    '  stagger: '+(!!stagger)+'\n'+
+    '  el.animate existe: '+hasWAAPI+'\n'+
+    '  reduce-motion activo: '+reduced+'\n'+
+    '  hijos: '+kids.length+'\n'+
+    '  el visible: '+(el.offsetWidth>0 && el.offsetHeight>0)
+  );
+
+  if(reduced){ _animDebug('ABORTADO por reduce-motion (Ajustes→Accesibilidad→Movimiento)'); return; }
+  if(!hasWAAPI){ return; }
 
   const easing='cubic-bezier(0.22, 0.61, 0.36, 1)';
   const from={ opacity: 0, transform: 'translate3d(0, -24px, 0)' };
   const to={ opacity: 1, transform: 'translate3d(0, 0, 0)' };
 
+  let animCount=0;
   if(stagger){
-    const kids=Array.from(el.children);
     kids.forEach((k, i)=>{
       const delay=Math.min(i, 14) * 65;
-      try { k.animate([from, to], { duration: 600, delay, easing, fill: 'backwards' }); } catch(e){}
+      try { k.animate([from, to], { duration: 600, delay, easing, fill: 'backwards' }); animCount++; } catch(e){ _animDebug('ERROR animate: '+e.message); }
     });
   } else {
-    try { el.animate([from, to], { duration: 700, easing, fill: 'backwards' }); } catch(e){}
+    try { el.animate([from, to], { duration: 700, easing, fill: 'backwards' }); animCount++; } catch(e){ _animDebug('ERROR animate: '+e.message); }
   }
+  _animDebug('Animaciones lanzadas: '+animCount+' / hijos: '+kids.length);
 }
 
 // Anima los hijos de un grid de N columnas escalonando por COLUMNA:
