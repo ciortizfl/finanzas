@@ -351,6 +351,7 @@ nav {
 #ingreso-stat.active-filter { background: var(--green); }
 #egreso-stat.active-filter  { background: var(--danger); }
 #pasivo-stat.active-filter  { background: #af52de; }
+#bono-stat.active-filter    { background: var(--amber); }
 .stat.active-filter .lbl, .stat.active-filter .val, .stat.active-filter .sub { color: white !important; }
 
 /* EXPAND ROW VALUE COLORS */
@@ -696,6 +697,7 @@ nav {
 #ingreso-stat.active-filter { background: var(--green) !important; }
 #egreso-stat.active-filter  { background: var(--danger) !important; }
 #pasivo-stat.active-filter  { background: #af52de !important; }
+#bono-stat.active-filter    { background: var(--amber) !important; }
 .stat.active-filter .lbl,
 .stat.active-filter .val,
 .stat.active-filter .sub,
@@ -2845,16 +2847,13 @@ function updateResetButton(){
   btn.style.display = hasActiveFilter ? 'flex' : 'none';
 }
 
-// Restablece TODOS los filtros del historial a su estado inicial
+// Restablece los filtros del historial MANTENIENDO el tipo actual
+// (egreso/ingreso/beneficio). Solo limpia categorías, subcategorías, método y búsqueda.
 function resetAllFilters(){
-  histFilter='todos';
+  // Conservar histFilter — no volver a "todos"
   histSelCats=[];
   histSelSubcats=[];
   histMethodFilter=null;
-  // Reset chips de tipo
-  document.querySelectorAll('.filter-bar .f-chip').forEach(c=>c.classList.remove('active'));
-  const firstChip=document.querySelector('.filter-bar .f-chip');
-  if(firstChip) firstChip.classList.add('active'); // el primero siempre es "Todos"
   // Reset método de pago
   document.querySelectorAll('#method-filter-row .f-chip').forEach(b=>b.classList.remove('active'));
   const methodAll=document.getElementById('method-filter-all');
@@ -2870,6 +2869,19 @@ function resetAllFilters(){
   if(search) search.value='';
   const searchClear=document.getElementById('hist-search-clear');
   if(searchClear) searchClear.style.display='none';
+  // Si hay un tipo activo (no "todos"), re-seleccionar sus categorías con registros
+  // (mismo comportamiento que al entrar a ese tipo desde cero)
+  if(histFilter!=='todos'&&histFilter!=='egreso'){
+    const mSel=document.getElementById('hist-month-sel');
+    const ySel=document.getElementById('hist-year-sel');
+    const selMonth=mSel?parseInt(mSel.value):new Date().getMonth();
+    const selYear=ySel?parseInt(ySel.value):new Date().getFullYear();
+    const typed=data.filter(e=>{
+      const d=parseDate(e.date);
+      return d.getMonth()===selMonth&&d.getFullYear()===selYear&&e.type===histFilter;
+    });
+    histSelCats=[...new Set(typed.map(e=>e.category))];
+  }
   // Reconstruir y re-renderizar
   buildSubFilterPanel();
   updateResetButton();
@@ -4182,6 +4194,7 @@ function showAnnualMonthDetail(m,yr){
   if(!lbl||!cats) return;
   lbl.style.display='block';
   lbl.textContent=`${MONTHS_ES[m]} ${yr}`;
+  revealAnimate(lbl);
   cats.innerHTML='';
   const md=data.filter(e=>{const d=parseDate(e.date);return d.getMonth()===m&&d.getFullYear()===yr;});
   const ing=sum(md,'ingreso'),egr=sum(md,'egreso'),aho=sum(md,'ahorro'),pas=sum(md,'ahorro-pasivo');
@@ -4207,6 +4220,11 @@ function showAnnualMonthDetail(m,yr){
     const wrap=document.createElement('div'); wrap.className='cat-list';
     buildExpandCatList(wrap,catTotals,catSubTotals);
     cats.appendChild(wrap);
+    // Efecto escalonado: primero los stats del resumen, luego las categorías
+    revealAnimate(summary, true);
+    revealAnimate(wrap, true);
+  } else {
+    revealAnimate(summary, true);
   }
 }
 
