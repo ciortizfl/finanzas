@@ -4067,7 +4067,15 @@ function openEdit(id) {
   updateEditDesgloseVisibility();
 
   // --- Nota: mostrar colapsada, pero con contenido si existe ---
-  const cleanNote = (e.note||'').split(' | ').filter(p=>!p.startsWith('TC:')).join(' | ');
+  // Filtrar las partes auto-generadas (TC, Monto original, Propina, Vinculado a)
+  // para que el usuario solo vea/edite su nota real, y no se dupliquen al guardar.
+  const cleanNote = (e.note||'').split(' | ').filter(p=>{
+    return !p.startsWith('TC:')
+        && !p.startsWith('Monto original:')
+        && !p.startsWith('Propina ')
+        && !p.startsWith('Vinculado a:')
+        && !p.startsWith('Desglose de:');
+  }).join(' | ');
   document.getElementById('e-note').value = cleanNote;
   if(cleanNote){
     toggleENoteField(true);
