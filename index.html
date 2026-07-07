@@ -1417,11 +1417,34 @@ const _migrations = {
     'Puntos': 'Puntos de lealtad',
   }
 };
+
+// Deduplica partes de metadata repetidas en una nota (ej. "Monto original" dos veces).
+function dedupeNoteMeta(note){
+  if(!note) return note;
+  const parts=note.split(' | ').map(p=>p.trim()).filter(Boolean);
+  const seen=new Set();
+  const out=[];
+  parts.forEach(p=>{
+    const isMeta = p.startsWith('Monto original:') || p.startsWith('Desglose de:') || p.startsWith('TC:');
+    if(isMeta){
+      if(!seen.has(p)){ seen.add(p); out.push(p); }
+    } else {
+      out.push(p);
+    }
+  });
+  return out.join(' | ');
+}
+
 let _migrated = false;
 data.forEach(e => {
   if(_migrations.category[e.category]){
     e.category = _migrations.category[e.category];
     _migrated = true;
+  }
+  // Limpiar notas con metadata duplicada (de versiones anteriores)
+  if(e.note){
+    const deduped=dedupeNoteMeta(e.note);
+    if(deduped!==e.note){ e.note=deduped; _migrated=true; }
   }
 });
 if(_migrated) localStorage.setItem(SK, JSON.stringify(data));
@@ -3013,7 +3036,7 @@ async function loadFromSheets(silent) {
         currency:   r[7]||'MXN',
         amountMXN:  Number(r[8]),
         method:     r[9]||null,
-        note:       r[10]||'',
+        note:       dedupeNoteMeta(r[10]||''),
         benType:    r[11]||'',
         benAmount:  r[12]?Number(r[12]):0,
         benDesc:    r[13]||'',
@@ -3947,7 +3970,23 @@ function txEl(e, showDelete){
         : `<button class="tx-delete-btn" title="Eliminar">✕</button>`)
     : '';
   const barColor = catColor(e.category);
-  const noteDisplay = e.note ? `<div class="tx-note">${e.note}</div>` : '';
+  // Separar la nota en: metadata del sistema (Monto original, Desglose de, TC) y nota del usuario.
+  // Se muestran distinto y se elimina cualquier duplicado de metadata.
+  const noteParts = (e.note||'').split(' | ').map(p=>p.trim()).filter(Boolean);
+  const metaParts = [];
+  const userParts = [];
+  const seenMeta = new Set();
+  noteParts.forEach(p=>{
+    const isMeta = p.startsWith('Monto original:') || p.startsWith('Desglose de:') || p.startsWith('TC:');
+    if(isMeta){
+      if(!seenMeta.has(p)){ seenMeta.add(p); metaParts.push(p); }
+    } else {
+      userParts.push(p);
+    }
+  });
+  let noteDisplay = '';
+  if(metaParts.length) noteDisplay += `<div class="tx-note" style="opacity:0.7">${metaParts.join(' · ')}</div>`;
+  if(userParts.length) noteDisplay += `<div class="tx-note">${userParts.join(' | ')}</div>`;
   el.innerHTML=`
     <div class="tx-color-bar" style="background:${barColor}"></div>
     <div class="tx-ico ${e.type}" style="margin-left:8px">${ico}</div>
