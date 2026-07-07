@@ -1186,11 +1186,11 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
     <select id="hist-year-sel" onchange="renderHistorial(true)"></select>
   </div>
   <div class="filter-bar">
-    <button class="f-chip active" onclick="setFilter('todos',this)">Todos</button>
-    <button class="f-chip" onclick="setFilter('egreso',this)">Egresos</button>
-    <button class="f-chip" onclick="setFilter('ingreso',this)">Ingresos</button>
+    <button class="f-chip active" id="fchip-todos" onclick="setFilter('todos',this)">Todos</button>
+    <button class="f-chip" id="fchip-egreso" onclick="setFilter('egreso',this)">Egresos</button>
+    <button class="f-chip" id="fchip-ingreso" onclick="setFilter('ingreso',this)">Ingresos</button>
     <button class="f-chip" onclick="setFilter('ahorro',this)" style="display:none">Ahorro activo</button>
-    <button class="f-chip" onclick="setFilter('ahorro-pasivo',this)">Beneficios</button>
+    <button class="f-chip" id="fchip-ahorro-pasivo" onclick="setFilter('ahorro-pasivo',this)">Beneficios</button>
     <button id="method-filter-toggle-btn" onclick="toggleMethodFilters()" style="display:flex;align-items:center;gap:4px;padding:6px 12px;border-radius:100px;border:1.5px solid var(--border2);background:var(--surface2);font-family:inherit;font-size:12px;font-weight:600;color:var(--text2);cursor:pointer;white-space:nowrap;">
       <span id="method-filter-indicator" style="width:7px;height:7px;border-radius:50%;background:var(--border2);flex-shrink:0;transition:background 0.2s;"></span>
       Método <span id="method-filter-arrow" style="font-size:10px;transition:transform 0.2s;display:inline-block;">▸</span>
@@ -3760,6 +3760,53 @@ function appendSubChip(sub, hasRecords, container){
   container.appendChild(b);
 }
 
+// Activa/desactiva los chips de tipo (Egresos, Ingresos, Beneficios) según si
+// hay registros de ese tipo en el mes. "Todos" se desactiva solo si el mes está vacío.
+function updateTypeChips(selMonth, selYear, isSearchMode){
+  const monthEntries = data.filter(e=>{
+    const d=parseDate(e.date);
+    return d.getMonth()===selMonth&&d.getFullYear()===selYear;
+  });
+  const counts = {
+    egreso: monthEntries.some(e=>e.type==='egreso'),
+    ingreso: monthEntries.some(e=>e.type==='ingreso'),
+    'ahorro-pasivo': monthEntries.some(e=>e.type==='ahorro-pasivo'),
+  };
+  const anyRecords = monthEntries.length>0;
+
+  const setChip=(id, enabled)=>{
+    const chip=document.getElementById(id);
+    if(!chip) return;
+    // En modo búsqueda todos quedan habilitados (la búsqueda es global)
+    const on = isSearchMode ? true : enabled;
+    chip.disabled = !on;
+    chip.style.opacity = on ? '1' : '0.38';
+    chip.style.pointerEvents = on ? '' : 'none';
+  };
+
+  setChip('fchip-todos', anyRecords);
+  setChip('fchip-egreso', counts.egreso);
+  setChip('fchip-ingreso', counts.ingreso);
+  setChip('fchip-ahorro-pasivo', counts['ahorro-pasivo']);
+
+  // Si el filtro activo quedó sin registros en este mes, volver a "Todos"
+  if(!isSearchMode && histFilter!=='todos'){
+    const stillHasData = histFilter==='egreso' ? counts.egreso
+      : histFilter==='ingreso' ? counts.ingreso
+      : histFilter==='ahorro-pasivo' ? counts['ahorro-pasivo']
+      : true;
+    if(!stillHasData){
+      histFilter='todos';
+      histSelCats=[]; histSelSubcats=[];
+      document.querySelectorAll('.filter-bar .f-chip').forEach(c=>c.classList.remove('active'));
+      const todosChip=document.getElementById('fchip-todos');
+      if(todosChip) todosChip.classList.add('active');
+      const panel=document.getElementById('sub-filter-panel');
+      if(panel) panel.classList.remove('vis');
+    }
+  }
+}
+
 function renderHistorial(animate){
   const hl=document.getElementById('hist-list');
   if(!hl) return;
@@ -3779,6 +3826,9 @@ function renderHistorial(animate){
   const ySel=document.getElementById('hist-year-sel');
   const selMonth=mSel?parseInt(mSel.value):new Date().getMonth();
   const selYear=ySel?parseInt(ySel.value):new Date().getFullYear();
+
+  // Desactivar chips de tipo que no tienen registros en el mes seleccionado
+  updateTypeChips(selMonth, selYear, isSearchMode);
 
   let filtered;
   if(isSearchMode){
@@ -3841,7 +3891,11 @@ function renderHistorial(animate){
       if(dayInc>0||dayExp>0){
         const sign=dayBal>=0?'+':'';
         const col=dayBal>=0?'var(--green)':'var(--danger)';
-        balanceHtml=`<span style="font-size:11px;font-weight:500;color:${col};margin-left:auto;">${sign}${fmt(dayBal)}</span>`;
+        // Alinear el total con los montos (tx-amt). Cálculo del borde derecho:
+        // tx-list padding(16) + tx-item padding(14) + tacha(~28) + gap(12) = 70px
+        // desde el borde de pantalla. El header tiene padding lateral de 14px,
+        // así que el padding-right del total = 70 − 14 = 56px.
+        balanceHtml=`<span style="font-size:11px;font-weight:500;color:${col};margin-left:auto;padding-right:56px;">${sign}${fmt(dayBal)}</span>`;
       }
     }
     hdr.innerHTML=`<span>${d.toLocaleDateString('es-MX',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}</span>${balanceHtml}`;
