@@ -842,7 +842,8 @@ nav {
 /* Mes completo debajo del número (solo web) */
 .date-day-btn .day-month {
   font-size: 9px; font-weight: 600; color: var(--text3);
-  text-transform: uppercase; letter-spacing: 0.03em; margin-top: 1px;
+  text-transform: uppercase; letter-spacing: 0.02em; margin-top: 1px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
 }
 .date-day-btn.selected .day-month { color: rgba(255,255,255,0.85); }
 /* Botón más ancho en modo web para acomodar día completo */
@@ -4569,7 +4570,7 @@ function renderStrip(stripId, centerDate){
       btn.innerHTML = `<span class="day-name">${DAYS[d.getDay()]}</span><span class="day-num">${d.getDate()}</span>`;
     } else {
       // Web: nombre de día completo arriba, número, y mes completo abajo
-      btn.innerHTML = `<span class="day-name">${DAYS_FULL[d.getDay()]}</span><span class="day-num">${d.getDate()}</span><span class="day-month">${MONTHS_ABBR[curMonth]}</span>`;
+      btn.innerHTML = `<span class="day-name">${DAYS_FULL[d.getDay()]}</span><span class="day-num">${d.getDate()}</span><span class="day-month">${MONTHS_ES[curMonth]}</span>`;
     }
     btn.onclick = () => selectStripDate(stripId, iso);
     strip.appendChild(btn);
