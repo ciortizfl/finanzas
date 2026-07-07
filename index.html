@@ -1941,6 +1941,10 @@ function renderCatUI(){
   const wrap = document.getElementById('subcat-wrap');
   const label = document.getElementById('cat-label');
   if(!container) return;
+  // Capturar el estado ANTES de vaciar: ¿la categoría ya estaba colapsada en su lugar?
+  // Esto evita re-animar la categoría al cambiar de subcategoría.
+  const wasCollapsed = container.classList.contains('cat-collapsed-row')
+    && !!container.querySelector('.cat-col-left .cat-block');
   container.innerHTML='';
   if(wrap){ wrap.classList.remove('vis'); wrap.innerHTML=''; wrap.style.display='none'; }
   const colorCls = curColorCls();
@@ -1978,11 +1982,6 @@ function renderCatUI(){
     return;
   }
 
-  // Detectar si la categoría YA estaba colapsada en su posición (para no re-animarla).
-  // Solo se anima la categoría la primera vez que colapsa desde la vista de todas.
-  const alreadyCollapsed = container.classList.contains('cat-collapsed-row')
-    && container.querySelector('.cat-col-left .cat-block');
-
   // Contenedor de dos columnas: izquierda (categoría) / derecha (subcategorías)
   container.className='cat-collapsed-row';
   container.style.gridTemplateColumns=''; // reset por si venía de 1fr
@@ -1995,7 +1994,7 @@ function renderCatUI(){
   left.appendChild(catBtn);
   container.appendChild(left);
   // Animar la categoría SOLO en el primer colapso (no al cambiar de subcategoría)
-  if(!alreadyCollapsed) revealAnimate(left, true);
+  if(!wasCollapsed) revealAnimate(left, true);
 
   if(hasSubs){
     const right=document.createElement('div');
