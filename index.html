@@ -4067,14 +4067,13 @@ function openEdit(id) {
   updateEditDesgloseVisibility();
 
   // --- Nota: mostrar colapsada, pero con contenido si existe ---
-  // Filtrar las partes auto-generadas (TC, Monto original, Propina, Vinculado a)
-  // para que el usuario solo vea/edite su nota real, y no se dupliquen al guardar.
+  // Solo filtramos las partes que saveEdit VUELVE A GENERAR automáticamente
+  // (Monto original y TC), para no duplicarlas. El resto de la nota se conserva.
   const cleanNote = (e.note||'').split(' | ').filter(p=>{
-    return !p.startsWith('TC:')
-        && !p.startsWith('Monto original:')
-        && !p.startsWith('Propina ')
-        && !p.startsWith('Vinculado a:')
-        && !p.startsWith('Desglose de:');
+    const t=p.trim();
+    return t.length>0
+        && !t.startsWith('TC:')
+        && !t.startsWith('Monto original:');
   }).join(' | ');
   document.getElementById('e-note').value = cleanNote;
   if(cleanNote){
