@@ -850,6 +850,15 @@ nav {
   width: 60px;
 }
 .date-day-btn.web-mode .day-name { font-size: 9px; }
+/* Modo web: el strip ocupa todo el ancho, cada botón 1/11 */
+.date-strip-inner.web-full {
+  width: 100%;
+}
+.date-strip-inner.web-full .date-day-btn.web-mode {
+  flex: 1;
+  width: auto;
+  min-width: 0;
+}
 /* Separador de mes (solo móvil) */
 .month-break {
   flex-shrink: 0;
@@ -1972,13 +1981,15 @@ function renderCatUI(){
     revealAnimate(right, true);
   }
 
-  updateFinalizeVisibility();
+  // Si hay subcategoría elegida, retrasar la aparición de nota/guardar
+  // para que la animación de la subcategoría ocurra primero.
+  updateFinalizeVisibility(curSubcat ? 260 : 0);
 }
 
 // Muestra "Agregar nota" y "Guardar registro" solo cuando la selección está completa:
 // hay categoría Y (hay subcategoría O la categoría no tiene subcategorías).
 // Aparecen con efecto suave.
-function updateFinalizeVisibility(){
+function updateFinalizeVisibility(animDelay){
   const noteSection=document.getElementById('note-section');
   const submitBtn=document.getElementById('submit-btn');
   if(!noteSection||!submitBtn) return;
@@ -1994,10 +2005,16 @@ function updateFinalizeVisibility(){
   if(complete){
     noteSection.style.display='';
     submitBtn.style.display='';
-    // Animar solo si estaban ocultos (aparición suave)
+    // Animar solo si estaban ocultos (aparición suave), con delay opcional
+    // para que la subcategoría termine de animar primero.
     if(wasHidden){
-      revealAnimate(noteSection);
-      revealAnimate(submitBtn);
+      const delay = animDelay || 0;
+      if(delay>0){
+        setTimeout(()=>{ revealAnimate(noteSection); revealAnimate(submitBtn); }, delay);
+      } else {
+        revealAnimate(noteSection);
+        revealAnimate(submitBtn);
+      }
     }
     updateDesgloseVisibility();
   } else {
@@ -4520,6 +4537,9 @@ function renderStrip(stripId, centerDate){
   // Móvil: rango amplio con scroll. Web: solo 5 días a cada lado (11 total).
   const range = mobile ? STRIP_RANGE : 5;
 
+  // En web, el strip ocupa todo el ancho (cada botón 1/11); en móvil usa scroll
+  strip.classList.toggle('web-full', !mobile);
+
   strip.innerHTML = '';
   let selectedBtn = null;
   let prevMonth = null;
@@ -4555,8 +4575,8 @@ function renderStrip(stripId, centerDate){
     strip.appendChild(btn);
   }
 
-  // Centrar el botón seleccionado
-  if(selectedBtn){
+  // Centrar el botón seleccionado (solo móvil; en web el strip ya llena el ancho)
+  if(selectedBtn && mobile){
     requestAnimationFrame(()=>{
       const btnLeft   = selectedBtn.offsetLeft;
       const btnWidth  = selectedBtn.offsetWidth;
