@@ -1182,8 +1182,8 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
   </div>
   <!-- Month/year selectors (hidden in search mode) -->
   <div id="hist-date-row" class="month-sel-row">
-    <select id="hist-month-sel" onchange="renderHistorial()"></select>
-    <select id="hist-year-sel" onchange="renderHistorial()"></select>
+    <select id="hist-month-sel" onchange="renderHistorial(true)"></select>
+    <select id="hist-year-sel" onchange="renderHistorial(true)"></select>
   </div>
   <div class="filter-bar">
     <button class="f-chip active" onclick="setFilter('todos',this)">Todos</button>
@@ -1765,18 +1765,18 @@ function goNav(id, btn) {
   page.classList.add('active');
   btn.classList.add('active');
 
-  // Animar inmediatamente el contenido visible de la pestaña
+  // Render inmediato desde cache CON animación, luego refresco silencioso desde Sheets
   if(id==='balance'){
+    renderBalance();
     const grid=document.getElementById('bal-stats-grid');
     if(grid) revealAnimate(grid, true);
+    loadFromSheets(true); // refresco silencioso (sin re-animar)
   } else if(id==='historial'){
-    const hl=document.getElementById('hist-list');
-    if(hl && hl.firstElementChild) revealAnimate(hl.firstElementChild, true);
+    renderHistorial(true); // render con animación desde cache
+    loadFromSheets(true);  // refresco silencioso (sin re-animar)
+  } else if(id==='presupuesto'){
+    populateSelectors(); renderBudget();
   }
-
-  if(id==='balance')     { loadFromSheets(); }
-  if(id==='presupuesto') { populateSelectors(); renderBudget(); }
-  if(id==='historial')   { loadFromSheets(); }
 }
 
 // Aplica la animación de despliegue estilo apple.com a un elemento.
@@ -2035,15 +2035,23 @@ function updateFinalizeVisibility(animDelay){
 
   const wasHidden = noteSection.style.display==='none';
   if(complete){
-    noteSection.style.display='';
-    submitBtn.style.display='';
-    // Animar solo si estaban ocultos (aparición suave), con delay opcional
-    // para que la subcategoría termine de animar primero.
-    if(wasHidden){
-      const delay = animDelay || 0;
-      if(delay>0){
-        setTimeout(()=>{ revealAnimate(noteSection); revealAnimate(submitBtn); }, delay);
-      } else {
+    const delay = (wasHidden ? (animDelay || 0) : 0);
+    if(wasHidden && delay>0){
+      // Poner opacity 0 ANTES de hacer visible, para que no haya un frame visible
+      noteSection.style.opacity='0';
+      submitBtn.style.opacity='0';
+      noteSection.style.display='';
+      submitBtn.style.display='';
+      setTimeout(()=>{
+        noteSection.style.opacity='';
+        submitBtn.style.opacity='';
+        revealAnimate(noteSection);
+        revealAnimate(submitBtn);
+      }, delay);
+    } else {
+      noteSection.style.display='';
+      submitBtn.style.display='';
+      if(wasHidden){
         revealAnimate(noteSection);
         revealAnimate(submitBtn);
       }
@@ -2138,7 +2146,9 @@ function inlineToggleBen(){
     updateInlineBtn('inline-ben-btn', true, false);
     updateInlineBtn('inline-propina-btn', false, propinaHasData());
     if(!document.querySelector('#ben-type-blocks .cat-block')){
-      buildBenTypeBlocks('ben-type-blocks', curBenType, t=>{ curBenType=t; });
+      // Empezar sin selección para mostrar todos los tipos (como las categorías)
+      curBenType='';
+      buildBenTypeBlocks('ben-type-blocks', '', t=>{ curBenType=t; });
     }
     // Sincronizar estado visual del toggle % / $
     setBenType(benType);
@@ -2156,6 +2166,9 @@ document.addEventListener('click', function(ev){
 document.addEventListener('click', function(ev){
   if(!document.getElementById('inline-toggles')) return;
   const card=document.querySelector('#page-registro .card');
+  // Si el target ya fue removido del DOM (p.ej. al re-renderizar los tipos de
+  // beneficio), no lo tratamos como "clic afuera": lo ignoramos.
+  if(!document.contains(ev.target)) return;
   if(card&&!card.contains(ev.target)){
     if(_propinaVisible){
       _propinaVisible=false;
@@ -2343,12 +2356,12 @@ let desgloses = []; // {id, amount, category, subcategory, note}
 
 function addDesglose(){
   desgloses.push({ id: genId(), amount: 0, category: '', subcategory: '', note: '' });
-  renderDesgloses();
+  renderDesgloses(true); // animar la nueva card
 }
 
 function removeDesglose(id){
   desgloses = desgloses.filter(d=>d.id!==id);
-  renderDesgloses();
+  renderDesgloses(false);
 }
 
 function updateDesglose(id, field, value){
@@ -2359,18 +2372,58 @@ function updateDesglose(id, field, value){
   if(field==='amount') updateDesgloseRemaining();
 }
 
-// Selección de categoría/subcategoría de un desglose (dropdown simple)
+// Selección de categoría de un desglose — actualiza solo su dropdown de subcategoría
 function setDesgloseCat(id, cat){
   const d=desgloses.find(x=>x.id===id);
   if(!d) return;
   d.category=cat; d.subcategory='';
-  renderDesgloses();
+  // Actualizar quirúrgicamente solo la tarjeta afectada (evita parpadeo)
+  const card=document.querySelector(`#desglose-list [data-desg-id="${id}"]`);
+  if(card){
+    updateDesgloseSubcatDropdown(card, d, 'setDesgloseSubcat');
+    updateDesgloseRemaining();
+  } else {
+    renderDesgloses(false);
+  }
 }
 function setDesgloseSubcat(id, sub){
   const d=desgloses.find(x=>x.id===id);
   if(!d) return;
   d.subcategory=sub;
-  renderDesgloses();
+  updateDesgloseRemaining();
+}
+
+// Inserta o reemplaza el dropdown de subcategoría dentro de una tarjeta de desglose,
+// sin reconstruir toda la tarjeta (evita el re-flash de animación).
+function updateDesgloseSubcatDropdown(card, d, subcatFnName){
+  const subs=d.category?sortedSubcats(curType,d.category):[];
+  const hasSubs=subs && !(subs.length===1&&subs[0]==='—');
+  // Buscar el select de subcategoría existente (es el segundo select, si existe)
+  const selects=card.querySelectorAll('select');
+  let subSelect=null;
+  selects.forEach(s=>{ if((s.getAttribute('onchange')||'').includes(subcatFnName)) subSelect=s; });
+
+  if(hasSubs){
+    const subOpts=subs.map(s=>`<option value="${s}" ${d.subcategory===s?'selected':''}>${s}</option>`).join('');
+    if(subSelect){
+      subSelect.innerHTML=`<option value="">Subcategoría...</option>${subOpts}`;
+      subSelect.value=d.subcategory||'';
+    } else {
+      // Insertar un nuevo select después del row de monto+categoría
+      const newSel=document.createElement('select');
+      newSel.setAttribute('onchange', `${subcatFnName}(${d.id},this.value)`);
+      newSel.style.cssText='width:100%;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;margin-bottom:8px;';
+      newSel.innerHTML=`<option value="">Subcategoría...</option>${subOpts}`;
+      // Insertar después del primer div (row de monto+categoría)
+      const rows=card.querySelectorAll(':scope > div');
+      const anchor=rows.length>=2?rows[1]:null; // [0]=label, [1]=row monto+cat
+      if(anchor && anchor.nextSibling) card.insertBefore(newSel, anchor.nextSibling);
+      else card.appendChild(newSel);
+    }
+  } else if(subSelect){
+    // La categoría nueva no tiene subcategorías → quitar el select
+    subSelect.remove();
+  }
 }
 
 // Suma de desgloses en la moneda del gasto
@@ -2378,14 +2431,17 @@ function desglosesTotal(){
   return desgloses.reduce((s,d)=>s+(d.amount||0),0);
 }
 
-function renderDesgloses(){
+function renderDesgloses(animateNew){
   const list=document.getElementById('desglose-list');
   if(!list) return;
   const cur=document.getElementById('currency')?.value||'MXN';
   const curLabel = cur==='MXN' ? '' : ` (${cur})`;
+  // IDs que ya estaban renderizados antes (para animar solo los nuevos)
+  const prevIds = new Set(Array.from(list.children).map(c=>c.dataset.desgId));
   list.innerHTML='';
   desgloses.forEach((d,idx)=>{
     const card=document.createElement('div');
+    card.dataset.desgId=String(d.id);
     card.style.cssText='background:var(--surface2);border-radius:var(--radius-sm);padding:11px;margin-bottom:8px;position:relative;';
     // Categorías del tipo actual para el dropdown
     const catOpts=sortedCats(curType).map(c=>`<option value="${c}" ${d.category===c?'selected':''}>${c}</option>`).join('');
@@ -2405,7 +2461,10 @@ function renderDesgloses(){
       <input type="text" placeholder="Nota (opcional)" value="${d.note||''}" oninput="updateDesglose(${d.id},'note',this.value)" style="width:100%;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:13px;outline:none;">
     `;
     list.appendChild(card);
-    revealAnimate(card);
+    // Animar solo si se pidió y esta card es nueva (no estaba antes)
+    if(animateNew && !prevIds.has(String(d.id))){
+      revealAnimate(card);
+    }
   });
   updateDesgloseRemaining();
 }
@@ -2464,13 +2523,45 @@ function setEditDesgloseCat(id, cat){
   const d=editDesgloses.find(x=>x.id===id);
   if(!d) return;
   d.category=cat; d.subcategory='';
-  renderEditDesgloses();
+  const card=document.querySelector(`#e-desglose-list [data-desg-id="${id}"]`);
+  if(card){
+    updateDesgloseSubcatDropdownEdit(card, d);
+    updateEditDesgloseRemaining();
+  } else {
+    renderEditDesgloses();
+  }
 }
 function setEditDesgloseSubcat(id, sub){
   const d=editDesgloses.find(x=>x.id===id);
   if(!d) return;
   d.subcategory=sub;
-  renderEditDesgloses();
+  updateEditDesgloseRemaining();
+}
+
+function updateDesgloseSubcatDropdownEdit(card, d){
+  const subs=d.category?sortedSubcats(editType,d.category):[];
+  const hasSubs=subs && !(subs.length===1&&subs[0]==='—');
+  const selects=card.querySelectorAll('select');
+  let subSelect=null;
+  selects.forEach(s=>{ if((s.getAttribute('onchange')||'').includes('setEditDesgloseSubcat')) subSelect=s; });
+  if(hasSubs){
+    const subOpts=subs.map(s=>`<option value="${s}" ${d.subcategory===s?'selected':''}>${s}</option>`).join('');
+    if(subSelect){
+      subSelect.innerHTML=`<option value="">Subcategoría...</option>${subOpts}`;
+      subSelect.value=d.subcategory||'';
+    } else {
+      const newSel=document.createElement('select');
+      newSel.setAttribute('onchange', `setEditDesgloseSubcat(${d.id},this.value)`);
+      newSel.style.cssText='width:100%;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;margin-bottom:8px;';
+      newSel.innerHTML=`<option value="">Subcategoría...</option>${subOpts}`;
+      const rows=card.querySelectorAll(':scope > div');
+      const anchor=rows.length>=2?rows[1]:null;
+      if(anchor && anchor.nextSibling) card.insertBefore(newSel, anchor.nextSibling);
+      else card.appendChild(newSel);
+    }
+  } else if(subSelect){
+    subSelect.remove();
+  }
 }
 function editDesglosesTotal(){
   return editDesgloses.reduce((s,d)=>s+(d.amount||0),0);
@@ -2481,6 +2572,7 @@ function renderEditDesgloses(){
   list.innerHTML='';
   editDesgloses.forEach((d,idx)=>{
     const card=document.createElement('div');
+    card.dataset.desgId=String(d.id);
     card.style.cssText='background:var(--surface2);border-radius:var(--radius-sm);padding:11px;margin-bottom:8px;position:relative;';
     const catOpts=sortedCats(editType).map(c=>`<option value="${c}" ${d.category===c?'selected':''}>${c}</option>`).join('');
     const subs=d.category?sortedSubcats(editType,d.category):[];
@@ -2527,20 +2619,82 @@ function updateEditDesgloseVisibility(){
 }
 
 
+// Renderiza los tipos de beneficio con el mismo comportamiento colapsable y
+// animaciones que las categorías: todos visibles → al elegir uno, colapsa a ese solo.
 function buildBenTypeBlocks(containerId, selected, onSelect) {
   const container = document.getElementById(containerId);
+  if(!container) return;
+  // Guardar callback y selección en el contenedor para re-renderizar en toggles
+  container._benOnSelect = onSelect;
+  container._benSelected = selected || '';
+  renderBenTypeUI(containerId);
+}
+
+function renderBenTypeUI(containerId){
+  const container = document.getElementById(containerId);
+  if(!container) return;
+  const selected = container._benSelected || '';
+  const onSelect = container._benOnSelect || (()=>{});
   container.innerHTML='';
-  BEN_TYPES.forEach(t=>{
-    const b=document.createElement('button');
-    b.className='cat-block'+(t===selected?' sel-pa':'');
-    b.innerHTML=`<span>${ICONS[t]||'💰'}</span><br>${t}`;
-    b.onclick=()=>{
-      container.querySelectorAll('.cat-block').forEach(c=>c.classList.remove('sel-pa'));
-      b.classList.add('sel-pa');
-      onSelect(t);
-    };
-    container.appendChild(b);
-  });
+
+  // Estado 1: sin selección → mostrar todos con animación escalonada
+  if(!selected){
+    container.className='cat-grid-ui';
+    container.style.gridTemplateColumns='';
+    BEN_TYPES.forEach(t=>{
+      const b=makeBenButton(t, containerId);
+      container.appendChild(b);
+    });
+    revealGridByColumns(container, 2);
+    return;
+  }
+
+  // Estado 2: seleccionado → colapsar a ese solo, ocupando 100% ancho (no tiene subcats)
+  container.className='cat-grid-ui';
+  container.style.gridTemplateColumns='1fr';
+  const b=makeBenButton(selected, containerId);
+  b.classList.add('sel-pa');
+  const color='#af52de';
+  b.style.borderColor=color;
+  container.appendChild(b);
+  revealAnimate(container, true);
+}
+
+function makeBenButton(name, containerId){
+  const b=document.createElement('button');
+  b.type='button';
+  b.className='cat-block';
+  b.innerHTML=`<span>${ICONS[name]||'💰'}</span><br>${name}`;
+  b.onclick=(ev)=>{ ev.stopPropagation(); selectBenType(name, containerId); };
+  return b;
+}
+
+function selectBenType(name, containerId){
+  const container=document.getElementById(containerId);
+  if(!container) return;
+  const wasAllShowing = !container._benSelected;
+  if(container._benSelected===name){
+    // Tocar el ya elegido → re-expandir (mostrar todos de nuevo).
+    // NO desactiva el beneficio: solo limpia la selección de tipo para re-elegir.
+    container._benSelected='';
+    if(container._benOnSelect) container._benOnSelect('');
+    renderBenTypeUI(containerId);
+    return;
+  }
+  // Elegir uno nuevo
+  if(wasAllShowing && container.children.length>1){
+    // Desde la vista de todos → animar salida inversa, luego colapsar
+    collapseGridReverse(container, 2, ()=>{
+      container._benSelected=name;
+      if(container._benOnSelect) container._benOnSelect(name);
+      renderBenTypeUI(containerId);
+    });
+  } else {
+    // Cambiar de un tipo colapsado directo a otro (sin pasar por vista de todos)
+    container._benSelected=name;
+    if(container._benOnSelect) container._benOnSelect(name);
+    renderBenTypeUI(containerId);
+  }
 }
 
 function toggleBen(){
@@ -2577,6 +2731,11 @@ function _submitEntry(){
   if(!date) return toast('Selecciona una fecha');
   if(curType!=='ahorro-pasivo'&&!selMethod) return toast('Selecciona un método de pago');
 
+  // Si el beneficio está activo con monto, debe tener un tipo elegido
+  if(curType==='egreso' && benOn && getBenAmount()>0 && !curBenType){
+    return toast('Selecciona un tipo de beneficio');
+  }
+
   // ── Validar desgloses (egreso, ingreso y beneficio) ──
   const activeDesgloses = desgloses.filter(d=>d.amount>0);
   if(activeDesgloses.length>0){
@@ -2600,6 +2759,8 @@ function _submitEntry(){
   // en ese pago) y se suma a la categoría de ahorro pasivo correspondiente.
   if(curType==='egreso' && benOn){
     const ba = getBenAmount();
+    // Si hay monto de beneficio pero no se eligió tipo, pedirlo
+    if(ba > 0 && !curBenType) return toast('Elige el tipo de beneficio');
     if(ba > 0) mainAmount = +(mainAmount - ba).toFixed(2);
     if(mainAmount < 0) mainAmount = 0;
   }
@@ -2762,7 +2923,10 @@ function resetForm(){
   if(noteIcon) noteIcon.textContent='＋';
   const noteLbl=document.getElementById('note-toggle-lbl');
   if(noteLbl) noteLbl.textContent=' Agregar nota';
-  curBenType='Cashback';
+  curBenType='';
+  // Limpiar los bloques de tipo de beneficio para que se reconstruyan al reactivar
+  const benBlocks=document.getElementById('ben-type-blocks');
+  if(benBlocks){ benBlocks.innerHTML=''; benBlocks._benSelected=''; }
   // Reset estado del beneficio a default (monto directo, adicional)
   benType='monto';
   setBenType('monto');
@@ -2816,15 +2980,15 @@ async function deleteEntryInSheets(id) {
 }
 
 // ── LOAD FROM SHEETS ──
-async function loadFromSheets() {
+async function loadFromSheets(silent) {
   try {
-    showSyncing('⟳ Cargando datos...');
+    if(!silent) showSyncing('⟳ Cargando datos...');
     const r = await fetch(SHEETS_URL);
     const json = await r.json();
     hideSyncing();
     if (!json.ok || !json.rows || json.rows.length < 2) return;
     const rows = json.rows.slice(1); // skip header
-    data = rows.map(r => {
+    const newData = rows.map(r => {
       let dateVal = r[1];
       if (dateVal instanceof Date) {
         dateVal = dateVal.toISOString().split('T')[0];
@@ -2852,10 +3016,17 @@ async function loadFromSheets() {
         linkedTo:   r[14]?Number(r[14]):null,
       };
     }).sort((a,b)=>b.id-a.id);
+
+    // Detectar si los datos realmente cambiaron respecto a lo que ya se muestra.
+    // Si no cambiaron, NO re-renderizamos para evitar el parpadeo.
+    const changed = JSON.stringify(newData) !== JSON.stringify(data);
+    data = newData;
     localStorage.setItem(SK, JSON.stringify(data));
-    populateSelectors();
-    renderBalance();
-    renderHistorial();
+    if(changed){
+      populateSelectors();
+      renderBalance();
+      renderHistorial(); // sin animación: es una actualización, no una entrada nueva
+    }
   } catch(e) {
     hideSyncing();
     console.warn('Sheets load failed, using local cache', e);
@@ -3589,7 +3760,7 @@ function appendSubChip(sub, hasRecords, container){
   container.appendChild(b);
 }
 
-function renderHistorial(){
+function renderHistorial(animate){
   const hl=document.getElementById('hist-list');
   if(!hl) return;
   hl.innerHTML='';
@@ -3696,6 +3867,9 @@ function renderHistorial(){
   });
 
   hl.appendChild(container);
+
+  // Animar la aparición del listado (escalonado) solo cuando se solicite
+  if(animate) revealAnimate(container, true);
 }
 
 function sum(arr,t){return arr.filter(e=>e.type===t).reduce((s,e)=>s+e.amountMXN,0);}
@@ -4030,7 +4204,11 @@ function setEditMethod(m,el){
 function toggleEBen(){
   editBenOn=!editBenOn;
   updateEBenUI();
-  if(editBenOn) buildBenTypeBlocks('e-ben-type-blocks', editBenType, t=>{ editBenType=t; });
+  if(editBenOn){
+    // Empezar sin selección para mostrar todos los tipos (como las categorías)
+    editBenType='';
+    buildBenTypeBlocks('e-ben-type-blocks', '', t=>{ editBenType=t; });
+  }
 }
 function updateEBenUI(){
   const btn=document.getElementById('e-inline-ben-btn');
@@ -4084,6 +4262,8 @@ function saveEdit(){
   // Beneficio
   let benAmt = 0;
   if(editType==='egreso' && editBenOn) benAmt = getEditBenAmount();
+  // Si hay monto de beneficio pero no se eligió tipo, pedirlo
+  if(benAmt > 0 && !editBenType) return toast('Elige el tipo de beneficio');
 
   // Total de desgloses
   const totalDesg = activeEditDesgloses.reduce((s,d)=>s+d.amount,0);
