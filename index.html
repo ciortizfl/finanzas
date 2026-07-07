@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Tomin">
-<title>Tomin</title>
+<meta name="apple-mobile-web-app-title" content="Tomín">
+<title>Tomín</title>
 <style>
 /* ── APPLE.COM INSPIRED DESIGN SYSTEM ── */
 :root {
@@ -1718,6 +1718,7 @@ function onCurChange() {
   }
   calcBenPreview();
   calcPropinaPreview();
+  if(typeof renderDesgloses==='function' && desgloses.length>0) renderDesgloses();
 }
 
 function calcBenPreview(){
@@ -1820,6 +1821,38 @@ function revealGridByColumns(container, cols){
   });
 }
 
+// Anima la SALIDA de los hijos de un grid en orden INVERSO (última columna primero,
+// de abajo hacia arriba), luego ejecuta el callback (que reconstruye el UI).
+function collapseGridReverse(container, cols, done){
+  if(!container){ if(done) done(); return; }
+  const reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const kids=Array.from(container.children);
+  if(reduced || kids.length===0){ if(done) done(); return; }
+
+  const easing='cubic-bezier(0.55, 0, 0.67, 0.2)';
+  const from={ opacity: 1, transform: 'translate3d(0, 0, 0)' };
+  const to={ opacity: 0, transform: 'translate3d(0, -16px, 0)' };
+  const rows=Math.ceil(kids.length/cols);
+  const total=kids.length;
+  let maxDelay=0;
+
+  kids.forEach((k, i)=>{
+    const col = i % cols;
+    const row = Math.floor(i / cols);
+    // Orden normal de aparición: col*rows+row. Invertimos para la salida.
+    const orderIdx = col * rows + row;
+    const reverseIdx = (total - 1) - orderIdx;
+    const delay = reverseIdx * 40;
+    maxDelay = Math.max(maxDelay, delay);
+    try {
+      const anim=k.animate([from, to], { duration: 260, delay, easing, fill: 'forwards' });
+    } catch(e){}
+  });
+
+  // Ejecutar el callback cuando termine la última animación de salida
+  setTimeout(()=>{ if(done) done(); }, maxDelay + 260);
+}
+
 function setType(t) {
   curType=t; curCat=''; curSubcat='';
   // Segmented control: mover thumb y actualizar estado activo
@@ -1862,8 +1895,6 @@ function setType(t) {
     resetPropina();
   }
   buildCatBlocks();
-  document.getElementById('subcat-wrap').classList.remove('vis');
-  document.getElementById('subcat-blocks').innerHTML='';
   // Reset method — Crédito active by default for egreso, none for others
   document.querySelectorAll('#method-field .chip').forEach(c=>c.classList.remove('active'));
   if(t==='egreso'){
@@ -2165,34 +2196,59 @@ function setAhorroSubType(t){
 }
 
 function selectCat(cat) {
+  const container=document.getElementById('cat-blocks');
+  const wasAllShowing = !curCat; // estaban todas visibles
   if(curCat===cat){
     // Tocar la categoría ya elegida → re-expandir (mostrar todas)
     curCat=''; curSubcat='';
+    renderCatUI();
   } else {
-    curCat=cat; curSubcat='';
+    // Al elegir una categoría desde la vista de todas: animar salida inversa, luego colapsar
+    if(wasAllShowing && container && container.children.length>1){
+      collapseGridReverse(container, 2, ()=>{
+        curCat=cat; curSubcat='';
+        renderCatUI();
+      });
+    } else {
+      curCat=cat; curSubcat='';
+      renderCatUI();
+    }
   }
-  renderCatUI();
 }
 
 function selectSubcat(sub) {
+  const container=document.getElementById('cat-blocks');
   if(curSubcat===sub){
     // Tocar la subcategoría ya elegida → re-mostrar las demás
     curSubcat='';
+    renderCatUI();
   } else {
-    curSubcat=sub;
+    // Al elegir subcategoría: animar salida inversa de las subcats, luego colapsar
+    const right=container?container.querySelector('.cat-col-right'):null;
+    if(right && right.children.length>1){
+      collapseGridReverse(right, 1, ()=>{
+        curSubcat=sub;
+        renderCatUI();
+      });
+    } else {
+      curSubcat=sub;
+      renderCatUI();
+    }
   }
-  renderCatUI();
 }
 
 function predictCategory(){
   const desc = document.getElementById('desc').value.trim().toLowerCase();
   if(desc.length < 3) return;
-  if(curType !== 'egreso') return;
+  // Funciona para egreso, ingreso y beneficio (ahorro-pasivo)
+  if(curType !== 'egreso' && curType !== 'ingreso' && curType !== 'ahorro-pasivo') return;
 
-  // Contar frecuencia de cat+subcat en registros con descripción similar
+  // Contar frecuencia de cat+subcat en registros del MISMO tipo con descripción similar
   const freq = {};
   data.forEach(e => {
-    if(e.type !== 'egreso') return;
+    if(e.type !== curType) return;
+    // Ignorar hijos vinculados (desgloses/propina/beneficio) para no sesgar
+    if(e.linkedTo) return;
     const d = (e.desc || '').toLowerCase();
     if(d.length < 2) return;
     // Coincide si la descripción histórica contiene lo escrito, o lo escrito contiene la histórica
@@ -2325,20 +2381,22 @@ function desglosesTotal(){
 function renderDesgloses(){
   const list=document.getElementById('desglose-list');
   if(!list) return;
+  const cur=document.getElementById('currency')?.value||'MXN';
+  const curLabel = cur==='MXN' ? '' : ` (${cur})`;
   list.innerHTML='';
   desgloses.forEach((d,idx)=>{
     const card=document.createElement('div');
     card.style.cssText='background:var(--surface2);border-radius:var(--radius-sm);padding:11px;margin-bottom:8px;position:relative;';
-    // Categorías de egreso para el dropdown
-    const catOpts=sortedCats('egreso').map(c=>`<option value="${c}" ${d.category===c?'selected':''}>${c}</option>`).join('');
-    const subs=d.category?sortedSubcats('egreso',d.category):[];
+    // Categorías del tipo actual para el dropdown
+    const catOpts=sortedCats(curType).map(c=>`<option value="${c}" ${d.category===c?'selected':''}>${c}</option>`).join('');
+    const subs=d.category?sortedSubcats(curType,d.category):[];
     const hasSubs=subs && !(subs.length===1&&subs[0]==='—');
     const subOpts=hasSubs?subs.map(s=>`<option value="${s}" ${d.subcategory===s?'selected':''}>${s}</option>`).join(''):'';
     card.innerHTML=`
       <button type="button" onclick="removeDesglose(${d.id})" style="position:absolute;top:8px;right:8px;background:none;border:none;cursor:pointer;color:var(--danger);font-size:16px;line-height:1;padding:2px;">✕</button>
-      <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:8px;">Desglose ${idx+1}</div>
+      <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:8px;">Desglose ${idx+1}${curLabel}</div>
       <div style="display:flex;gap:8px;margin-bottom:8px;">
-        <input type="number" inputmode="decimal" step="0.01" min="0" placeholder="Monto" value="${d.amount||''}" oninput="updateDesglose(${d.id},'amount',this.value)" style="width:110px;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
+        <input type="number" inputmode="decimal" step="0.01" min="0" placeholder="Monto${curLabel}" value="${d.amount||''}" oninput="updateDesglose(${d.id},'amount',this.value)" style="width:110px;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
         <select onchange="setDesgloseCat(${d.id},this.value)" style="flex:1;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
           <option value="">Categoría...</option>${catOpts}
         </select>
@@ -2375,11 +2433,11 @@ function updateDesgloseRemaining(){
   }
 }
 
-// Muestra/oculta la sección de desglose según el tipo (solo egreso)
+// Muestra/oculta la sección de desglose (aplica a egreso, ingreso y beneficio)
 function updateDesgloseVisibility(){
   const sec=document.getElementById('desglose-section');
   if(!sec) return;
-  sec.style.display = curType==='egreso' ? 'block' : 'none';
+  sec.style.display = 'block';
 }
 
 // ══════════════════════════════════════
@@ -2424,8 +2482,8 @@ function renderEditDesgloses(){
   editDesgloses.forEach((d,idx)=>{
     const card=document.createElement('div');
     card.style.cssText='background:var(--surface2);border-radius:var(--radius-sm);padding:11px;margin-bottom:8px;position:relative;';
-    const catOpts=sortedCats('egreso').map(c=>`<option value="${c}" ${d.category===c?'selected':''}>${c}</option>`).join('');
-    const subs=d.category?sortedSubcats('egreso',d.category):[];
+    const catOpts=sortedCats(editType).map(c=>`<option value="${c}" ${d.category===c?'selected':''}>${c}</option>`).join('');
+    const subs=d.category?sortedSubcats(editType,d.category):[];
     const hasSubs=subs && !(subs.length===1&&subs[0]==='—');
     const subOpts=hasSubs?subs.map(s=>`<option value="${s}" ${d.subcategory===s?'selected':''}>${s}</option>`).join(''):'';
     card.innerHTML=`
@@ -2465,7 +2523,7 @@ function updateEditDesgloseRemaining(){
 function updateEditDesgloseVisibility(){
   const sec=document.getElementById('e-desglose-section');
   if(!sec) return;
-  sec.style.display = editType==='egreso' ? 'block' : 'none';
+  sec.style.display = 'block';
 }
 
 
@@ -2507,22 +2565,24 @@ function _submitEntry(){
   const date=document.getElementById('tx-date').value;
   const noteEl=document.getElementById('note');
   const note=noteEl?noteEl.value.trim():'';
-  const subcatWrap=document.getElementById('subcat-wrap');
-  const subcat=subcatWrap.classList.contains('vis')?curSubcat:'';
+  // La subcategoría se determina por si la categoría actual tiene subcategorías
+  const _subs = curCat ? sortedSubcats(curType, curCat) : [];
+  const _hasSubs = _subs && !(_subs.length===1 && _subs[0]==='—');
+  const subcat = _hasSubs ? curSubcat : '';
 
   if(!amount||amount<=0) return toast('Ingresa un monto válido');
   if(!desc) return toast('Agrega una descripción');
   if(!curCat) return toast('Selecciona una categoría');
-  if(subcatWrap.classList.contains('vis')&&!subcat) return toast('Selecciona una subcategoría');
+  if(_hasSubs && !subcat) return toast('Selecciona una subcategoría');
   if(!date) return toast('Selecciona una fecha');
   if(curType!=='ahorro-pasivo'&&!selMethod) return toast('Selecciona un método de pago');
 
-  // ── Validar desgloses (solo egreso) ──
-  const activeDesgloses = (curType==='egreso') ? desgloses.filter(d=>d.amount>0) : [];
+  // ── Validar desgloses (egreso, ingreso y beneficio) ──
+  const activeDesgloses = desgloses.filter(d=>d.amount>0);
   if(activeDesgloses.length>0){
     for(const d of activeDesgloses){
       if(!d.category) return toast('Cada desglose necesita una categoría');
-      const dsubs=sortedSubcats('egreso', d.category);
+      const dsubs=sortedSubcats(curType, d.category);
       const dHasSubs=dsubs && !(dsubs.length===1 && dsubs[0]==='—');
       if(dHasSubs && !d.subcategory) return toast('Cada desglose necesita una subcategoría');
     }
@@ -2638,21 +2698,22 @@ function _submitEntry(){
     }
   }
 
-  // ── Crear desgloses como egresos vinculados al gasto madre ──
+  // ── Crear desgloses como registros vinculados al registro madre ──
+  // Heredan tipo, moneda, fecha y método del padre.
   const desgloseEntries=[];
-  if(curType==='egreso' && activeDesgloses.length>0){
+  if(activeDesgloses.length>0){
     activeDesgloses.forEach(d=>{
       const dMXN=toMXN(d.amount, cur);
-      const dsubs=sortedSubcats('egreso', d.category);
+      const dsubs=sortedSubcats(curType, d.category);
       const dHasSubs=dsubs && !(dsubs.length===1 && dsubs[0]==='—');
       const sym=cur==='MXN'?'$':`${cur} `;
       let dNote=`Desglose de: ${desc} | Monto original: ${sym}${amount.toFixed(2)}`;
       if(d.note) dNote=`${d.note} | ${dNote}`;
       const dEntry={
-        id: genId(), type:'egreso',
+        id: genId(), type:curType,
         amount:d.amount, amountMXN:dMXN, currency:cur,
         desc:desc, category:d.category, subcategory: dHasSubs?d.subcategory:'',
-        method:selMethod, date,
+        method:curType!=='ahorro-pasivo'?selMethod:null, date,
         note:dNote, linkedTo:entry.id
       };
       data.unshift(dEntry);
@@ -2671,7 +2732,9 @@ function _submitEntry(){
   if(propinaEntry) saves.push(saveEntryToSheets(propinaEntry));
   desgloseEntries.forEach(de=>saves.push(saveEntryToSheets(de)));
   Promise.all(saves).then(()=>{ hideSyncing(); toast('✓ Registro guardado'); });
-  resetForm();
+  // El guardado ya ocurrió. Si resetForm falla, no debe mostrar error de guardado.
+  try { resetForm(); } catch(e){ console.error('resetForm error (no afecta el guardado):', e); }
+  return true; // señal de guardado exitoso
 }
 
 function resetForm(){
@@ -3648,7 +3711,12 @@ function txEl(e, showDelete){
   const ico=ICONS[e.subcategory]||ICONS[e.category]||'📌';
   // Los hijos vinculados (desglose/propina/beneficio) no se eliminan independientemente
   const isLinkedChild = !!e.linkedTo;
-  const delBtn = (showDelete && !isLinkedChild) ? `<button class="tx-delete-btn" title="Eliminar">✕</button>` : '';
+  // Los hijos vinculados no tienen tacha, pero reservamos su espacio para alinear montos
+  const delBtn = showDelete
+    ? (isLinkedChild
+        ? `<span class="tx-delete-btn" style="visibility:hidden;pointer-events:none;">✕</span>`
+        : `<button class="tx-delete-btn" title="Eliminar">✕</button>`)
+    : '';
   const barColor = catColor(e.category);
   const noteDisplay = e.note ? `<div class="tx-note">${e.note}</div>` : '';
   el.innerHTML=`
@@ -3742,8 +3810,8 @@ function openEdit(id) {
   // El monto guardado ya tiene restados: beneficio, propina incluida y desgloses.
   // Para editar mostramos el monto ORIGINAL sumándolos todos de vuelta.
   const _linkedBen = e.type==='egreso' ? data.find(x=>x.linkedTo===id&&x.type==='ahorro-pasivo') : null;
-  // Desgloses reales: egresos hijos cuya nota marca "Desglose de:"
-  const _realDesgloses = e.type==='egreso' ? data.filter(x=>x.linkedTo===id&&x.type==='egreso'&&(x.note||'').includes('Desglose de:')) : [];
+  // Desgloses reales: hijos del MISMO tipo cuya nota marca "Desglose de:"
+  const _realDesgloses = data.filter(x=>x.linkedTo===id&&x.type===e.type&&(x.note||'').includes('Desglose de:'));
 
   // El monto mostrado suma de vuelta beneficio y desgloses (que se re-restarán al guardar).
   // La propina NO se suma de vuelta: se preserva intacta y no se re-procesa aquí.
@@ -4002,12 +4070,12 @@ function saveEdit(){
   if(eHasSubs && !subcat) return toast('Selecciona una subcategoría');
   if(!date) return toast('Selecciona una fecha');
 
-  // ── Validar desgloses (solo egreso) ──
-  const activeEditDesgloses = (editType==='egreso') ? editDesgloses.filter(d=>d.amount>0) : [];
+  // ── Validar desgloses (egreso, ingreso y beneficio) ──
+  const activeEditDesgloses = editDesgloses.filter(d=>d.amount>0);
   if(activeEditDesgloses.length>0){
     for(const d of activeEditDesgloses){
       if(!d.category) return toast('Cada desglose necesita una categoría');
-      const dsubs=sortedSubcats('egreso', d.category);
+      const dsubs=sortedSubcats(editType, d.category);
       const dHasSubs=dsubs && !(dsubs.length===1 && dsubs[0]==='—');
       if(dHasSubs && !d.subcategory) return toast('Cada desglose necesita una subcategoría');
     }
@@ -4078,20 +4146,20 @@ function saveEdit(){
     newChildren.push(benEntry);
   }
 
-  // Recrear desgloses
-  if(editType==='egreso' && activeEditDesgloses.length>0){
+  // Recrear desgloses (heredan tipo, moneda, fecha y método del padre)
+  if(activeEditDesgloses.length>0){
     activeEditDesgloses.forEach(d=>{
       const dMXN=toMXN(d.amount, cur);
-      const dsubs=sortedSubcats('egreso', d.category);
+      const dsubs=sortedSubcats(editType, d.category);
       const dHasSubs=dsubs && !(dsubs.length===1 && dsubs[0]==='—');
       const sym=cur==='MXN'?'$':`${cur} `;
       let dNote=`Desglose de: ${desc} | Monto original: ${sym}${amount.toFixed(2)}`;
       if(d.note) dNote=`${d.note} | ${dNote}`;
       const dEntry={
-        id: genId(), type:'egreso',
+        id: genId(), type:editType,
         amount:d.amount, amountMXN:dMXN, currency:cur,
         desc:desc, category:d.category, subcategory: dHasSubs?d.subcategory:'',
-        method:editMethod, date,
+        method:editType!=='ahorro-pasivo'?editMethod:null, date,
         note:dNote, linkedTo:editId
       };
       data.unshift(dEntry);
