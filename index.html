@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Finanzas">
-<title>Finanzas</title>
+<meta name="apple-mobile-web-app-title" content="Tomin">
+<title>Tomin</title>
 <style>
 /* ── APPLE.COM INSPIRED DESIGN SYSTEM ── */
 :root {
@@ -129,7 +129,7 @@ nav {
 .type-btn.active.t-ingreso { background: var(--green-light); color: var(--green); }
 .type-btn.active.t-egreso  { background: var(--danger-light); color: var(--danger); }
 .type-btn.active.t-ahorro  { background: var(--blue-light);   color: var(--blue); }
-.type-btn.active.t-pasivo  { background: var(--amber-light);  color: var(--amber); }
+.type-btn.active.t-pasivo  { background: #af52de22;  color: #af52de; }
 
 /* ── Animación de despliegue estilo apple.com (revela de arriba a abajo con expansión) ── */
 @keyframes revealDown {
@@ -331,6 +331,8 @@ nav {
 .bal-hero .lbl { font-size: 12px; font-weight: 600; letter-spacing: -0.01em; color: var(--hero-lbl, rgba(255,255,255,0.7)); margin-bottom: 6px; }
 .bal-hero .val { font-size: 40px; font-weight: 700; color: var(--hero-val, white); line-height: 1; letter-spacing: -0.03em; }
 .bal-hero .sub { font-size: 12px; color: var(--hero-sub, rgba(255,255,255,0.5)); margin-top: 6px; }
+.annual-hero-compact { padding: 18px 20px; }
+.annual-hero-compact .lbl { margin-bottom: 4px; }
 .bal-hero .bono-line {
   margin-top: 14px; padding-top: 12px;
   border-top: 1px solid rgba(255,255,255,0.2);
@@ -352,7 +354,7 @@ nav {
 .stat .val.g { color: var(--green); }
 .stat .val.r { color: var(--danger); }
 .stat .val.b { color: var(--blue); }
-.stat .val.a { color: var(--amber); }
+.stat .val.a { color: #af52de; }
 .stat .sub { font-size: 11px; color: var(--text3); margin-top: 3px; }
 .stat.active-filter { box-shadow: 0 4px 16px rgba(0,0,0,0.15); }
 #ingreso-stat.active-filter { background: var(--green); }
@@ -705,6 +707,10 @@ nav {
 #egreso-stat.active-filter  { background: var(--danger) !important; }
 #pasivo-stat.active-filter  { background: #af52de !important; }
 #bono-stat.active-filter    { background: var(--amber) !important; }
+/* Tarjetones de detalle anual: color por tipo al activarse */
+.annual-detail-stat.active-filter[data-view="ingreso"] { background: var(--green) !important; }
+.annual-detail-stat.active-filter[data-view="egreso"]  { background: var(--danger) !important; }
+.annual-detail-stat.active-filter[data-view="ahorro-pasivo"] { background: #af52de !important; }
 .stat.active-filter .lbl,
 .stat.active-filter .val,
 .stat.active-filter .sub,
@@ -833,6 +839,26 @@ nav {
 .date-day-btn.selected .day-num { color: white; }
 .date-day-btn.today-marker .day-num { color: var(--accent); }
 .date-day-btn.today-marker.selected .day-num { color: white; }
+/* Mes completo debajo del número (solo web) */
+.date-day-btn .day-month {
+  font-size: 9px; font-weight: 600; color: var(--text3);
+  text-transform: uppercase; letter-spacing: 0.03em; margin-top: 1px;
+}
+.date-day-btn.selected .day-month { color: rgba(255,255,255,0.85); }
+/* Botón más ancho en modo web para acomodar día completo */
+.date-day-btn.web-mode {
+  width: 60px;
+}
+.date-day-btn.web-mode .day-name { font-size: 9px; }
+/* Separador de mes (solo móvil) */
+.month-break {
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  writing-mode: vertical-rl; transform: rotate(180deg);
+  font-size: 9px; font-weight: 700; color: var(--accent);
+  text-transform: uppercase; letter-spacing: 0.08em;
+  padding: 0 2px; opacity: 0.7;
+}
 /* hidden native input */
 .date-native-hidden {
   position: absolute; opacity: 0; pointer-events: none; width: 0; height: 0;
@@ -889,7 +915,7 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
             <option value="CAD">🇨🇦 CAD</option>
             <option value="EUR">🇪🇺 EUR</option>
           </select>
-          <input type="number" id="amount" placeholder="0.00" inputmode="decimal" step="0.01" min="0" oninput="calcPropinaPreview()">
+          <input type="number" id="amount" placeholder="0.00" inputmode="decimal" step="0.01" min="0" oninput="calcPropinaPreview();updateDesgloseRemaining()">
         </div>
         <div class="rate-note" id="rate-note"><span class="rate-dot"></span><span id="rate-text"></span></div>
       </div>
@@ -998,17 +1024,25 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
         </div>
       </div>
 
-      <div style="margin-bottom:0">
+      <div id="note-section" style="margin-bottom:0;display:none">
         <button type="button" id="note-toggle-btn" onclick="toggleNoteField()" style="background:none;border:none;cursor:pointer;font-size:13px;color:var(--text3);padding:6px 0;font-family:inherit;display:flex;align-items:center;gap:4px;">
           <span id="note-toggle-icon">＋</span><span id="note-toggle-lbl"> Agregar nota</span>
         </button>
         <div id="note-field-wrap" style="display:none;margin-top:6px">
           <textarea id="note" placeholder="Detalles adicionales..." style="width:100%;padding:11px 13px;border:none;border-radius:var(--radius-sm);background:var(--surface2);color:var(--text);font-family:inherit;font-size:15px;outline:none;resize:none;height:64px;"></textarea>
         </div>
+        <!-- Desgloses (solo egresos) -->
+        <div id="desglose-section" style="display:none;margin-top:10px;">
+          <div id="desglose-list"></div>
+          <button type="button" id="add-desglose-btn" onclick="addDesglose()" style="background:none;border:1.5px dashed var(--border2);border-radius:var(--radius-sm);cursor:pointer;font-size:13px;color:var(--text2);padding:9px 0;font-family:inherit;width:100%;display:flex;align-items:center;justify-content:center;gap:5px;margin-top:4px;">
+            <span style="font-size:15px;">＋</span> Agregar desglose
+          </button>
+          <div id="desglose-remaining" style="font-size:12px;color:var(--text3);margin-top:8px;text-align:right;display:none;"></div>
+        </div>
       </div>
     </div>
 
-    <button class="btn-submit" onclick="submitEntry()">Guardar registro</button>
+    <button class="btn-submit" id="submit-btn" onclick="submitEntry()" style="display:none">Guardar</button>
   </div>
 </div>
 
@@ -1060,14 +1094,14 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
     <div class="month-sel-row">
       <select id="bal-annual-year-sel" onchange="renderAnnual()" style="flex:1"></select>
     </div>
-    <!-- Resumen anual hasta la fecha -->
-    <div class="bal-hero" id="annual-hero" style="cursor:default;margin-top:4px;">
+    <!-- Resumen anual hasta la fecha (compacto) -->
+    <div class="bal-hero annual-hero-compact" id="annual-hero" style="cursor:default;margin-top:4px;">
       <div class="lbl">Saldo del año</div>
-      <div class="val" id="annual-saldo-val">$0.00</div>
+      <div class="val" id="annual-saldo-val" style="font-size:28px;">$0.00</div>
       <div class="sub">Ingresos − Egresos del año</div>
-      <div id="annual-ben-line" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.18);align-items:center;justify-content:space-between;">
-        <span style="font-size:12px;opacity:0.85;">Ahorrado con beneficios</span>
-        <span id="annual-ben-val" style="font-size:14px;font-weight:600;">$0.00</span>
+      <div id="annual-ben-line" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.22);align-items:center;justify-content:space-between;">
+        <span style="font-size:12px;color:rgba(255,255,255,0.92);">Ahorrado con beneficios</span>
+        <span id="annual-ben-val" style="font-size:14px;font-weight:700;color:#ffffff;background:rgba(255,255,255,0.18);padding:2px 9px;border-radius:100px;">$0.00</span>
       </div>
     </div>
     <div class="sec-lbl">Ingresos vs Egresos por mes</div>
@@ -1132,7 +1166,7 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
   <div style="padding:0 16px;margin-bottom:10px;">
     <div style="display:flex;align-items:center;gap:8px;background:var(--surface);border-radius:var(--radius-sm);box-shadow:var(--shadow);padding:10px 14px;">
       <span style="color:var(--text3);font-size:15px;">🔍</span>
-      <input type="text" id="hist-search" placeholder="Buscar por descripción..." oninput="updateResetButton();renderHistorial()" style="flex:1;border:none;background:none;font-family:inherit;font-size:14px;color:var(--text);outline:none;">
+      <input type="text" id="hist-search" placeholder="Buscar descripción, notas..." oninput="updateResetButton();renderHistorial()" style="flex:1;border:none;background:none;font-family:inherit;font-size:14px;color:var(--text);outline:none;">
       <button onclick="clearSearch()" id="hist-search-clear" style="display:none;background:none;border:none;cursor:pointer;color:var(--text3);font-size:16px;padding:0;line-height:1;">✕</button>
     </div>
   </div>
@@ -1234,7 +1268,7 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
               <option value="CAD">🇨🇦 CAD</option>
               <option value="EUR">🇪🇺 EUR</option>
             </select>
-            <input type="number" id="e-amount" placeholder="0.00" inputmode="decimal" step="0.01" min="0">
+            <input type="number" id="e-amount" placeholder="0.00" inputmode="decimal" step="0.01" min="0" oninput="calcEditBenPreview();updateEditDesgloseRemaining()">
           </div>
           <div class="rate-note" id="e-rate-note"><span class="rate-dot"></span><span id="e-rate-text"></span></div>
         </div>
@@ -1322,9 +1356,17 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
             <textarea id="e-note" placeholder="Detalles adicionales..." style="width:100%;padding:11px 13px;border:none;border-radius:var(--radius-sm);background:var(--surface2);color:var(--text);font-family:inherit;font-size:15px;outline:none;resize:none;height:64px;"></textarea>
           </div>
         </div>
+        <!-- Desgloses (solo egresos) -->
+        <div id="e-desglose-section" style="display:none;margin-top:10px;">
+          <div id="e-desglose-list"></div>
+          <button type="button" id="e-add-desglose-btn" onclick="addEditDesglose()" style="background:none;border:1.5px dashed var(--border2);border-radius:var(--radius-sm);cursor:pointer;font-size:13px;color:var(--text2);padding:9px 0;font-family:inherit;width:100%;display:flex;align-items:center;justify-content:center;gap:5px;margin-top:4px;">
+            <span style="font-size:15px;">＋</span> Agregar desglose
+          </button>
+          <div id="e-desglose-remaining" style="font-size:12px;color:var(--text3);margin-top:8px;text-align:right;display:none;"></div>
+        </div>
       </div>
 
-      <button class="btn-submit" onclick="saveEdit()">Guardar cambios</button>
+      <button class="btn-submit" onclick="saveEdit()">Guardar</button>
       <button class="btn-delete" onclick="deleteEntry()">Eliminar registro</button>
     </div>
   </div>
@@ -1824,6 +1866,8 @@ function setType(t) {
   // Reset note
   const noteEl=document.getElementById('note');
   if(noteEl){ noteEl.value=''; delete noteEl.dataset.autoRate; }
+  // Al cambiar de tipo, limpiar desgloses (solo aplican a egreso)
+  desgloses=[]; renderDesgloses();
   const noteWrap=document.getElementById('note-field-wrap');
   if(noteWrap) noteWrap.style.display='none';
   const noteIcon=document.getElementById('note-toggle-icon');
@@ -1864,11 +1908,13 @@ function renderCatUI(){
   if(!curCat){
     if(label) label.textContent='Categoría';
     container.className='cat-grid-ui';
+    container.style.gridTemplateColumns=''; // reset a 2 columnas por defecto
     sortedCats(curType).forEach(cat=>{
       const b=makeCatButton(cat, ()=>selectCat(cat));
       container.appendChild(b);
     });
     revealGridByColumns(container, 2);
+    updateFinalizeVisibility();
     return;
   }
 
@@ -1877,8 +1923,23 @@ function renderCatUI(){
   const subs = sortedSubcats(curType, curCat);
   const hasSubs = subs && !(subs.length===1 && subs[0]==='—');
 
+  // Si NO hay subcategorías (típico en ingreso/beneficio), la categoría ocupa 100% del ancho.
+  // Si SÍ hay (egreso), layout de dos columnas: categoría arriba-izq + subcategorías derecha.
+  if(!hasSubs){
+    container.className='cat-grid-ui';
+    container.style.gridTemplateColumns='1fr'; // una sola columna → 100% ancho
+    const catBtn=makeCatButton(curCat, ()=>selectCat(curCat));
+    catBtn.classList.add(colorCls);
+    applyCatBorder(catBtn, curCat);
+    container.appendChild(catBtn);
+    revealAnimate(container, true);
+    updateFinalizeVisibility();
+    return;
+  }
+
   // Contenedor de dos columnas: izquierda (categoría) / derecha (subcategorías)
   container.className='cat-collapsed-row';
+  container.style.gridTemplateColumns=''; // reset por si venía de 1fr
 
   const left=document.createElement('div');
   left.className='cat-col-left';
@@ -1887,6 +1948,8 @@ function renderCatUI(){
   applyCatBorder(catBtn, curCat);
   left.appendChild(catBtn);
   container.appendChild(left);
+  // Animar la categoría al colapsar a su nueva posición (aparición suave)
+  revealAnimate(left, true);
 
   if(hasSubs){
     const right=document.createElement('div');
@@ -1907,6 +1970,39 @@ function renderCatUI(){
     container.appendChild(right);
     // Animar la columna derecha
     revealAnimate(right, true);
+  }
+
+  updateFinalizeVisibility();
+}
+
+// Muestra "Agregar nota" y "Guardar registro" solo cuando la selección está completa:
+// hay categoría Y (hay subcategoría O la categoría no tiene subcategorías).
+// Aparecen con efecto suave.
+function updateFinalizeVisibility(){
+  const noteSection=document.getElementById('note-section');
+  const submitBtn=document.getElementById('submit-btn');
+  if(!noteSection||!submitBtn) return;
+
+  let complete=false;
+  if(curCat){
+    const subs=sortedSubcats(curType, curCat);
+    const hasSubs=subs && !(subs.length===1 && subs[0]==='—');
+    complete = hasSubs ? !!curSubcat : true;
+  }
+
+  const wasHidden = noteSection.style.display==='none';
+  if(complete){
+    noteSection.style.display='';
+    submitBtn.style.display='';
+    // Animar solo si estaban ocultos (aparición suave)
+    if(wasHidden){
+      revealAnimate(noteSection);
+      revealAnimate(submitBtn);
+    }
+    updateDesgloseVisibility();
+  } else {
+    noteSection.style.display='none';
+    submitBtn.style.display='none';
   }
 }
 
@@ -2165,6 +2261,196 @@ BEN_TYPES.forEach(t=>{ CATS['ahorro-pasivo'][t]=['—']; });
 let curBenType = 'Cashback';
 let editBenType = 'Cashback';
 
+// ══════════════════════════════════════
+// DESGLOSES (registro)
+// Cada desglose resta de un gasto madre y se guarda como egreso vinculado.
+// ══════════════════════════════════════
+let desgloses = []; // {id, amount, category, subcategory, note}
+
+function addDesglose(){
+  desgloses.push({ id: genId(), amount: 0, category: '', subcategory: '', note: '' });
+  renderDesgloses();
+}
+
+function removeDesglose(id){
+  desgloses = desgloses.filter(d=>d.id!==id);
+  renderDesgloses();
+}
+
+function updateDesglose(id, field, value){
+  const d = desgloses.find(x=>x.id===id);
+  if(!d) return;
+  if(field==='amount') d.amount = parseFloat(value)||0;
+  else d[field] = value;
+  if(field==='amount') updateDesgloseRemaining();
+}
+
+// Selección de categoría/subcategoría de un desglose (dropdown simple)
+function setDesgloseCat(id, cat){
+  const d=desgloses.find(x=>x.id===id);
+  if(!d) return;
+  d.category=cat; d.subcategory='';
+  renderDesgloses();
+}
+function setDesgloseSubcat(id, sub){
+  const d=desgloses.find(x=>x.id===id);
+  if(!d) return;
+  d.subcategory=sub;
+  renderDesgloses();
+}
+
+// Suma de desgloses en la moneda del gasto
+function desglosesTotal(){
+  return desgloses.reduce((s,d)=>s+(d.amount||0),0);
+}
+
+function renderDesgloses(){
+  const list=document.getElementById('desglose-list');
+  if(!list) return;
+  list.innerHTML='';
+  desgloses.forEach((d,idx)=>{
+    const card=document.createElement('div');
+    card.style.cssText='background:var(--surface2);border-radius:var(--radius-sm);padding:11px;margin-bottom:8px;position:relative;';
+    // Categorías de egreso para el dropdown
+    const catOpts=sortedCats('egreso').map(c=>`<option value="${c}" ${d.category===c?'selected':''}>${c}</option>`).join('');
+    const subs=d.category?sortedSubcats('egreso',d.category):[];
+    const hasSubs=subs && !(subs.length===1&&subs[0]==='—');
+    const subOpts=hasSubs?subs.map(s=>`<option value="${s}" ${d.subcategory===s?'selected':''}>${s}</option>`).join(''):'';
+    card.innerHTML=`
+      <button type="button" onclick="removeDesglose(${d.id})" style="position:absolute;top:8px;right:8px;background:none;border:none;cursor:pointer;color:var(--danger);font-size:16px;line-height:1;padding:2px;">✕</button>
+      <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:8px;">Desglose ${idx+1}</div>
+      <div style="display:flex;gap:8px;margin-bottom:8px;">
+        <input type="number" inputmode="decimal" step="0.01" min="0" placeholder="Monto" value="${d.amount||''}" oninput="updateDesglose(${d.id},'amount',this.value)" style="width:110px;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
+        <select onchange="setDesgloseCat(${d.id},this.value)" style="flex:1;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
+          <option value="">Categoría...</option>${catOpts}
+        </select>
+      </div>
+      ${hasSubs?`<select onchange="setDesgloseSubcat(${d.id},this.value)" style="width:100%;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;margin-bottom:8px;"><option value="">Subcategoría...</option>${subOpts}</select>`:''}
+      <input type="text" placeholder="Nota (opcional)" value="${d.note||''}" oninput="updateDesglose(${d.id},'note',this.value)" style="width:100%;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:13px;outline:none;">
+    `;
+    list.appendChild(card);
+    revealAnimate(card);
+  });
+  updateDesgloseRemaining();
+}
+
+// Muestra cuánto queda del monto original tras restar desgloses
+function updateDesgloseRemaining(){
+  const remEl=document.getElementById('desglose-remaining');
+  if(!remEl) return;
+  const amount=parseFloat(document.getElementById('amount').value)||0;
+  const total=desglosesTotal();
+  const remaining=amount-total;
+  if(desgloses.length===0){
+    remEl.style.display='none';
+    return;
+  }
+  remEl.style.display='block';
+  const cur=document.getElementById('currency')?.value||'MXN';
+  const sym=cur==='MXN'?'$':`${cur} `;
+  if(remaining<0){
+    remEl.style.color='var(--danger)';
+    remEl.textContent=`Los desgloses exceden el monto por ${sym}${Math.abs(remaining).toFixed(2)}`;
+  } else {
+    remEl.style.color='var(--text3)';
+    remEl.textContent=`Queda ${sym}${remaining.toFixed(2)} en "${curCat||'principal'}"`;
+  }
+}
+
+// Muestra/oculta la sección de desglose según el tipo (solo egreso)
+function updateDesgloseVisibility(){
+  const sec=document.getElementById('desglose-section');
+  if(!sec) return;
+  sec.style.display = curType==='egreso' ? 'block' : 'none';
+}
+
+// ══════════════════════════════════════
+// DESGLOSES (edición)
+// ══════════════════════════════════════
+let editDesgloses = []; // {id, amount, category, subcategory, note, existingId?}
+
+function addEditDesglose(){
+  editDesgloses.push({ id: genId(), amount: 0, category: '', subcategory: '', note: '' });
+  renderEditDesgloses();
+}
+function removeEditDesglose(id){
+  editDesgloses = editDesgloses.filter(d=>d.id!==id);
+  renderEditDesgloses();
+}
+function updateEditDesglose(id, field, value){
+  const d = editDesgloses.find(x=>x.id===id);
+  if(!d) return;
+  if(field==='amount') d.amount = parseFloat(value)||0;
+  else d[field] = value;
+  if(field==='amount') updateEditDesgloseRemaining();
+}
+function setEditDesgloseCat(id, cat){
+  const d=editDesgloses.find(x=>x.id===id);
+  if(!d) return;
+  d.category=cat; d.subcategory='';
+  renderEditDesgloses();
+}
+function setEditDesgloseSubcat(id, sub){
+  const d=editDesgloses.find(x=>x.id===id);
+  if(!d) return;
+  d.subcategory=sub;
+  renderEditDesgloses();
+}
+function editDesglosesTotal(){
+  return editDesgloses.reduce((s,d)=>s+(d.amount||0),0);
+}
+function renderEditDesgloses(){
+  const list=document.getElementById('e-desglose-list');
+  if(!list) return;
+  list.innerHTML='';
+  editDesgloses.forEach((d,idx)=>{
+    const card=document.createElement('div');
+    card.style.cssText='background:var(--surface2);border-radius:var(--radius-sm);padding:11px;margin-bottom:8px;position:relative;';
+    const catOpts=sortedCats('egreso').map(c=>`<option value="${c}" ${d.category===c?'selected':''}>${c}</option>`).join('');
+    const subs=d.category?sortedSubcats('egreso',d.category):[];
+    const hasSubs=subs && !(subs.length===1&&subs[0]==='—');
+    const subOpts=hasSubs?subs.map(s=>`<option value="${s}" ${d.subcategory===s?'selected':''}>${s}</option>`).join(''):'';
+    card.innerHTML=`
+      <button type="button" onclick="removeEditDesglose(${d.id})" style="position:absolute;top:8px;right:8px;background:none;border:none;cursor:pointer;color:var(--danger);font-size:16px;line-height:1;padding:2px;">✕</button>
+      <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:8px;">Desglose ${idx+1}</div>
+      <div style="display:flex;gap:8px;margin-bottom:8px;">
+        <input type="number" inputmode="decimal" step="0.01" min="0" placeholder="Monto" value="${d.amount||''}" oninput="updateEditDesglose(${d.id},'amount',this.value)" style="width:110px;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
+        <select onchange="setEditDesgloseCat(${d.id},this.value)" style="flex:1;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
+          <option value="">Categoría...</option>${catOpts}
+        </select>
+      </div>
+      ${hasSubs?`<select onchange="setEditDesgloseSubcat(${d.id},this.value)" style="width:100%;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;margin-bottom:8px;"><option value="">Subcategoría...</option>${subOpts}</select>`:''}
+      <input type="text" placeholder="Nota (opcional)" value="${d.note||''}" oninput="updateEditDesglose(${d.id},'note',this.value)" style="width:100%;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:13px;outline:none;">
+    `;
+    list.appendChild(card);
+  });
+  updateEditDesgloseRemaining();
+}
+function updateEditDesgloseRemaining(){
+  const remEl=document.getElementById('e-desglose-remaining');
+  if(!remEl) return;
+  const amount=parseFloat(document.getElementById('e-amount').value)||0;
+  const total=editDesglosesTotal();
+  const remaining=amount-total;
+  if(editDesgloses.length===0){ remEl.style.display='none'; return; }
+  remEl.style.display='block';
+  const cur=document.getElementById('e-currency')?.value||'MXN';
+  const sym=cur==='MXN'?'$':`${cur} `;
+  if(remaining<0){
+    remEl.style.color='var(--danger)';
+    remEl.textContent=`Los desgloses exceden el monto por ${sym}${Math.abs(remaining).toFixed(2)}`;
+  } else {
+    remEl.style.color='var(--text3)';
+    remEl.textContent=`Queda ${sym}${remaining.toFixed(2)} en el gasto principal`;
+  }
+}
+function updateEditDesgloseVisibility(){
+  const sec=document.getElementById('e-desglose-section');
+  if(!sec) return;
+  sec.style.display = editType==='egreso' ? 'block' : 'none';
+}
+
+
 function buildBenTypeBlocks(containerId, selected, onSelect) {
   const container = document.getElementById(containerId);
   container.innerHTML='';
@@ -2213,6 +2499,19 @@ function _submitEntry(){
   if(!date) return toast('Selecciona una fecha');
   if(curType!=='ahorro-pasivo'&&!selMethod) return toast('Selecciona un método de pago');
 
+  // ── Validar desgloses (solo egreso) ──
+  const activeDesgloses = (curType==='egreso') ? desgloses.filter(d=>d.amount>0) : [];
+  if(activeDesgloses.length>0){
+    for(const d of activeDesgloses){
+      if(!d.category) return toast('Cada desglose necesita una categoría');
+      const dsubs=sortedSubcats('egreso', d.category);
+      const dHasSubs=dsubs && !(dsubs.length===1 && dsubs[0]==='—');
+      if(dHasSubs && !d.subcategory) return toast('Cada desglose necesita una subcategoría');
+    }
+    const totalDesg=activeDesgloses.reduce((s,d)=>s+d.amount,0);
+    if(totalDesg>amount) return toast('Los desgloses exceden el monto original');
+  }
+
   // Si la propina está incluida en el monto, el gasto real = monto - propina
   let mainAmount = amount;
   if(curType==='egreso' && propinaOn && propinaIncluida){
@@ -2226,10 +2525,24 @@ function _submitEntry(){
     if(ba > 0) mainAmount = +(mainAmount - ba).toFixed(2);
     if(mainAmount < 0) mainAmount = 0;
   }
+  // Desgloses: cada uno se resta del monto principal
+  const totalDesgloses = activeDesgloses.reduce((s,d)=>s+d.amount,0);
+  if(totalDesgloses>0){
+    mainAmount = +(mainAmount - totalDesgloses).toFixed(2);
+    if(mainAmount < 0) mainAmount = 0;
+  }
   const amountMXN = toMXN(mainAmount, cur);
 
   // Nota principal del registro
   let mainNote = note;
+  // Nota de referencia: monto original cuando hay desgloses, propina incluida o beneficio
+  const hasReductions = (activeDesgloses.length>0) ||
+                        (curType==='egreso' && propinaOn && propinaIncluida && getPropinaAmount()>0) ||
+                        (curType==='egreso' && benOn && getBenAmount()>0);
+  if(hasReductions){
+    const sym=cur==='MXN'?'$':`${cur} `;
+    mainNote=[`Monto original: ${sym}${amount.toFixed(2)}`, mainNote].filter(Boolean).join(' | ');
+  }
   if(curType==='egreso' && propinaOn){
     const propinaAmt=getPropinaAmount();
     if(propinaAmt>0){
@@ -2307,6 +2620,28 @@ function _submitEntry(){
     }
   }
 
+  // ── Crear desgloses como egresos vinculados al gasto madre ──
+  const desgloseEntries=[];
+  if(curType==='egreso' && activeDesgloses.length>0){
+    activeDesgloses.forEach(d=>{
+      const dMXN=toMXN(d.amount, cur);
+      const dsubs=sortedSubcats('egreso', d.category);
+      const dHasSubs=dsubs && !(dsubs.length===1 && dsubs[0]==='—');
+      const sym=cur==='MXN'?'$':`${cur} `;
+      let dNote=`Desglose de: ${desc} | Monto original: ${sym}${amount.toFixed(2)}`;
+      if(d.note) dNote=`${d.note} | ${dNote}`;
+      const dEntry={
+        id: genId(), type:'egreso',
+        amount:d.amount, amountMXN:dMXN, currency:cur,
+        desc:desc, category:d.category, subcategory: dHasSubs?d.subcategory:'',
+        method:selMethod, date,
+        note:dNote, linkedTo:entry.id
+      };
+      data.unshift(dEntry);
+      desgloseEntries.push(dEntry);
+    });
+  }
+
   trackUsage(curType, curCat, subcat);
   save();
   showSyncing('⟳ Guardando...');
@@ -2316,6 +2651,7 @@ function _submitEntry(){
     if(bonus) saves.push(saveEntryToSheets({...bonus, benType:'', benAmount:0, benDesc:''}));
   }
   if(propinaEntry) saves.push(saveEntryToSheets(propinaEntry));
+  desgloseEntries.forEach(de=>saves.push(saveEntryToSheets(de)));
   Promise.all(saves).then(()=>{ hideSyncing(); toast('✓ Registro guardado'); });
   resetForm();
 }
@@ -2350,7 +2686,9 @@ function resetForm(){
   benType='monto';
   setBenType('monto');
   const benCalc=document.getElementById('ben-calc'); if(benCalc) benCalc.textContent='';
-  benOn=false; updateBenUI(); onCurChange(); resetPropina(); setType('egreso');
+  benOn=false; updateBenUI(); onCurChange(); resetPropina(); 
+  desgloses=[]; renderDesgloses();
+  setType('egreso');
 }
 
 const SHEETS_URL = 'https://script.google.com/macros/s/AKfycbzxuxCfZkEsuRV7tvRrURWtMouNgVXW5FABBsMXxIfOExBNE7uFPWy8eYMd7WYFEdyuOw/exec';
@@ -2494,11 +2832,11 @@ function renderBalance(){
   const md=monthData();
   const ing=sum(md,'ingreso'), egr=sum(md,'egreso');
   const aho=sum(md,'ahorro'), pas=sum(md,'ahorro-pasivo');
-  const bal=ing-egr-aho;
+  const bal=ing-egr;
 
-  // Subtítulo dinámico: solo menciona ahorro activo si el mes tiene registros de ese tipo
+  // Subtítulo fijo (el ahorro activo fue eliminado de la app)
   const subEl=document.getElementById('bal-hero-sub');
-  if(subEl) subEl.textContent = aho>0 ? 'Ingresos − Egresos − Ahorro activo' : 'Ingresos − Egresos';
+  if(subEl) subEl.textContent = 'Ingresos − Egresos';
 
   document.getElementById('bal-val').textContent=(bal>=0?'+':'')+fmt(bal);
   const hasData=ing>0||egr>0||aho>0||pas>0;
@@ -3192,8 +3530,13 @@ function renderHistorial(){
 
   let filtered;
   if(isSearchMode){
-    // Search across all data regardless of month/year
-    filtered=data.filter(e=>(e.desc||'').toLowerCase().includes(searchQuery));
+    // Búsqueda amplia: descripción, nota, categoría y subcategoría
+    filtered=data.filter(e=>{
+      const haystack=[
+        e.desc||'', e.note||'', e.category||'', e.subcategory||'', e.method||''
+      ].join(' ').toLowerCase();
+      return haystack.includes(searchQuery);
+    });
   } else {
     filtered=data.filter(e=>{
       const d=parseDate(e.date);
@@ -3260,7 +3603,12 @@ function renderHistorial(){
     groups[dateKey].forEach(e=>{
       const el=txEl(e,true);
       el.classList.add('tappable');
-      el.onclick=(ev)=>{ if(ev.target.classList.contains('tx-delete-btn')) return; openEdit(e.id); };
+      el.onclick=(ev)=>{
+        if(ev.target.classList.contains('tx-delete-btn')) return;
+        // Si es un hijo vinculado (desglose, propina o beneficio), abrir el gasto madre
+        const targetId = e.linkedTo ? e.linkedTo : e.id;
+        openEdit(targetId);
+      };
       listWrap.appendChild(el);
     });
     container.appendChild(listWrap);
@@ -3280,7 +3628,9 @@ function txEl(e, showDelete){
   const cur=e.currency!=='MXN'?` (${e.currency} ${e.amount.toLocaleString('es-MX',{minimumFractionDigits:2})})`:'';
   const sign={ingreso:'+',egreso:'−',ahorro:'→','ahorro-pasivo':'★'}[e.type]||'';
   const ico=ICONS[e.subcategory]||ICONS[e.category]||'📌';
-  const delBtn = showDelete ? `<button class="tx-delete-btn" title="Eliminar">✕</button>` : '';
+  // Los hijos vinculados (desglose/propina/beneficio) no se eliminan independientemente
+  const isLinkedChild = !!e.linkedTo;
+  const delBtn = (showDelete && !isLinkedChild) ? `<button class="tx-delete-btn" title="Eliminar">✕</button>` : '';
   const barColor = catColor(e.category);
   const noteDisplay = e.note ? `<div class="tx-note">${e.note}</div>` : '';
   el.innerHTML=`
@@ -3293,7 +3643,7 @@ function txEl(e, showDelete){
     </div>
     <div class="tx-amt ${e.type}">${sign}${fmt(e.amountMXN)}</div>
     ${delBtn}`;
-  if(showDelete){
+  if(showDelete && !isLinkedChild){
     el.querySelector('.tx-delete-btn').onclick=(ev)=>{
       ev.stopPropagation();
       if(!confirm('¿Eliminar este registro?')) return;
@@ -3371,14 +3721,35 @@ function openEdit(id) {
 
   // --- Campos base ---
   document.getElementById('e-desc').value     = e.desc;
-  // El monto guardado ya tiene el beneficio restado. Para editar mostramos el monto
-  // ORIGINAL (sumando de vuelta el beneficio vinculado), así no se descuenta doble.
+  // El monto guardado ya tiene restados: beneficio, propina incluida y desgloses.
+  // Para editar mostramos el monto ORIGINAL sumándolos todos de vuelta.
   const _linkedBen = e.type==='egreso' ? data.find(x=>x.linkedTo===id&&x.type==='ahorro-pasivo') : null;
-  const _origAmount = _linkedBen ? +(e.amount + _linkedBen.amount).toFixed(2) : e.amount;
+  // Desgloses reales: egresos hijos cuya nota marca "Desglose de:"
+  const _realDesgloses = e.type==='egreso' ? data.filter(x=>x.linkedTo===id&&x.type==='egreso'&&(x.note||'').includes('Desglose de:')) : [];
+
+  // El monto mostrado suma de vuelta beneficio y desgloses (que se re-restarán al guardar).
+  // La propina NO se suma de vuelta: se preserva intacta y no se re-procesa aquí.
+  let _origAmount = e.amount;
+  if(_linkedBen) _origAmount += _linkedBen.amount;
+  _realDesgloses.forEach(d=>{ _origAmount += d.amount; });
+  _origAmount = +(_origAmount).toFixed(2);
+
   document.getElementById('e-amount').value   = _origAmount;
   document.getElementById('e-currency').value = e.currency||'MXN';
   document.getElementById('e-date').value     = e.date;
   initStrip('e-date-strip', e.date);
+
+  // Cargar desgloses existentes en el estado de edición
+  editDesgloses = _realDesgloses.map(d=>({
+    id: genId(),
+    amount: d.amount,
+    category: d.category,
+    subcategory: d.subcategory||'',
+    note: (d.note||'').split(' | ').filter(p=>!p.startsWith('Desglose de:')&&!p.startsWith('Monto original:')).join(' | '),
+    existingId: d.id
+  }));
+  renderEditDesgloses();
+  updateEditDesgloseVisibility();
 
   // --- Nota: mostrar colapsada, pero con contenido si existe ---
   const cleanNote = (e.note||'').split(' | ').filter(p=>!p.startsWith('TC:')).join(' | ');
@@ -3427,51 +3798,102 @@ function closeModal(){
   document.getElementById('edit-modal').classList.remove('open');
   document.body.style.overflow='';
   editId=null;
+  editDesgloses=[];
 }
 function closeEditModal(e){
   if(e.target===document.getElementById('edit-modal')) closeModal();
 }
 
 function buildEditCatBlocks(type, selCat, selSubcat){
+  editCat = selCat || '';
+  editSubcat = selSubcat || '';
+  renderEditCatUI();
+}
+
+// Clase de color según el tipo de edición
+function editColorCls(){
+  return editType==='ingreso'?'sel-in':editType==='ahorro'?'sel-ah':editType==='ahorro-pasivo'?'sel-pa':'sel-eg';
+}
+
+// Renderiza categorías/subcategorías en edición con el MISMO comportamiento colapsable
+// que el registro: al abrir un registro, aparece ya seleccionado y acomodado.
+function renderEditCatUI(){
   const container=document.getElementById('e-cat-blocks');
-  container.innerHTML='';
-  const colorCls=type==='ingreso'?'sel-in':type==='ahorro'?'sel-ah':type==='ahorro-pasivo'?'sel-pa':'sel-eg';
-  sortedCats(type).forEach(cat=>{
-    const b=document.createElement('button');
-    b.className='cat-block'+(cat===selCat?' '+colorCls:'');
-    b.innerHTML=`<span>${ICONS[cat]||''}</span><br>${cat}`;
-    b.onclick=()=>selectEditCat(cat,b,colorCls,type);
-    container.appendChild(b);
-  });
-  if(selCat) buildEditSubcatBlocks(type, selCat, selSubcat, colorCls);
-}
-
-function selectEditCat(cat,el,colorCls,type){
-  editCat=cat; editSubcat='';
-  document.querySelectorAll('#e-cat-blocks .cat-block').forEach(b=>b.classList.remove('sel-in','sel-eg','sel-ah','sel-pa'));
-  el.classList.add(colorCls);
-  buildEditSubcatBlocks(type||editType, cat, '', colorCls);
-}
-
-function buildEditSubcatBlocks(type, cat, selSubcat, colorCls){
   const wrap=document.getElementById('e-subcat-wrap');
-  const container=document.getElementById('e-subcat-blocks');
+  if(!container) return;
   container.innerHTML='';
-  const subs=sortedSubcats(type, cat);
-  if(!subs||(subs.length===1&&subs[0]==='—')){wrap.classList.remove('vis');return;}
-  document.getElementById('e-subcat-lbl').textContent=cat+' — subcategoría';
-  subs.forEach(s=>{
-    const b=document.createElement('button');
-    b.className='cat-block'+(s===selSubcat?' '+colorCls:'');
-    b.innerHTML=`<span>${ICONS[s]||''}</span><br>${s}`;
-    b.onclick=()=>{
-      editSubcat=s;
-      document.querySelectorAll('#e-subcat-blocks .cat-block').forEach(c=>c.classList.remove('sel-in','sel-eg','sel-ah','sel-pa'));
-      b.classList.add(colorCls);
-    };
-    container.appendChild(b);
-  });
-  wrap.classList.add('vis');
+  if(wrap){ wrap.classList.remove('vis'); wrap.style.display='none'; }
+  const colorCls=editColorCls();
+
+  // Estado 1: sin categoría → mostrar todas
+  if(!editCat){
+    container.className='cat-grid-ui';
+    container.style.gridTemplateColumns='';
+    sortedCats(editType).forEach(cat=>{
+      const b=makeEditCatButton(cat, ()=>selectEditCat(cat));
+      container.appendChild(b);
+    });
+    return;
+  }
+
+  const subs=sortedSubcats(editType, editCat);
+  const hasSubs=subs && !(subs.length===1 && subs[0]==='—');
+
+  // Sin subcategorías → categoría a 100% ancho
+  if(!hasSubs){
+    container.className='cat-grid-ui';
+    container.style.gridTemplateColumns='1fr';
+    const catBtn=makeEditCatButton(editCat, ()=>selectEditCat(editCat));
+    catBtn.classList.add(colorCls);
+    applyCatBorder(catBtn, editCat);
+    container.appendChild(catBtn);
+    return;
+  }
+
+  // Con subcategorías → layout colapsado 2 columnas
+  container.className='cat-collapsed-row';
+  container.style.gridTemplateColumns='';
+  const left=document.createElement('div'); left.className='cat-col-left';
+  const catBtn=makeEditCatButton(editCat, ()=>selectEditCat(editCat));
+  catBtn.classList.add(colorCls);
+  applyCatBorder(catBtn, editCat);
+  left.appendChild(catBtn);
+  container.appendChild(left);
+
+  const right=document.createElement('div'); right.className='cat-col-right';
+  if(!editSubcat){
+    subs.forEach(s=>{
+      const b=makeEditCatButton(s, ()=>selectEditSubcat(s));
+      right.appendChild(b);
+    });
+  } else {
+    const b=makeEditCatButton(editSubcat, ()=>selectEditSubcat(editSubcat));
+    b.classList.add(colorCls);
+    applyCatBorder(b, editSubcat);
+    right.appendChild(b);
+  }
+  container.appendChild(right);
+}
+
+function makeEditCatButton(name, onClick){
+  const b=document.createElement('button');
+  b.type='button';
+  b.className='cat-block';
+  b.innerHTML=`<span>${ICONS[name]||''}</span><br>${name}`;
+  b.onclick=onClick;
+  return b;
+}
+
+function selectEditCat(cat){
+  if(editCat===cat){ editCat=''; editSubcat=''; }
+  else { editCat=cat; editSubcat=''; }
+  renderEditCatUI();
+}
+
+function selectEditSubcat(sub){
+  if(editSubcat===sub){ editSubcat=''; }
+  else { editSubcat=sub; }
+  renderEditCatUI();
 }
 
 function setEditType(t,btn){
@@ -3482,8 +3904,9 @@ function setEditType(t,btn){
   document.getElementById('e-ahorro-type-lbl').textContent = t==='ahorro-pasivo'?'Beneficio':'Ahorro';
   document.getElementById('e-inline-toggles').style.display=t==='egreso'?'block':'none';
   document.getElementById('e-method-field').style.display=t==='ahorro-pasivo'?'none':'block';
-  if(t!=='egreso'){ editBenOn=false; updateEBenUI(); }
-  buildEditCatBlocks(t,'','');
+  if(t!=='egreso'){ editBenOn=false; updateEBenUI(); editDesgloses=[]; renderEditDesgloses(); }
+  updateEditDesgloseVisibility();
+  renderEditCatUI();
 }
 
 function setEditAhorroType(){
@@ -3549,44 +3972,74 @@ function saveEdit(){
   const cur=document.getElementById('e-currency').value;
   const date=document.getElementById('e-date').value;
   const note=document.getElementById('e-note').value.trim();
-  const subcatWrap=document.getElementById('e-subcat-wrap');
-  const subcat=subcatWrap.classList.contains('vis')?editSubcat:'';
+
+  // Validar subcategoría según si la categoría la requiere
+  const eSubs=editCat?sortedSubcats(editType, editCat):[];
+  const eHasSubs=eSubs && !(eSubs.length===1 && eSubs[0]==='—');
+  const subcat = eHasSubs ? editSubcat : '';
 
   if(!amount||amount<=0) return toast('Ingresa un monto válido');
   if(!desc) return toast('Agrega una descripción');
   if(!editCat) return toast('Selecciona una categoría');
-  if(subcatWrap.classList.contains('vis')&&!subcat) return toast('Selecciona una subcategoría');
+  if(eHasSubs && !subcat) return toast('Selecciona una subcategoría');
   if(!date) return toast('Selecciona una fecha');
 
-  // Calcular monto del beneficio (respeta %/$). Se resta SIEMPRE del monto registrado.
+  // ── Validar desgloses (solo egreso) ──
+  const activeEditDesgloses = (editType==='egreso') ? editDesgloses.filter(d=>d.amount>0) : [];
+  if(activeEditDesgloses.length>0){
+    for(const d of activeEditDesgloses){
+      if(!d.category) return toast('Cada desglose necesita una categoría');
+      const dsubs=sortedSubcats('egreso', d.category);
+      const dHasSubs=dsubs && !(dsubs.length===1 && dsubs[0]==='—');
+      if(dHasSubs && !d.subcategory) return toast('Cada desglose necesita una subcategoría');
+    }
+  }
+
+  // Beneficio
   let benAmt = 0;
-  if(editType==='egreso' && editBenOn){
-    benAmt = getEditBenAmount();
-  }
-  let mainAmount = amount;
-  if(benAmt > 0){
-    mainAmount = +(amount - benAmt).toFixed(2);
-    if(mainAmount < 0) mainAmount = 0;
-  }
+  if(editType==='egreso' && editBenOn) benAmt = getEditBenAmount();
+
+  // Total de desgloses
+  const totalDesg = activeEditDesgloses.reduce((s,d)=>s+d.amount,0);
+
+  // Validar que reducciones no excedan el monto
+  if(benAmt + totalDesg > amount) return toast('Beneficio y desgloses exceden el monto');
+
+  let mainAmount = +(amount - benAmt - totalDesg).toFixed(2);
+  if(mainAmount < 0) mainAmount = 0;
   const amountMXN=toMXN(mainAmount,cur);
-  const noteWithRate=[note,rateNote(cur)].filter(Boolean).join(' | ');
+
+  // Nota principal con referencia de monto original si hubo reducciones
+  let mainNote=note;
+  const hasReductions = benAmt>0 || totalDesg>0;
+  if(hasReductions){
+    const sym=cur==='MXN'?'$':`${cur} `;
+    mainNote=[`Monto original: ${sym}${amount.toFixed(2)}`, mainNote].filter(Boolean).join(' | ');
+  }
+  const noteWithRate=[mainNote,rateNote(cur)].filter(Boolean).join(' | ');
 
   const idx=data.findIndex(x=>x.id===editId);
   if(idx===-1) return;
 
-  // Remove old linked benefit if any
-  const oldLinkedIdx=data.findIndex(x=>x.linkedTo===editId);
-  if(oldLinkedIdx!==-1) data.splice(oldLinkedIdx,1);
+  // Preservar propina existente (no se edita desde aquí por ahora)
+  const existingPropina = data.find(x=>x.linkedTo===editId&&x.type==='egreso'&&x.subcategory==='Propinas'&&!(x.note||'').includes('Desglose de:'));
 
-  data[idx]={
-    ...data[idx],
+  // Eliminar hijos vinculados viejos EXCEPTO la propina
+  data=data.filter(x=>x.linkedTo!==editId || (existingPropina && x.id===existingPropina.id));
+
+  // Actualizar el registro madre
+  const newIdx=data.findIndex(x=>x.id===editId);
+  data[newIdx]={
+    ...data[newIdx],
     type:editType, amount:mainAmount, amountMXN, currency:cur,
     desc, category:editCat, subcategory:subcat,
     method:editType!=='ahorro-pasivo'?editMethod:null,
     date, note:noteWithRate
   };
 
-  // Save new benefit if applicable
+  const newChildren=[];
+
+  // Recrear beneficio
   if(editType==='egreso'&&editBenOn&&benAmt>0){
     const bt=editBenType;
     const baMXN=toMXN(benAmt,cur);
@@ -3596,12 +4049,35 @@ function saveEdit(){
       const sym=cur==='MXN'?'$':`${cur} `;
       benNote += ` | ${pct}% de ${sym}${amount.toFixed(2)}`;
     }
-    data.unshift({
+    const benEntry={
       id:genId(), type:'ahorro-pasivo',
       amount:benAmt, amountMXN:baMXN, currency:cur,
       desc:desc, category:bt, subcategory:'',
       method:null, date,
       note:benNote, linkedTo:editId
+    };
+    data.unshift(benEntry);
+    newChildren.push(benEntry);
+  }
+
+  // Recrear desgloses
+  if(editType==='egreso' && activeEditDesgloses.length>0){
+    activeEditDesgloses.forEach(d=>{
+      const dMXN=toMXN(d.amount, cur);
+      const dsubs=sortedSubcats('egreso', d.category);
+      const dHasSubs=dsubs && !(dsubs.length===1 && dsubs[0]==='—');
+      const sym=cur==='MXN'?'$':`${cur} `;
+      let dNote=`Desglose de: ${desc} | Monto original: ${sym}${amount.toFixed(2)}`;
+      if(d.note) dNote=`${d.note} | ${dNote}`;
+      const dEntry={
+        id: genId(), type:'egreso',
+        amount:d.amount, amountMXN:dMXN, currency:cur,
+        desc:desc, category:d.category, subcategory: dHasSubs?d.subcategory:'',
+        method:editMethod, date,
+        note:dNote, linkedTo:editId
+      };
+      data.unshift(dEntry);
+      newChildren.push(dEntry);
     });
   }
 
@@ -3609,10 +4085,7 @@ function saveEdit(){
   showSyncing('⟳ Actualizando...');
   const updatedEntry = data.find(x=>x.id===editId);
   const saves = [updateEntryInSheets({...updatedEntry, benType:'', benAmount:0, benDesc:''})];
-  if(editType==='egreso'&&editBenOn){
-    const bonus = data.find(x=>x.linkedTo===editId);
-    if(bonus) saves.push(saveEntryToSheets({...bonus, benType:'', benAmount:0, benDesc:''}));
-  }
+  newChildren.forEach(c=>saves.push(saveEntryToSheets({...c, benType:'', benAmount:0, benDesc:''})));
   Promise.all(saves).then(()=>{ hideSyncing(); toast('✓ Registro actualizado'); });
   closeModal();
   renderHistorial(); renderBalance();
@@ -4026,6 +4499,11 @@ function addDays(isoDate, n){
 // Range grande para que se pueda scrollear sin recargar
 const STRIP_RANGE = 60; // 60 días antes y 60 después = 121 botones
 
+// Detecta si estamos en móvil (viewport angosto)
+function isMobileView(){
+  return window.matchMedia && window.matchMedia('(max-width: 767px)').matches;
+}
+
 function renderStrip(stripId, centerDate){
   const strip  = document.getElementById(stripId);
   const scroll = document.getElementById(stripId + '-scroll');
@@ -4035,25 +4513,49 @@ function renderStrip(stripId, centerDate){
   const selected = document.getElementById(inputId)?.value || localToday();
   const today = localToday();
   const DAYS  = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+  const DAYS_FULL = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+  const MONTHS_ABBR = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+
+  const mobile = isMobileView();
+  // Móvil: rango amplio con scroll. Web: solo 5 días a cada lado (11 total).
+  const range = mobile ? STRIP_RANGE : 5;
 
   strip.innerHTML = '';
   let selectedBtn = null;
+  let prevMonth = null;
 
-  for(let i = -STRIP_RANGE; i <= STRIP_RANGE; i++){
+  for(let i = -range; i <= range; i++){
     const iso = addDays(centerDate, i);
     const d   = parseDate(iso);
+    const curMonth = d.getMonth();
+
+    // Quiebre visual de mes (solo móvil): insertar separador antes del primer día de un mes nuevo
+    if(mobile && prevMonth !== null && curMonth !== prevMonth){
+      const brk = document.createElement('div');
+      brk.className = 'month-break';
+      brk.textContent = MONTHS_ABBR[curMonth];
+      strip.appendChild(brk);
+    }
+    prevMonth = curMonth;
+
     const btn = document.createElement('button');
     btn.type  = 'button';
-    btn.className = 'date-day-btn';
+    btn.className = 'date-day-btn' + (mobile ? '' : ' web-mode');
     btn.dataset.iso = iso;
     if(iso === today)    btn.classList.add('today-marker');
     if(iso === selected){ btn.classList.add('selected'); selectedBtn = btn; }
-    btn.innerHTML = `<span class="day-name">${DAYS[d.getDay()]}</span><span class="day-num">${d.getDate()}</span>`;
+
+    if(mobile){
+      btn.innerHTML = `<span class="day-name">${DAYS[d.getDay()]}</span><span class="day-num">${d.getDate()}</span>`;
+    } else {
+      // Web: nombre de día completo arriba, número, y mes completo abajo
+      btn.innerHTML = `<span class="day-name">${DAYS_FULL[d.getDay()]}</span><span class="day-num">${d.getDate()}</span><span class="day-month">${MONTHS_ABBR[curMonth]}</span>`;
+    }
     btn.onclick = () => selectStripDate(stripId, iso);
     strip.appendChild(btn);
   }
 
-  // Scroll al botón seleccionado (centrado), sin animación en init
+  // Centrar el botón seleccionado
   if(selectedBtn){
     requestAnimationFrame(()=>{
       const btnLeft   = selectedBtn.offsetLeft;
@@ -4067,12 +4569,19 @@ function renderStrip(stripId, centerDate){
 function selectStripDate(stripId, iso){
   const inputId = stripId === 'tx-date-strip' ? 'tx-date' : 'e-date';
   document.getElementById(inputId).value = iso;
-  // Actualizar clase selected sin re-renderizar
+
+  if(!isMobileView()){
+    // Web: re-centrar el strip en la fecha elegida (mantiene 5 a cada lado)
+    stripOffsets[stripId] = iso;
+    renderStrip(stripId, iso);
+    return;
+  }
+
+  // Móvil: actualizar clase selected sin re-renderizar + scroll suave
   const strip = document.getElementById(stripId);
   strip.querySelectorAll('.date-day-btn').forEach(b=>{
     b.classList.toggle('selected', b.dataset.iso === iso);
   });
-  // Scroll suave al botón seleccionado
   const selectedBtn = strip.querySelector('.date-day-btn.selected');
   const scroll = document.getElementById(stripId + '-scroll');
   if(selectedBtn && scroll){
@@ -4084,11 +4593,19 @@ function selectStripDate(stripId, iso){
 }
 
 function shiftStrip(stripId, delta){
-  // Con scroll nativo, los botones de nav simplemente desplazan el scroll
-  const scroll = document.getElementById(stripId + '-scroll');
-  if(scroll){
-    const amount = delta * (46 + 5) * 7; // 7 días x (ancho + gap)
-    scroll.scrollBy({ left: amount, behavior: 'smooth' });
+  if(isMobileView()){
+    // Móvil: scroll nativo desplaza los días
+    const scroll = document.getElementById(stripId + '-scroll');
+    if(scroll){
+      const amount = delta * (46 + 5) * 7;
+      scroll.scrollBy({ left: amount, behavior: 'smooth' });
+    }
+  } else {
+    // Web: re-centrar el strip 5 días en la dirección indicada
+    const cur = stripOffsets[stripId] || localToday();
+    const newCenter = addDays(cur, delta * 5);
+    stripOffsets[stripId] = newCenter;
+    renderStrip(stripId, newCenter);
   }
 }
 
@@ -4235,7 +4752,11 @@ function renderAnnual(){
     const rect=canvas.getBoundingClientRect();
     const cx=(ev.clientX-rect.left)*(canvas.width/rect.width);
     const m=Math.floor((cx-padL)/groupW);
-    if(m>=0&&m<12) showAnnualMonthDetail(m,yr);
+    if(m>=0&&m<12){
+      // Solo permitir meses que tengan al menos un registro
+      const hasRecords = ingData[m]>0 || egrData[m]>0 || benData[m]>0;
+      if(hasRecords) showAnnualMonthDetail(m,yr);
+    }
   };
 
   const lbl=document.getElementById('annual-month-lbl');
@@ -4243,8 +4764,11 @@ function renderAnnual(){
   if(annualSelMonth===null&&lbl){ lbl.style.display='none'; cats.innerHTML=''; }
 }
 
+let annualDetailView = null; // 'ingreso' | 'egreso' | 'ahorro-pasivo' | null
+
 function showAnnualMonthDetail(m,yr){
   annualSelMonth=m;
+  annualDetailView=null; // resetear la tabla desglosada al cambiar de mes
   const lbl=document.getElementById('annual-month-lbl');
   const cats=document.getElementById('annual-cats');
   if(!lbl||!cats) return;
@@ -4252,36 +4776,94 @@ function showAnnualMonthDetail(m,yr){
   lbl.textContent=`${MONTHS_ES[m]} ${yr}`;
   revealAnimate(lbl);
   cats.innerHTML='';
+
   const md=data.filter(e=>{const d=parseDate(e.date);return d.getMonth()===m&&d.getFullYear()===yr;});
-  const ing=sum(md,'ingreso'),egr=sum(md,'egreso'),aho=sum(md,'ahorro'),pas=sum(md,'ahorro-pasivo');
-  const bal=ing-egr-aho;
-  const summary=document.createElement('div');
-  summary.className='grid2'; summary.style.marginBottom='16px';
-  summary.innerHTML=`
-    <div class="stat"><div class="lbl">Ingresos</div><div class="val g">${fmt(ing)}</div></div>
-    <div class="stat"><div class="lbl">Egresos</div><div class="val r">${fmt(egr)}</div></div>
-    <div class="stat"><div class="lbl">Balance</div><div class="val ${bal>=0?'g':'r'}">${bal>=0?'+':''}${fmt(bal)}</div></div>
-    <div class="stat"><div class="lbl">Beneficios</div><div class="val a">${fmt(aho+pas)}</div></div>`;
-  cats.appendChild(summary);
-  if(egr>0){
-    const sec=document.createElement('div'); sec.className='sec-lbl'; sec.textContent='Egresos por categoría';
-    cats.appendChild(sec);
-    const catTotals={},catSubTotals={};
-    md.filter(e=>e.type==='egreso').forEach(e=>{
-      catTotals[e.category]=(catTotals[e.category]||0)+e.amountMXN;
-      if(!catSubTotals[e.category]) catSubTotals[e.category]={};
-      const s=e.subcategory||'—';
-      catSubTotals[e.category][s]=(catSubTotals[e.category][s]||0)+e.amountMXN;
-    });
-    const wrap=document.createElement('div'); wrap.className='cat-list';
-    buildExpandCatList(wrap,catTotals,catSubTotals);
-    cats.appendChild(wrap);
-    // Efecto escalonado: primero los stats del resumen, luego las categorías
-    revealAnimate(summary, true);
-    revealAnimate(wrap, true);
-  } else {
-    revealAnimate(summary, true);
+  const ing=sum(md,'ingreso'),egr=sum(md,'egreso'),pas=sum(md,'ahorro-pasivo');
+  const bal=ing-egr;
+
+  // ── Tarjetón de balance del mes a 100% de ancho ──
+  const balCard=document.createElement('div');
+  balCard.className='stat';
+  balCard.style.cssText='grid-column:1/-1;margin-bottom:8px;text-align:center;padding:16px;';
+  balCard.innerHTML=`
+    <div class="lbl">Balance de ${MONTHS_ES[m]}</div>
+    <div class="val ${bal>=0?'g':'r'}" style="font-size:30px;">${bal>=0?'+':'−'}${fmt(bal)}</div>
+    <div class="sub">Ingresos − Egresos</div>`;
+  cats.appendChild(balCard);
+
+  // ── Fila de tarjetones proporcionales (ingreso, egreso, beneficio si aplica) ──
+  const cardsRow=document.createElement('div');
+  const items=[
+    {k:'ingreso', lbl:'Ingresos', val:ing, cls:'g', show:ing>0},
+    {k:'egreso',  lbl:'Egresos',  val:egr, cls:'r', show:egr>0},
+    {k:'ahorro-pasivo', lbl:'Beneficios', val:pas, cls:'a', show:pas>0},
+  ].filter(it=>it.show);
+
+  const n=items.length;
+  cardsRow.style.cssText=`display:grid;grid-template-columns:repeat(${n||1},1fr);gap:6px;margin-bottom:8px;`;
+  // Ajuste proporcional del tamaño de texto según cuántos tarjetones haya
+  const valSize = n>=3 ? '18px' : '22px';
+
+  items.forEach(it=>{
+    const card=document.createElement('div');
+    card.className='stat annual-detail-stat';
+    card.style.cssText='cursor:pointer;text-align:center;';
+    card.dataset.view=it.k;
+    card.innerHTML=`<div class="lbl">${it.lbl}</div><div class="val ${it.cls}" style="font-size:${valSize};">${fmt(it.val)}</div>`;
+    card.onclick=()=>toggleAnnualDetailView(it.k, m, yr);
+    cardsRow.appendChild(card);
+  });
+  cats.appendChild(cardsRow);
+
+  // Contenedor donde se desplegará la tabla al tocar un tarjetón
+  const detailBox=document.createElement('div');
+  detailBox.id='annual-detail-box';
+  cats.appendChild(detailBox);
+
+  // Animación de entrada
+  revealAnimate(balCard);
+  revealAnimate(cardsRow, true);
+}
+
+// Alterna la tabla desglosada al tocar un tarjetón (igual que en mensual)
+function toggleAnnualDetailView(view, m, yr){
+  const box=document.getElementById('annual-detail-box');
+  if(!box) return;
+  // Toggle: si ya estaba activo, cerrar
+  if(annualDetailView===view){
+    annualDetailView=null;
+    box.innerHTML='';
+    document.querySelectorAll('.annual-detail-stat').forEach(s=>s.classList.remove('active-filter'));
+    return;
   }
+  annualDetailView=view;
+  // Resaltar el tarjetón activo
+  document.querySelectorAll('.annual-detail-stat').forEach(s=>{
+    s.classList.toggle('active-filter', s.dataset.view===view);
+  });
+
+  box.innerHTML='';
+  const md=data.filter(e=>{const d=parseDate(e.date);return d.getMonth()===m&&d.getFullYear()===yr && e.type===view;});
+  const typeNames={ingreso:'Ingresos',egreso:'Egresos','ahorro-pasivo':'Beneficios'};
+
+  const sec=document.createElement('div'); sec.className='sec-lbl';
+  sec.textContent=`${typeNames[view]} por categoría`;
+  sec.style.marginTop='4px';
+  box.appendChild(sec);
+
+  const catTotals={},catSubTotals={};
+  md.forEach(e=>{
+    catTotals[e.category]=(catTotals[e.category]||0)+e.amountMXN;
+    if(!catSubTotals[e.category]) catSubTotals[e.category]={};
+    const s=e.subcategory||'—';
+    catSubTotals[e.category][s]=(catSubTotals[e.category][s]||0)+e.amountMXN;
+  });
+  const wrap=document.createElement('div'); wrap.className='cat-list';
+  buildExpandCatList(wrap,catTotals,catSubTotals);
+  box.appendChild(wrap);
+
+  revealAnimate(sec);
+  revealAnimate(wrap, true);
 }
 
 // ══════════════════════════════════════
