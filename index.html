@@ -4110,6 +4110,11 @@ function saveEdit(){
   // Preservar propina existente (no se edita desde aquí por ahora)
   const existingPropina = data.find(x=>x.linkedTo===editId&&x.type==='egreso'&&x.subcategory==='Propinas'&&!(x.note||'').includes('Desglose de:'));
 
+  // Capturar IDs de los hijos viejos que serán eliminados (para borrarlos también de Sheets)
+  const oldChildIds = data
+    .filter(x=>x.linkedTo===editId && !(existingPropina && x.id===existingPropina.id))
+    .map(x=>x.id);
+
   // Eliminar hijos vinculados viejos EXCEPTO la propina
   data=data.filter(x=>x.linkedTo!==editId || (existingPropina && x.id===existingPropina.id));
 
@@ -4171,6 +4176,9 @@ function saveEdit(){
   showSyncing('⟳ Actualizando...');
   const updatedEntry = data.find(x=>x.id===editId);
   const saves = [updateEntryInSheets({...updatedEntry, benType:'', benAmount:0, benDesc:''})];
+  // Eliminar de Sheets los hijos viejos (beneficio/desgloses anteriores) para evitar duplicados
+  oldChildIds.forEach(oid=>saves.push(deleteEntryInSheets(oid)));
+  // Crear los nuevos hijos
   newChildren.forEach(c=>saves.push(saveEntryToSheets({...c, benType:'', benAmount:0, benDesc:''})));
   Promise.all(saves).then(()=>{ hideSyncing(); toast('✓ Registro actualizado'); });
   closeModal();
