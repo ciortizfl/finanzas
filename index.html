@@ -1978,6 +1978,11 @@ function renderCatUI(){
     return;
   }
 
+  // Detectar si la categoría YA estaba colapsada en su posición (para no re-animarla).
+  // Solo se anima la categoría la primera vez que colapsa desde la vista de todas.
+  const alreadyCollapsed = container.classList.contains('cat-collapsed-row')
+    && container.querySelector('.cat-col-left .cat-block');
+
   // Contenedor de dos columnas: izquierda (categoría) / derecha (subcategorías)
   container.className='cat-collapsed-row';
   container.style.gridTemplateColumns=''; // reset por si venía de 1fr
@@ -1989,8 +1994,8 @@ function renderCatUI(){
   applyCatBorder(catBtn, curCat);
   left.appendChild(catBtn);
   container.appendChild(left);
-  // Animar la categoría al colapsar a su nueva posición (aparición suave)
-  revealAnimate(left, true);
+  // Animar la categoría SOLO en el primer colapso (no al cambiar de subcategoría)
+  if(!alreadyCollapsed) revealAnimate(left, true);
 
   if(hasSubs){
     const right=document.createElement('div');
@@ -2009,7 +2014,7 @@ function renderCatUI(){
       right.appendChild(b);
     }
     container.appendChild(right);
-    // Animar la columna derecha
+    // Animar la columna derecha (subcategorías) siempre que cambie
     revealAnimate(right, true);
   }
 
