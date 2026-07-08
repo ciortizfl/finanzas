@@ -1293,25 +1293,26 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
               <span>★</span><span>Beneficio</span>
             </button>
           </div>
-          <!-- Propina panel -->
+          <!-- Propina panel (misma estructura que en registro) -->
           <div id="e-propina-panel" style="display:none;margin-top:12px;padding:12px;background:var(--surface2);border-radius:var(--radius-sm);">
-            <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
-              <div style="display:flex;background:var(--surface);border-radius:100px;padding:3px;gap:2px;flex-shrink:0;box-shadow:0 1px 4px rgba(0,0,0,0.12),0 0 0 1px var(--border2);">
-                <button id="e-propina-chip-pct" onclick="setEditPropinaType('pct')" style="padding:5px 12px;border-radius:100px;border:none;background:transparent;color:var(--text3);font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;transition:all 0.18s;">%</button>
-                <button id="e-propina-chip-monto" onclick="setEditPropinaType('monto')" style="padding:5px 12px;border-radius:100px;border:none;background:var(--accent);color:white;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;transition:all 0.18s;">$</button>
+            <!-- Row 1: adic/incl toggle + % / $ toggle -->
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
+              <div style="display:flex;background:var(--surface);border-radius:100px;padding:3px;gap:2px;flex-shrink:0;box-shadow:0 1px 3px rgba(0,0,0,0.08),0 0 0 1px var(--border2);">
+                <button id="e-propina-adic-btn" onclick="setEditPropinaIncluida(false)" style="padding:5px 10px;border-radius:100px;border:none;background:var(--accent);color:white;font-family:inherit;font-size:11px;font-weight:600;cursor:pointer;transition:all 0.18s;">Adicional</button>
+                <button id="e-propina-incl-btn" onclick="setEditPropinaIncluida(true)" style="padding:5px 10px;border-radius:100px;border:none;background:transparent;color:var(--text3);font-family:inherit;font-size:11px;font-weight:600;cursor:pointer;transition:all 0.18s;">Incluida</button>
               </div>
-              <span style="font-size:12px;color:var(--text3);">Se registra como egreso en Generosidad</span>
+              <div style="display:flex;background:var(--surface);border-radius:100px;padding:3px;gap:2px;flex-shrink:0;box-shadow:0 1px 4px rgba(0,0,0,0.12),0 0 0 1px var(--border2);">
+                <button id="e-propina-chip-pct" onclick="setEditPropinaType('pct')" style="padding:5px 12px;border-radius:100px;border:none;background:var(--accent);color:white;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;transition:all 0.18s;">%</button>
+                <button id="e-propina-chip-monto" onclick="setEditPropinaType('monto')" style="padding:5px 12px;border-radius:100px;border:none;background:transparent;color:var(--text3);font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;transition:all 0.18s;">$</button>
+              </div>
             </div>
-            <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
-              <input type="number" id="e-propina-pct" placeholder="" inputmode="decimal" step="0.5" min="0" max="100" oninput="calcEditPropinaPreview()" style="width:130px;padding:9px 12px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-family:inherit;font-size:15px;outline:none;-webkit-appearance:none;appearance:none;display:none;">
-              <input type="number" id="e-propina-amount" placeholder="Ej. 50.00" inputmode="decimal" step="0.01" min="0" oninput="calcEditPropinaPreview()" style="width:130px;padding:9px 12px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-family:inherit;font-size:15px;outline:none;-webkit-appearance:none;appearance:none;">
+            <!-- Row 2: input + preview -->
+            <div style="display:flex;align-items:center;gap:10px;">
+              <input type="number" id="e-propina-pct" placeholder="" inputmode="decimal" step="0.5" min="0" max="100" oninput="calcEditPropinaPreview()" style="width:160px;padding:9px 12px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-family:inherit;font-size:15px;outline:none;-webkit-appearance:none;appearance:none;">
+              <input type="number" id="e-propina-monto" placeholder="0.00" inputmode="decimal" step="0.01" min="0" oninput="calcEditPropinaPreview()" style="width:160px;padding:9px 12px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-family:inherit;font-size:15px;outline:none;display:none;-webkit-appearance:none;appearance:none;">
               <span id="e-propina-calc" style="font-size:13px;color:var(--text3);"></span>
             </div>
-            <div style="display:flex;gap:8px;margin-bottom:10px;">
-              <button type="button" id="e-propina-incluida-btn" onclick="setEditPropinaIncluida(true)" style="flex:1;padding:8px;border-radius:var(--radius-sm);border:1.5px solid var(--border2);background:var(--surface);font-family:inherit;font-size:12px;font-weight:600;color:var(--text3);cursor:pointer;">Incluida en el monto</button>
-              <button type="button" id="e-propina-adicional-btn" onclick="setEditPropinaIncluida(false)" style="flex:1;padding:8px;border-radius:var(--radius-sm);border:1.5px solid var(--accent);background:var(--accent);font-family:inherit;font-size:12px;font-weight:600;color:white;cursor:pointer;">Adicional</button>
-            </div>
-            <div>
+            <div id="e-propina-method-wrap" style="display:none;margin-top:10px;">
               <div style="font-size:12px;color:var(--text3);margin-bottom:6px;font-weight:600;">Método de pago de la propina</div>
               <div class="chips" id="e-propina-method-chips">
                 <button class="chip" onclick="setEditPropinaMethod('Tarjeta de crédito',this)">Crédito</button>
@@ -4792,20 +4793,23 @@ function setEditPropinaType(t){
   const pctBtn=document.getElementById('e-propina-chip-pct');
   const montoBtn=document.getElementById('e-propina-chip-monto');
   const pctInput=document.getElementById('e-propina-pct');
-  const montoInput=document.getElementById('e-propina-amount');
+  const montoInput=document.getElementById('e-propina-monto');
+  const methodWrap=document.getElementById('e-propina-method-wrap');
   if(pctBtn){ pctBtn.style.background=t==='pct'?'var(--accent)':'transparent'; pctBtn.style.color=t==='pct'?'white':'var(--text3)'; }
   if(montoBtn){ montoBtn.style.background=t==='monto'?'var(--accent)':'transparent'; montoBtn.style.color=t==='monto'?'white':'var(--text3)'; }
   if(pctInput) pctInput.style.display=t==='pct'?'':'none';
   if(montoInput) montoInput.style.display=t==='monto'?'':'none';
+  if(methodWrap) methodWrap.style.display=t==='monto'?'block':'none';
+  if(t==='pct'){ editPropinaMethod=null; document.querySelectorAll('#e-propina-method-chips .chip').forEach(c=>c.classList.remove('active')); }
   calcEditPropinaPreview();
 }
 
 function setEditPropinaIncluida(val){
   editPropinaIncluida=val;
-  const inclBtn=document.getElementById('e-propina-incluida-btn');
-  const adicBtn=document.getElementById('e-propina-adicional-btn');
-  if(inclBtn){ inclBtn.style.background=val?'var(--accent)':'var(--surface)'; inclBtn.style.color=val?'white':'var(--text3)'; inclBtn.style.borderColor=val?'var(--accent)':'var(--border2)'; }
-  if(adicBtn){ adicBtn.style.background=!val?'var(--accent)':'var(--surface)'; adicBtn.style.color=!val?'white':'var(--text3)'; adicBtn.style.borderColor=!val?'var(--accent)':'var(--border2)'; }
+  const inclBtn=document.getElementById('e-propina-incl-btn');
+  const adicBtn=document.getElementById('e-propina-adic-btn');
+  if(inclBtn){ inclBtn.style.background=val?'var(--accent)':'transparent'; inclBtn.style.color=val?'white':'var(--text3)'; }
+  if(adicBtn){ adicBtn.style.background=!val?'var(--accent)':'transparent'; adicBtn.style.color=!val?'white':'var(--text3)'; }
   calcEditPropinaPreview();
 }
 
@@ -4828,7 +4832,7 @@ function calcEditPropinaPreview(){
     if(editPropinaIncluida){ propinaAmt = amount * pct / (100 + pct); }
     else { propinaAmt = amount * pct / 100; }
     const label = editPropinaIncluida ? 'del total' : 'adicional';
-    preview.textContent=`= ${sym}${propinaAmt.toFixed(2)} ${label}`;
+    preview.textContent=`= ${sym}${propinaAmt.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})} ${label}`;
   } else {
     preview.textContent='';
   }
@@ -4836,7 +4840,7 @@ function calcEditPropinaPreview(){
 
 function getEditPropinaAmount(){
   if(!editPropinaOn) return 0;
-  if(editPropinaType==='monto') return parseFloat(document.getElementById('e-propina-amount').value)||0;
+  if(editPropinaType==='monto') return parseFloat(document.getElementById('e-propina-monto').value)||0;
   const pct=parseFloat(document.getElementById('e-propina-pct').value)||0;
   const amount=parseFloat(document.getElementById('e-amount').value)||0;
   if(editPropinaIncluida){ return +(amount * pct / (100 + pct)).toFixed(2); }
@@ -4854,28 +4858,25 @@ function loadEditPropina(parentId){
   const prop = data.find(x=>x.linkedTo===parentId && x.subcategory==='Propinas' && (x.note||'').includes('Propina de:'));
   // Limpiar inputs
   const pctEl=document.getElementById('e-propina-pct');
-  const amtEl=document.getElementById('e-propina-amount');
+  const montoEl=document.getElementById('e-propina-monto');
   if(pctEl){ pctEl.value=''; }
-  if(amtEl){ amtEl.value=''; }
+  if(montoEl){ montoEl.value=''; }
   document.querySelectorAll('#e-propina-method-chips .chip').forEach(c=>c.classList.remove('active'));
 
   if(prop){
     editPropinaOn=true;
     editPropinaExistingId=prop.id;
-    // Detectar si fue % o monto por la nota
     const note=prop.note||'';
     const pctMatch=note.match(/(\d+(?:\.\d+)?)%/);
+    editPropinaIncluida = note.includes('incluida');
     if(pctMatch){
       editPropinaType='pct';
       if(pctEl) pctEl.value=pctMatch[1];
-      editPropinaIncluida = note.includes('incluida');
     } else {
       editPropinaType='monto';
-      if(amtEl) amtEl.value=prop.amount;
-      editPropinaIncluida = note.includes('incluida');
+      if(montoEl) montoEl.value=prop.amount;
     }
     editPropinaMethod=prop.method||null;
-    // Activar el chip de método correspondiente
     if(editPropinaMethod){
       document.querySelectorAll('#e-propina-method-chips .chip').forEach(c=>{
         if((c.getAttribute('onclick')||'').includes(`'${editPropinaMethod}'`)) c.classList.add('active');
