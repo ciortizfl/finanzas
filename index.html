@@ -1052,7 +1052,10 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
       </div>
     </div>
 
-    <button class="btn-submit" id="submit-btn" onclick="submitEntry()" style="display:none">Guardar</button>
+    <button class="btn-submit" id="submit-btn" onclick="submitEntry()" style="display:none;position:relative;overflow:hidden;">
+      <span id="submit-btn-txt">Guardar</span>
+      <svg id="submit-check" width="26" height="26" viewBox="0 0 26 26" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);opacity:0;"><path d="M6 13.5 L11 18.5 L20 8" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="30" stroke-dashoffset="30"/></svg>
+    </button>
   </div>
 </div>
 
@@ -1425,7 +1428,7 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
     Balance
   </button>
-  <button class="nav-btn" onclick="goNav('presupuesto',this)">
+  <button class="nav-btn" onclick="goNav('presupuesto',this)" style="display:none">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
     Presupuesto
   </button>
@@ -2810,6 +2813,77 @@ function updateBenUI(){
   if(extra) extra.classList.toggle('vis',benOn);
 }
 
+// ══════════════════════════════════════
+// ANIMACIÓN DE GUARDADO (registro nuevo)
+// Absorción de campos hacia el botón + palomita, luego reaparición en cascada.
+// ══════════════════════════════════════
+function playRegisterSaveAnimation(done){
+  const card=document.getElementById('register-form-card');
+  const btn=document.getElementById('submit-btn');
+  const btnTxt=document.getElementById('submit-btn-txt');
+  const check=document.getElementById('submit-check');
+  const reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if(!card || !btn || reduced){ if(done) done(); return; }
+
+  // Campos visibles del formulario (excepto el botón)
+  const fields = Array.from(card.querySelectorAll('.field'));
+  const btnR = btn.getBoundingClientRect();
+
+  // 1) Absorción: cada campo se desplaza hacia el botón y se desvanece
+  fields.forEach((f,i)=>{
+    const fr=f.getBoundingClientRect();
+    const dy=(btnR.top - fr.top);
+    try{
+      f.animate([
+        {transform:'translateY(0) scale(1)',opacity:1},
+        {transform:`translateY(${dy*0.5}px) scale(0.9)`,opacity:0}
+      ],{duration:420,delay:i*50,easing:'cubic-bezier(0.55,0,0.67,0.2)',fill:'forwards'});
+    }catch(e){}
+  });
+
+  // 2) Palomita en el botón (tras la absorción)
+  const absorbTime = 300 + fields.length*50;
+  setTimeout(()=>{
+    if(btnTxt){ btnTxt.style.transition='opacity .15s'; btnTxt.style.opacity='0'; }
+    btn.style.transition='background .3s';
+    btn.style.background='var(--green)';
+    if(check){
+      check.style.opacity='1';
+      const path=check.querySelector('path');
+      try{ path.animate([{strokeDashoffset:30},{strokeDashoffset:0}],{duration:400,easing:'cubic-bezier(0.22,0.61,0.36,1)',fill:'forwards'}); }catch(e){}
+    }
+  }, absorbTime);
+
+  // 3) Callback tras mostrar la palomita
+  setTimeout(()=>{ if(done) done(); }, absorbTime + 550);
+}
+
+// Restaura el botón a su estado normal y reaparece el formulario en cascada
+function restoreRegisterForm(){
+  const card=document.getElementById('register-form-card');
+  const btn=document.getElementById('submit-btn');
+  const btnTxt=document.getElementById('submit-btn-txt');
+  const check=document.getElementById('submit-check');
+  // Restaurar botón
+  if(btn){ btn.style.background=''; btn.style.transition=''; }
+  if(btnTxt) btnTxt.style.opacity='';
+  if(check){ check.style.opacity='0'; const p=check.querySelector('path'); if(p) p.style.strokeDashoffset='30'; }
+  // Limpiar transforms residuales de los campos
+  if(card){
+    card.querySelectorAll('.field').forEach(f=>{ f.style.transform=''; f.style.opacity=''; });
+    // Reaparición en cascada de arriba hacia abajo
+    const fields=Array.from(card.querySelectorAll('.field'));
+    fields.forEach((f,i)=>{
+      try{
+        f.animate([
+          {opacity:0,transform:'translateY(-16px)'},
+          {opacity:1,transform:'translateY(0)'}
+        ],{duration:450,delay:i*70,easing:'cubic-bezier(0.22,0.61,0.36,1)',fill:'backwards'});
+      }catch(e){}
+    });
+  }
+}
+
 function submitEntry(){
   try { _submitEntry(); } catch(e){ console.error('submitEntry error:', e); toast('Error: '+e.message); }
 }
@@ -2972,9 +3046,16 @@ function _submitEntry(){
   }
   if(propinaEntry) saves.push(saveEntryToSheets(propinaEntry));
   desgloseEntries.forEach(de=>saves.push(saveEntryToSheets(de)));
-  Promise.all(saves).then(()=>{ hideSyncing(); toast('✓ Registro guardado'); });
-  // El guardado ya ocurrió. Si resetForm falla, no debe mostrar error de guardado.
-  try { resetForm(); } catch(e){ console.error('resetForm error (no afecta el guardado):', e); }
+  Promise.all(saves).then(()=>{ hideSyncing(); });
+
+  // Reproducir animación de guardado: absorción + palomita, luego reset y cascada.
+  playRegisterSaveAnimation(()=>{
+    try { resetForm(); } catch(e){ console.error('resetForm error (no afecta el guardado):', e); }
+    restoreRegisterForm();
+  });
+  // El toast aparece al terminar la absorción (como la opción 1)
+  const _fieldCount = document.querySelectorAll('#register-form-card .field').length;
+  setTimeout(()=>toast('✓ Registro guardado'), 300 + _fieldCount*50 + 120);
   return true; // señal de guardado exitoso
 }
 
@@ -3986,6 +4067,9 @@ function renderHistorial(animate){
     groups[dateKey].forEach(e=>{
       const el=txEl(e,true);
       el.classList.add('tappable');
+      // Guardar tanto el id propio como el del madre (para resaltar tras editar)
+      el._entryId = e.id;
+      el._parentId = e.linkedTo ? e.linkedTo : e.id;
       el.onclick=(ev)=>{
         if(ev.target.classList.contains('tx-delete-btn')) return;
         // Si es un hijo vinculado (desglose, propina o beneficio), abrir el gasto madre
@@ -4614,8 +4698,57 @@ function saveEdit(){
   // Crear los nuevos hijos
   newChildren.forEach(c=>saves.push(saveEntryToSheets({...c, benType:'', benAmount:0, benDesc:''})));
   Promise.all(saves).then(()=>{ hideSyncing(); toast('✓ Registro actualizado'); });
-  closeModal();
+
+  const _editedId = editId;
+  closeModalWithSlide();
   renderHistorial(); renderBalance();
+  // Resaltar el registro actualizado en el listado (pulso + destello de color)
+  highlightUpdatedRecord(_editedId);
+}
+
+// Cierra el modal deslizándolo hacia abajo
+function closeModalWithSlide(){
+  const modal=document.getElementById('edit-modal');
+  const sheet=document.getElementById('modal-sheet');
+  const reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const target = sheet || modal;
+  if(target && !reduced){
+    try{
+      target.animate([
+        {transform:'translateY(0)',opacity:1},
+        {transform:'translateY(60px)',opacity:0}
+      ],{duration:340,easing:'cubic-bezier(0.55,0,0.67,0.2)',fill:'forwards'});
+    }catch(e){}
+    setTimeout(()=>{ closeModal(); if(target.style){ target.style.transform=''; target.style.opacity=''; } }, 320);
+  } else {
+    closeModal();
+  }
+}
+
+// Pulso + destello de color en el registro recién actualizado
+function highlightUpdatedRecord(id){
+  const reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if(reduced) return;
+  // Esperar a que renderHistorial pinte el listado
+  setTimeout(()=>{
+    // Buscar el elemento del registro por su id (el madre o el propio editado)
+    const rows=document.querySelectorAll('#hist-list .tx-item');
+    let targetEl=null;
+    rows.forEach(el=>{ if(el._entryId===id || el._parentId===id) targetEl=el; });
+    if(!targetEl) return;
+    // Color del tipo para el destello
+    const e=data.find(x=>x.id===id);
+    const typeColor = e ? (e.type==='ingreso'?'rgba(52,199,89,0.18)':e.type==='ahorro-pasivo'?'rgba(175,82,222,0.18)':'rgba(255,59,48,0.14)') : 'rgba(0,113,227,0.14)';
+    const origBg = targetEl.style.background || '';
+    try{
+      // Destello de color (fondo) + pulso de escala, un poco lento
+      targetEl.animate([
+        {background:'transparent',transform:'scale(1)'},
+        {background:typeColor,transform:'scale(1.025)',offset:0.35},
+        {background:'transparent',transform:'scale(1)'}
+      ],{duration:900,easing:'cubic-bezier(0.34,1.4,0.64,1)'});
+    }catch(err){}
+  }, 120);
 }
 
 function deleteEntry(){
