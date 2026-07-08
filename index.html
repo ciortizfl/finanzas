@@ -1800,21 +1800,37 @@ function updateNoteDesgloseIndicators(){
 function toggleNoteField(forceOpen){
   const wrap=document.getElementById('note-field-wrap');
   if(!wrap) return;
-  const open = forceOpen!==undefined ? forceOpen : !_noteVisible;
+  const isManual = forceOpen===undefined;
+  const open = isManual ? !_noteVisible : forceOpen;
   _noteVisible=open;
   wrap.style.display=open?'block':'none';
-  if(open) revealAnimate(wrap);
+  if(open){
+    revealAnimate(wrap);
+    // Mutuamente excluyente (solo en clic manual): cerrar Desglose si estaba abierto
+    if(isManual && _desgloseVisible){
+      _desgloseVisible=false;
+      const dsec=document.getElementById('desglose-section');
+      if(dsec) dsec.style.display='none';
+    }
+  }
   updateNoteDesgloseIndicators();
 }
 
 function toggleDesgloseSection(forceOpen){
   const sec=document.getElementById('desglose-section');
   if(!sec) return;
-  const open = forceOpen!==undefined ? forceOpen : !_desgloseVisible;
+  const isManual = forceOpen===undefined;
+  const open = isManual ? !_desgloseVisible : forceOpen;
   _desgloseVisible=open;
   sec.style.display=open?'block':'none';
   if(open){
     revealAnimate(sec);
+    // Mutuamente excluyente (solo en clic manual): cerrar Nota si estaba abierta
+    if(isManual && _noteVisible){
+      _noteVisible=false;
+      const nwrap=document.getElementById('note-field-wrap');
+      if(nwrap) nwrap.style.display='none';
+    }
     // Si no hay ningún desglose aún, agregar uno automáticamente para agilizar
     if(desgloses.length===0) addDesglose();
   }
@@ -3284,8 +3300,23 @@ async function loadFromSheets(silent) {
     }).sort((a,b)=>b.id-a.id);
 
     // Detectar si los datos realmente cambiaron respecto a lo que ya se muestra.
-    // Si no cambiaron, NO re-renderizamos para evitar el parpadeo.
-    const changed = JSON.stringify(newData) !== JSON.stringify(data);
+    // Comparamos solo los campos relevantes normalizados, para evitar falsos
+    // positivos (orden de propiedades, number vs string) que causan parpadeo.
+    const norm = arr => JSON.stringify(arr.map(e=>({
+      id:Number(e.id),
+      date:String(e.date).slice(0,10),
+      type:e.type||'',
+      category:e.category||'',
+      subcategory:e.subcategory||'',
+      desc:e.desc||'',
+      amount:Number(e.amount)||0,
+      currency:e.currency||'MXN',
+      amountMXN:Number(e.amountMXN)||0,
+      method:e.method||null,
+      note:e.note||'',
+      linkedTo:e.linkedTo?Number(e.linkedTo):null
+    })).sort((a,b)=>b.id-a.id));
+    const changed = norm(newData) !== norm(data);
     data = newData;
     localStorage.setItem(SK, JSON.stringify(data));
     if(changed){
@@ -4372,21 +4403,35 @@ function updateEditNoteDesgloseIndicators(){
 function toggleENoteField(open){
   const wrap=document.getElementById('e-note-field-wrap');
   if(!wrap) return;
-  const show = open !== undefined ? open : !_eNoteVisible;
+  const isManual = open===undefined;
+  const show = isManual ? !_eNoteVisible : open;
   _eNoteVisible=show;
   wrap.style.display=show?'block':'none';
-  if(show) revealAnimate(wrap);
+  if(show){
+    revealAnimate(wrap);
+    if(isManual && _eDesgloseVisible){
+      _eDesgloseVisible=false;
+      const dsec=document.getElementById('e-desglose-section');
+      if(dsec) dsec.style.display='none';
+    }
+  }
   updateEditNoteDesgloseIndicators();
 }
 
 function toggleEditDesgloseSection(open){
   const sec=document.getElementById('e-desglose-section');
   if(!sec) return;
-  const show = open !== undefined ? open : !_eDesgloseVisible;
+  const isManual = open===undefined;
+  const show = isManual ? !_eDesgloseVisible : open;
   _eDesgloseVisible=show;
   sec.style.display=show?'block':'none';
   if(show){
     revealAnimate(sec);
+    if(isManual && _eNoteVisible){
+      _eNoteVisible=false;
+      const nwrap=document.getElementById('e-note-field-wrap');
+      if(nwrap) nwrap.style.display='none';
+    }
     if(editDesgloses.length===0) addEditDesglose();
   }
   updateEditNoteDesgloseIndicators();
@@ -4476,7 +4521,10 @@ function openEdit(id) {
         && !/^\d+%\s/.test(t);              // "10% de $X"
   }).join(' | ');
   document.getElementById('e-note').value = cleanNote;
-  if(cleanNote){
+  // Nota y Desglose son mutuamente excluyentes. Si el registro tiene desgloses,
+  // se muestra el desglose por defecto; la nota queda disponible en su botón.
+  const hasEditDesgloses = editDesgloses.length>0;
+  if(cleanNote && !hasEditDesgloses){
     toggleENoteField(true);
   } else {
     toggleENoteField(false);
