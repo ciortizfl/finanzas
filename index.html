@@ -2799,34 +2799,10 @@ function _submitEntry(){
   }
   const amountMXN = toMXN(mainAmount, cur);
 
-  // Nota principal del registro
+  // Nota principal del registro: SOLO la nota del usuario.
+  // "Monto original" y etiquetas de propina/beneficio se muestran dinámicamente
+  // en el listado (no se guardan en la nota editable del madre).
   let mainNote = note;
-  // Nota de referencia: monto original cuando hay desgloses, propina incluida o beneficio
-  const hasReductions = (activeDesgloses.length>0) ||
-                        (curType==='egreso' && propinaOn && propinaIncluida && getPropinaAmount()>0) ||
-                        (curType==='egreso' && benOn && getBenAmount()>0);
-  if(hasReductions){
-    const sym=cur==='MXN'?'$':`${cur} `;
-    mainNote=[`Monto original: ${sym}${amount.toFixed(2)}`, mainNote].filter(Boolean).join(' | ');
-  }
-  if(curType==='egreso' && propinaOn){
-    const propinaAmt=getPropinaAmount();
-    if(propinaAmt>0){
-      const sym=cur==='MXN'?'$':`${cur} `;
-      let label='';
-      if(propinaType==='pct'){
-        const pct=parseFloat(document.getElementById('propina-pct').value)||0;
-        label=propinaIncluida
-          ?`Propina ${pct}% incluida = ${sym}${propinaAmt.toFixed(2)} (total cobrado: ${sym}${amount.toFixed(2)})`
-          :`Propina ${pct}% adicional = ${sym}${propinaAmt.toFixed(2)}`;
-      } else {
-        label=propinaIncluida
-          ?`Propina incluida = ${sym}${propinaAmt.toFixed(2)} (total cobrado: ${sym}${amount.toFixed(2)})`
-          :`Propina adicional = ${sym}${propinaAmt.toFixed(2)}`;
-      }
-      if(label) mainNote=[mainNote,label].filter(Boolean).join(' | ');
-    }
-  }
 
   const entry={
     id:genId(), type:curType, amount:mainAmount, amountMXN, currency:cur,
@@ -2842,7 +2818,8 @@ function _submitEntry(){
     if(ba>0){
       const baMXN=toMXN(ba,cur);
       const sym=cur==='MXN'?'$':`${cur} `;
-      let benNote='Vinculado a: '+desc;
+      // Nota del beneficio: "Beneficio de: X" + detalle (% si aplica)
+      let benNote=`Beneficio de: ${desc}`;
       if(benType==='pct'){
         const pct=parseFloat(document.getElementById('ben-pct').value)||0;
         benNote += ` | ${pct}% de ${sym}${amount.toFixed(2)}`;
@@ -2863,12 +2840,14 @@ function _submitEntry(){
     const propinaAmt=getPropinaAmount();
     if(propinaAmt>0){
       const propinaAmtMXN=toMXN(propinaAmt,cur);
-      const propinaNoteparts=[];
+      const sym=cur==='MXN'?'$':`${cur} `;
+      const propinaNoteparts=[`Propina de: ${desc}`];
       if(propinaType==='pct'){
         const pct=parseFloat(document.getElementById('propina-pct').value)||0;
-        const sym=cur==='MXN'?'$':`${cur} `;
         const label=propinaIncluida?`incluida en ${sym}${amount.toFixed(2)}`:`adicional a ${sym}${amount.toFixed(2)}`;
-        propinaNoteparts.push(`Propina ${pct}% ${label}`);
+        propinaNoteparts.push(`${pct}% ${label}`);
+      } else {
+        propinaNoteparts.push(propinaIncluida?'incluida':'adicional');
       }
       // Include TC note from the already-injected rate if foreign currency
       if(cur!=='MXN'){
@@ -2894,8 +2873,8 @@ function _submitEntry(){
       const dMXN=toMXN(d.amount, cur);
       const dsubs=sortedSubcats(curType, d.category);
       const dHasSubs=dsubs && !(dsubs.length===1 && dsubs[0]==='—');
-      const sym=cur==='MXN'?'$':`${cur} `;
-      let dNote=`Desglose de: ${desc} | Monto original: ${sym}${amount.toFixed(2)}`;
+      // El desglose solo lleva "Desglose de: X" (su monto ya es menor; el original es inútil aquí)
+      let dNote=`Desglose de: ${desc}`;
       if(d.note) dNote=`${d.note} | ${dNote}`;
       const dEntry={
         id: genId(), type:curType,
@@ -3970,22 +3949,52 @@ function txEl(e, showDelete){
         : `<button class="tx-delete-btn" title="Eliminar">✕</button>`)
     : '';
   const barColor = catColor(e.category);
-  // Separar la nota en: metadata del sistema (Monto original, Desglose de, TC) y nota del usuario.
-  // Se muestran distinto y se elimina cualquier duplicado de metadata.
-  const noteParts = (e.note||'').split(' | ').map(p=>p.trim()).filter(Boolean);
+  // ── Construir las notas a mostrar en el listado ──
+  // metaParts: etiquetas del sistema (tenues). userParts: nota real del usuario.
   const metaParts = [];
   const userParts = [];
-  const seenMeta = new Set();
-  noteParts.forEach(p=>{
-    const isMeta = p.startsWith('Monto original:') || p.startsWith('Desglose de:') || p.startsWith('TC:');
-    if(isMeta){
-      if(!seenMeta.has(p)){ seenMeta.add(p); metaParts.push(p); }
-    } else {
-      userParts.push(p);
+
+  if(isLinkedChild){
+    // HIJO (desglose/propina/beneficio): su nota ya trae la etiqueta correcta.
+    // Separamos la parte "Desglose de:/Propina de:/Beneficio de:/%/TC" (meta) de lo demás.
+    (e.note||'').split(' | ').map(p=>p.trim()).filter(Boolean).forEach(p=>{
+      const isMeta = p.startsWith('Desglose de:') || p.startsWith('Propina de:')
+        || p.startsWith('Beneficio de:') || p.startsWith('TC:')
+        || p.startsWith('Vinculado a:') || /^\d+%/.test(p)
+        || p==='incluida' || p==='adicional' || p.startsWith('incluida ') || p.startsWith('adicional ');
+      if(isMeta) metaParts.push(p); else userParts.push(p);
+    });
+  } else {
+    // MADRE: calcular dinámicamente "Monto original" y el resumen de hijos.
+    const children = data.filter(x=>x.linkedTo===e.id);
+    const childDesg = children.filter(x=>(x.note||'').includes('Desglose de:'));
+    const childProp = children.find(x=>x.subcategory==='Propinas'&&(x.note||'').includes('Propina de:'));
+    const childBen  = children.find(x=>x.type==='ahorro-pasivo');
+    const sym = e.currency==='MXN'?'$':`${e.currency} `;
+
+    // Monto original = monto del madre + suma de reducciones (desgloses + beneficio)
+    // (la propina adicional no reduce el monto madre; la incluida sí formaba parte del cobro)
+    let origAmount = e.amount;
+    childDesg.forEach(d=>{ origAmount += d.amount; });
+    if(childBen) origAmount += childBen.amount;
+    const hasReductions = childDesg.length>0 || !!childBen;
+    if(hasReductions){
+      metaParts.push(`Monto original: ${sym}${origAmount.toFixed(2)}`);
     }
-  });
+    // Resumen de hijos
+    if(childDesg.length>0) metaParts.push(`${childDesg.length} desglose${childDesg.length>1?'s':''}`);
+    if(childProp) metaParts.push('Con propina');
+    if(childBen) metaParts.push(`Beneficio: ${childBen.category}`);
+
+    // Nota real del usuario (quitar TC que es meta)
+    (e.note||'').split(' | ').map(p=>p.trim()).filter(Boolean).forEach(p=>{
+      if(p.startsWith('TC:')) metaParts.push(p);
+      else userParts.push(p);
+    });
+  }
+
   let noteDisplay = '';
-  if(metaParts.length) noteDisplay += `<div class="tx-note" style="opacity:0.7">${metaParts.join(' · ')}</div>`;
+  if(metaParts.length) noteDisplay += `<div class="tx-note" style="opacity:0.7">${metaParts.join(' | ')}</div>`;
   if(userParts.length) noteDisplay += `<div class="tx-note">${userParts.join(' | ')}</div>`;
   el.innerHTML=`
     <div class="tx-color-bar" style="background:${barColor}"></div>
@@ -4106,13 +4115,19 @@ function openEdit(id) {
   updateEditDesgloseVisibility();
 
   // --- Nota: mostrar colapsada, pero con contenido si existe ---
-  // Solo filtramos las partes que saveEdit VUELVE A GENERAR automáticamente
-  // (Monto original y TC), para no duplicarlas. El resto de la nota se conserva.
+  // Filtrar TODAS las etiquetas del sistema (se generan/muestran dinámicamente),
+  // dejando solo la nota real del usuario.
   const cleanNote = (e.note||'').split(' | ').filter(p=>{
     const t=p.trim();
     return t.length>0
         && !t.startsWith('TC:')
-        && !t.startsWith('Monto original:');
+        && !t.startsWith('Monto original:')
+        && !t.startsWith('Desglose de:')
+        && !t.startsWith('Propina de:')
+        && !t.startsWith('Beneficio de:')
+        && !t.startsWith('Vinculado a:')
+        && !t.startsWith('Propina ')       // "Propina X% incluida/adicional" (viejo)
+        && !/^\d+%\s/.test(t);              // "10% de $X"
   }).join(' | ');
   document.getElementById('e-note').value = cleanNote;
   if(cleanNote){
@@ -4376,13 +4391,9 @@ function saveEdit(){
   if(mainAmount < 0) mainAmount = 0;
   const amountMXN=toMXN(mainAmount,cur);
 
-  // Nota principal con referencia de monto original si hubo reducciones
+  // Nota principal: SOLO la nota del usuario (sin "Monto original", que se
+  // muestra dinámicamente en el listado). Se conserva el TC si aplica.
   let mainNote=note;
-  const hasReductions = benAmt>0 || totalDesg>0;
-  if(hasReductions){
-    const sym=cur==='MXN'?'$':`${cur} `;
-    mainNote=[`Monto original: ${sym}${amount.toFixed(2)}`, mainNote].filter(Boolean).join(' | ');
-  }
   const noteWithRate=[mainNote,rateNote(cur)].filter(Boolean).join(' | ');
 
   const idx=data.findIndex(x=>x.id===editId);
@@ -4415,7 +4426,7 @@ function saveEdit(){
   if(editType==='egreso'&&editBenOn&&benAmt>0){
     const bt=editBenType;
     const baMXN=toMXN(benAmt,cur);
-    let benNote='Vinculado a: '+desc;
+    let benNote=`Beneficio de: ${desc}`;
     if(editBenType_mode==='pct'){
       const pct=parseFloat(document.getElementById('e-ben-pct').value)||0;
       const sym=cur==='MXN'?'$':`${cur} `;
@@ -4438,8 +4449,8 @@ function saveEdit(){
       const dMXN=toMXN(d.amount, cur);
       const dsubs=sortedSubcats(editType, d.category);
       const dHasSubs=dsubs && !(dsubs.length===1 && dsubs[0]==='—');
-      const sym=cur==='MXN'?'$':`${cur} `;
-      let dNote=`Desglose de: ${desc} | Monto original: ${sym}${amount.toFixed(2)}`;
+      // El desglose solo lleva "Desglose de: X" (sin monto original)
+      let dNote=`Desglose de: ${desc}`;
       if(d.note) dNote=`${d.note} | ${dNote}`;
       const dEntry={
         id: genId(), type:editType,
