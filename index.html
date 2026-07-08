@@ -4854,8 +4854,14 @@ function loadEditPropina(parentId){
   editPropinaType='monto';
   editPropinaIncluida=false;
   editPropinaMethod=null;
-  // Buscar propina vinculada
-  const prop = data.find(x=>x.linkedTo===parentId && x.subcategory==='Propinas' && (x.note||'').includes('Propina de:'));
+  // Buscar propina vinculada: identificada por categoría/subcategoría (robusto ante
+  // cambios de formato de nota entre versiones).
+  const prop = data.find(x=>
+    x.linkedTo===parentId &&
+    x.subcategory==='Propinas' &&
+    x.category==='Generosidad' &&
+    !(x.note||'').includes('Desglose de:')
+  );
   // Limpiar inputs
   const pctEl=document.getElementById('e-propina-pct');
   const montoEl=document.getElementById('e-propina-monto');
@@ -4867,12 +4873,15 @@ function loadEditPropina(parentId){
     editPropinaOn=true;
     editPropinaExistingId=prop.id;
     const note=prop.note||'';
-    const pctMatch=note.match(/(\d+(?:\.\d+)?)%/);
+    // Detectar incluida/adicional (cualquier formato de nota)
     editPropinaIncluida = note.includes('incluida');
+    // Detectar si fue porcentaje (la nota menciona "X%")
+    const pctMatch=note.match(/(\d+(?:\.\d+)?)\s*%/);
     if(pctMatch){
       editPropinaType='pct';
       if(pctEl) pctEl.value=pctMatch[1];
     } else {
+      // Monto directo: usar el monto guardado del registro de propina
       editPropinaType='monto';
       if(montoEl) montoEl.value=prop.amount;
     }
@@ -4883,7 +4892,7 @@ function loadEditPropina(parentId){
       });
     }
   }
-  // Reflejar en UI
+  // Reflejar en UI: botón activado y panel visible si hay propina
   const panel=document.getElementById('e-propina-panel');
   const btn=document.getElementById('e-inline-propina-btn');
   if(panel) panel.style.display=editPropinaOn?'block':'none';
@@ -4892,8 +4901,10 @@ function loadEditPropina(parentId){
     btn.style.color=editPropinaOn?'white':'var(--text2)';
     btn.style.borderColor=editPropinaOn?'var(--accent)':'var(--border2)';
   }
+  // Aplicar el estado visual de los toggles
   setEditPropinaType(editPropinaType);
   setEditPropinaIncluida(editPropinaIncluida);
+  calcEditPropinaPreview();
 }
 
 // ══════════════════════════════════════
