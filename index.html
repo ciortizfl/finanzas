@@ -2883,16 +2883,19 @@ function playRegisterSaveAnimation(done){
   const reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   if(!card || !btn || reduced){ if(done) done(); return; }
 
-  // Absorber los .field Y la note-section (que contiene desglose) — esta última
-  // no tiene clase .field, por eso hay que incluirla explícitamente.
+  // Absorber los .field, el inline-toggles (Propina/Beneficio) Y la note-section
+  // (que contiene Nota/Desglose) — estos dos últimos no tienen clase .field.
   const fields = Array.from(card.querySelectorAll('.field'));
+  const inlineToggles = document.getElementById('inline-toggles');
+  if(inlineToggles && inlineToggles.offsetParent!==null) fields.push(inlineToggles);
   const noteSection = document.getElementById('note-section');
   if(noteSection && noteSection.offsetParent!==null) fields.push(noteSection);
   const btnR = btn.getBoundingClientRect();
 
-  // 1) Absorción: cada elemento se desplaza hacia el botón y se desvanece
-  // Solo animamos los que están visibles
-  const visibleEls = fields.filter(f=>f.offsetParent!==null);
+  // 1) Absorción: cada elemento se desplaza hacia el botón y se desvanece.
+  //    Ordenar por posición vertical real para que la cascada sea de arriba a abajo.
+  const visibleEls = fields.filter(f=>f.offsetParent!==null)
+    .sort((a,b)=>a.getBoundingClientRect().top - b.getBoundingClientRect().top);
   visibleEls.forEach((f,i)=>{
     const fr=f.getBoundingClientRect();
     const dy=(btnR.top - fr.top);
@@ -2950,9 +2953,11 @@ function restoreRegisterForm(){
   }
   if(btnTxt){ btnTxt.style.transition='none'; btnTxt.style.opacity='1'; }
 
-  // 2) Limpiar transforms/opacidad residuales de TODOS los campos + note-section
+  // 2) Limpiar transforms/opacidad residuales de campos + inline-toggles + note-section
   if(card){
     const clearEls=[...card.querySelectorAll('.field')];
+    const it=document.getElementById('inline-toggles');
+    if(it) clearEls.push(it);
     const ns=document.getElementById('note-section');
     if(ns) clearEls.push(ns);
     clearEls.forEach(f=>{
@@ -4183,8 +4188,25 @@ function renderHistorial(animate){
 
   hl.appendChild(container);
 
-  // Animar la aparición del listado (escalonado) solo cuando se solicite
-  if(animate) revealAnimate(container, true);
+  // Animación del listado
+  if(animate===true){
+    // Cascada completa (entrada normal a la pestaña o cambio de mes)
+    revealAnimate(container, true);
+  } else if(animate && animate.cascadeFromIndex!==undefined){
+    // Cascada solo desde cierto índice hacia abajo (tras eliminar un registro):
+    // los elementos que estaban debajo del eliminado reaparecen de arriba a abajo.
+    const items=Array.from(container.querySelectorAll('.day-group-hdr, .tx-item'));
+    const from=animate.cascadeFromIndex;
+    const toAnimate=items.slice(from);
+    toAnimate.forEach((el,i)=>{
+      try{
+        el.animate([
+          {opacity:0,transform:'translateY(-12px)'},
+          {opacity:1,transform:'translateY(0)'}
+        ],{duration:420,delay:i*55,easing:'cubic-bezier(0.22,0.61,0.36,1)',fill:'backwards'});
+      }catch(e){}
+    });
+  }
 }
 
 function sum(arr,t){return arr.filter(e=>e.type===t).reduce((s,e)=>s+e.amountMXN,0);}
@@ -4285,11 +4307,25 @@ function txEl(e, showDelete){
     el.querySelector('.tx-delete-btn').onclick=(ev)=>{
       ev.stopPropagation();
       if(!confirm('¿Eliminar este registro?')) return;
-      data=data.filter(x=>x.id!==e.id&&x.linkedTo!==e.id);
-      save();
-      showSyncing('⟳ Eliminando...');
-      deleteEntryInSheets(e.id).then(()=>{ hideSyncing(); toast('Registro eliminado'); });
-      renderHistorial(); renderBalance();
+      // Calcular el índice desde donde re-animar (posición del elemento eliminado)
+      const list=document.getElementById('hist-list');
+      const allItems=Array.from(list.querySelectorAll('.day-group-hdr, .tx-item'));
+      let cascadeFrom=allItems.indexOf(el);
+      // Si el elemento es el único de su día, su header también desaparece,
+      // así que la cascada arranca desde donde estaba el header.
+      const listWrap=el.closest('.tx-list');
+      const siblings=listWrap?listWrap.querySelectorAll('.tx-item').length:1;
+      if(siblings<=1 && listWrap){
+        const hdr=listWrap.previousElementSibling;
+        if(hdr && hdr.classList.contains('day-group-hdr')){ const hi=allItems.indexOf(hdr); if(hi>=0) cascadeFrom=hi; }
+      }
+      playDeleteAnimation(e.id, ()=>{
+        data=data.filter(x=>x.id!==e.id&&x.linkedTo!==e.id);
+        save();
+        showSyncing('⟳ Eliminando...');
+        deleteEntryInSheets(e.id).then(()=>{ hideSyncing(); toast('Registro eliminado'); });
+        renderHistorial({cascadeFromIndex:cascadeFrom}); renderBalance();
+      });
     };
   }
   return el;
@@ -4892,18 +4928,87 @@ function highlightUpdatedRecord(id){
 function deleteEntry(){
   if(!editId) return;
   if(!confirm('¿Eliminar este registro?')) return;
-  data=data.filter(x=>x.id!==editId&&x.linkedTo!==editId);
-  save();
-  showSyncing('⟳ Eliminando...');
-  deleteEntryInSheets(editId).then(()=>{ hideSyncing(); toast('Registro eliminado'); });
-  closeModal();
-  renderHistorial(); renderBalance();
+  const _delId=editId;
+  closeModalWithSlide();
+  // Tras cerrar el modal, calcular índice y animar la eliminación en el listado
+  setTimeout(()=>{
+    const list=document.getElementById('hist-list');
+    let cascadeFrom=0;
+    if(list){
+      const allItems=Array.from(list.querySelectorAll('.day-group-hdr, .tx-item'));
+      let targetEl=null;
+      allItems.forEach(el=>{ if(el._entryId===_delId) targetEl=el; });
+      if(targetEl){
+        cascadeFrom=allItems.indexOf(targetEl);
+        const listWrap=targetEl.closest('.tx-list');
+        const siblings=listWrap?listWrap.querySelectorAll('.tx-item').length:1;
+        if(siblings<=1 && listWrap){
+          const hdr=listWrap.previousElementSibling;
+          if(hdr && hdr.classList.contains('day-group-hdr')){ const hi=allItems.indexOf(hdr); if(hi>=0) cascadeFrom=hi; }
+        }
+      }
+    }
+    playDeleteAnimation(_delId, ()=>{
+      data=data.filter(x=>x.id!==_delId&&x.linkedTo!==_delId);
+      save();
+      showSyncing('⟳ Eliminando...');
+      deleteEntryInSheets(_delId).then(()=>{ hideSyncing(); toast('Registro eliminado'); });
+      renderHistorial({cascadeFromIndex:cascadeFrom}); renderBalance();
+    });
+  }, 520); // esperar a que el modal termine de bajar
 }
 
 // ══════════════════════════════════════
-// PROPINA
+// ANIMACIÓN DE ELIMINACIÓN (historial)
+// Pausa breve → fade out del elemento (y su header de día si queda vacío) →
+// los elementos siguientes se recorren hacia arriba reapareciendo en cascada.
 // ══════════════════════════════════════
-let propinaOn=false;
+function playDeleteAnimation(entryId, onComplete){
+  const reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const list=document.getElementById('hist-list');
+  if(reduced || !list){ if(onComplete) onComplete(); return; }
+
+  // Encontrar el elemento a eliminar en el DOM
+  const rows=Array.from(list.querySelectorAll('.tx-item'));
+  let targetEl=null;
+  rows.forEach(el=>{ if(el._entryId===entryId) targetEl=el; });
+  if(!targetEl){ if(onComplete) onComplete(); return; }
+
+  // ¿Es el único registro de su día? (para desvanecer también el header del día)
+  const listWrap = targetEl.closest('.tx-list');
+  const siblingItems = listWrap ? Array.from(listWrap.querySelectorAll('.tx-item')) : [targetEl];
+  const isOnlyInDay = siblingItems.length<=1;
+  // El header del día es el hermano ANTERIOR al tx-list en el container
+  const dayHeader = (isOnlyInDay && listWrap) ? listWrap.previousElementSibling : null;
+
+  // Elementos que están DESPUÉS del eliminado en todo el listado (para recorrer hacia arriba)
+  const allItems=Array.from(list.querySelectorAll('.day-group-hdr, .tx-item'));
+  const targetIdx=allItems.indexOf(targetEl);
+  const following = targetIdx>=0 ? allItems.slice(targetIdx+1) : [];
+
+  // 1) Pausa breve (~500ms) antes de iniciar
+  setTimeout(()=>{
+    // 2) Fade out del elemento (+ header del día si queda vacío)
+    const fadeTargets=[targetEl];
+    if(isOnlyInDay && dayHeader) fadeTargets.push(dayHeader);
+    fadeTargets.forEach(el=>{
+      try{
+        el.animate([
+          {opacity:1,transform:'translateY(0)',maxHeight:el.offsetHeight+'px'},
+          {opacity:0,transform:'translateY(-6px)'}
+        ],{duration:320,easing:'cubic-bezier(0.55,0,0.67,0.2)',fill:'forwards'});
+      }catch(e){}
+    });
+
+    // 3) Los siguientes se desvanecen para luego reaparecer en cascada
+    following.forEach(el=>{
+      try{ el.animate([{opacity:1},{opacity:0}],{duration:260,easing:'ease-out',fill:'forwards'}); }catch(e){}
+    });
+
+    // 4) Tras el fade, aplicar el cambio real de datos y re-renderizar con cascada
+    setTimeout(()=>{ if(onComplete) onComplete(); }, 340);
+  }, 500);
+}
 let propinaType='pct'; // 'pct' | 'monto'
 
 // ── Estado del beneficio (espejo de propina) ──
