@@ -2815,7 +2815,8 @@ function updateBenUI(){
 
 // ══════════════════════════════════════
 // ANIMACIÓN DE GUARDADO (registro nuevo)
-// Absorción de campos hacia el botón + palomita, luego reaparición en cascada.
+// Absorción de campos hacia el botón → botón se vuelve círculo verde con palomita
+// → todo se limpia → formulario reaparece en cascada.
 // ══════════════════════════════════════
 function playRegisterSaveAnimation(done){
   const card=document.getElementById('register-form-card');
@@ -2825,7 +2826,6 @@ function playRegisterSaveAnimation(done){
   const reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   if(!card || !btn || reduced){ if(done) done(); return; }
 
-  // Campos visibles del formulario (excepto el botón)
   const fields = Array.from(card.querySelectorAll('.field'));
   const btnR = btn.getBoundingClientRect();
 
@@ -2837,49 +2837,80 @@ function playRegisterSaveAnimation(done){
       f.animate([
         {transform:'translateY(0) scale(1)',opacity:1},
         {transform:`translateY(${dy*0.5}px) scale(0.9)`,opacity:0}
-      ],{duration:420,delay:i*50,easing:'cubic-bezier(0.55,0,0.67,0.2)',fill:'forwards'});
+      ],{duration:400,delay:i*45,easing:'cubic-bezier(0.55,0,0.67,0.2)',fill:'forwards'});
     }catch(e){}
   });
 
-  // 2) Palomita en el botón (tras la absorción)
-  const absorbTime = 300 + fields.length*50;
+  const absorbTime = 260 + fields.length*45;
+
+  // 2) El botón se transforma en círculo verde y dibuja la palomita
   setTimeout(()=>{
     if(btnTxt){ btnTxt.style.transition='opacity .15s'; btnTxt.style.opacity='0'; }
-    btn.style.transition='background .3s';
+    // Guardar ancho original para restaurar
+    btn.dataset.origWidth = btn.offsetWidth;
+    btn.style.transition='width .38s cubic-bezier(0.34,1.56,0.64,1), border-radius .38s cubic-bezier(0.34,1.56,0.64,1), background .3s, margin .38s cubic-bezier(0.34,1.56,0.64,1), height .38s cubic-bezier(0.34,1.56,0.64,1)';
+    btn.style.width='54px';
+    btn.style.height='54px';
+    btn.style.padding='0';
+    btn.style.margin='6px auto 0';
+    btn.style.display='block';
+    btn.style.borderRadius='50%';
     btn.style.background='var(--green)';
-    if(check){
-      check.style.opacity='1';
-      const path=check.querySelector('path');
-      try{ path.animate([{strokeDashoffset:30},{strokeDashoffset:0}],{duration:400,easing:'cubic-bezier(0.22,0.61,0.36,1)',fill:'forwards'}); }catch(e){}
-    }
+    // Dibujar palomita tras encoger a círculo
+    setTimeout(()=>{
+      if(check){
+        check.style.opacity='1';
+        const path=check.querySelector('path');
+        if(path){ try{ path.animate([{strokeDashoffset:30},{strokeDashoffset:0}],{duration:380,easing:'cubic-bezier(0.22,0.61,0.36,1)',fill:'forwards'}); }catch(e){} }
+      }
+    }, 200);
   }, absorbTime);
 
-  // 3) Callback tras mostrar la palomita
-  setTimeout(()=>{ if(done) done(); }, absorbTime + 550);
+  // 3) Callback tras mostrar la palomita completa
+  setTimeout(()=>{ if(done) done(); }, absorbTime + 200 + 500);
 }
 
-// Restaura el botón a su estado normal y reaparece el formulario en cascada
+// Restaura el botón y hace reaparecer el formulario en cascada
 function restoreRegisterForm(){
   const card=document.getElementById('register-form-card');
   const btn=document.getElementById('submit-btn');
   const btnTxt=document.getElementById('submit-btn-txt');
   const check=document.getElementById('submit-check');
-  // Restaurar botón
-  if(btn){ btn.style.background=''; btn.style.transition=''; }
-  if(btnTxt) btnTxt.style.opacity='';
+
+  // 1) Ocultar palomita y restaurar el botón a su forma normal instantáneamente.
+  //    NO tocamos display (lo controla updateFinalizeVisibility tras el reset).
   if(check){ check.style.opacity='0'; const p=check.querySelector('path'); if(p) p.style.strokeDashoffset='30'; }
-  // Limpiar transforms residuales de los campos
+  if(btn){
+    btn.style.transition='none';
+    btn.style.width=''; btn.style.height=''; btn.style.padding='';
+    btn.style.margin=''; btn.style.borderRadius=''; btn.style.background='';
+    // Tras el reset no hay categoría seleccionada → el botón se oculta
+    btn.style.display='none';
+    void btn.offsetWidth;
+    btn.style.transition='';
+  }
+  if(btnTxt){ btnTxt.style.transition='none'; btnTxt.style.opacity='1'; }
+
+  // 2) Limpiar transforms/opacidad residuales de TODOS los campos (de la absorción)
   if(card){
-    card.querySelectorAll('.field').forEach(f=>{ f.style.transform=''; f.style.opacity=''; });
-    // Reaparición en cascada de arriba hacia abajo
-    const fields=Array.from(card.querySelectorAll('.field'));
-    fields.forEach((f,i)=>{
-      try{
-        f.animate([
-          {opacity:0,transform:'translateY(-16px)'},
-          {opacity:1,transform:'translateY(0)'}
-        ],{duration:450,delay:i*70,easing:'cubic-bezier(0.22,0.61,0.36,1)',fill:'backwards'});
-      }catch(e){}
+    card.querySelectorAll('.field').forEach(f=>{
+      try{ f.getAnimations().forEach(a=>a.cancel()); }catch(e){}
+      f.style.transform='';
+      f.style.opacity='';
+    });
+    // 3) Reaparición en cascada: animar los campos VISIBLES de arriba a abajo.
+    //    Se hace en el siguiente frame para no chocar con la reconstrucción de setType.
+    requestAnimationFrame(()=>{
+      const visibleFields=Array.from(card.querySelectorAll('.field'))
+        .filter(f=>f.offsetParent!==null); // solo los que están visibles
+      visibleFields.forEach((f,i)=>{
+        try{
+          f.animate([
+            {opacity:0,transform:'translateY(-14px)'},
+            {opacity:1,transform:'translateY(0)'}
+          ],{duration:400,delay:i*60,easing:'cubic-bezier(0.22,0.61,0.36,1)',fill:'backwards'});
+        }catch(e){}
+      });
     });
   }
 }
@@ -3050,12 +3081,14 @@ function _submitEntry(){
 
   // Reproducir animación de guardado: absorción + palomita, luego reset y cascada.
   playRegisterSaveAnimation(()=>{
+    // Resetear el formulario (reconstruye limpio y oculta note/submit)
     try { resetForm(); } catch(e){ console.error('resetForm error (no afecta el guardado):', e); }
+    // Reaparición en cascada en el siguiente frame (tras la reconstrucción)
     restoreRegisterForm();
   });
   // El toast aparece al terminar la absorción (como la opción 1)
   const _fieldCount = document.querySelectorAll('#register-form-card .field').length;
-  setTimeout(()=>toast('✓ Registro guardado'), 300 + _fieldCount*50 + 120);
+  setTimeout(()=>toast('✓ Registro guardado'), 260 + _fieldCount*45 + 100);
   return true; // señal de guardado exitoso
 }
 
@@ -4359,6 +4392,9 @@ function openEdit(id) {
     if(pb){ pb.style.background='var(--surface2)'; pb.style.color='var(--text2)'; pb.style.borderColor='var(--border2)'; }
   }
 
+  // Limpiar cualquier estilo residual de una animación de cierre previa
+  const _sheet=document.getElementById('modal-sheet');
+  if(_sheet){ _sheet.style.transform=''; _sheet.style.opacity=''; try{ _sheet.getAnimations().forEach(a=>a.cancel()); }catch(e){} }
   document.getElementById('edit-modal').classList.add('open');
   document.body.style.overflow='hidden';
 }
@@ -4711,44 +4747,51 @@ function closeModalWithSlide(){
   const modal=document.getElementById('edit-modal');
   const sheet=document.getElementById('modal-sheet');
   const reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const target = sheet || modal;
-  if(target && !reduced){
+  if(sheet && !reduced){
+    let anim;
     try{
-      target.animate([
+      anim=sheet.animate([
         {transform:'translateY(0)',opacity:1},
         {transform:'translateY(60px)',opacity:0}
-      ],{duration:340,easing:'cubic-bezier(0.55,0,0.67,0.2)',fill:'forwards'});
+      ],{duration:300,easing:'cubic-bezier(0.55,0,0.67,0.2)'}); // sin fill:forwards
     }catch(e){}
-    setTimeout(()=>{ closeModal(); if(target.style){ target.style.transform=''; target.style.opacity=''; } }, 320);
+    setTimeout(()=>{
+      // Cancelar animación y limpiar CUALQUIER estilo residual antes de cerrar
+      if(anim) try{ anim.cancel(); }catch(e){}
+      sheet.style.transform='';
+      sheet.style.opacity='';
+      closeModal();
+    }, 290);
   } else {
     closeModal();
   }
 }
 
-// Pulso + destello de color en el registro recién actualizado
+// Pulso (crece hacia afuera) + destello de color en el registro actualizado
 function highlightUpdatedRecord(id){
   const reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   if(reduced) return;
-  // Esperar a que renderHistorial pinte el listado
   setTimeout(()=>{
-    // Buscar el elemento del registro por su id (el madre o el propio editado)
     const rows=document.querySelectorAll('#hist-list .tx-item');
     let targetEl=null;
     rows.forEach(el=>{ if(el._entryId===id || el._parentId===id) targetEl=el; });
     if(!targetEl) return;
-    // Color del tipo para el destello
     const e=data.find(x=>x.id===id);
-    const typeColor = e ? (e.type==='ingreso'?'rgba(52,199,89,0.18)':e.type==='ahorro-pasivo'?'rgba(175,82,222,0.18)':'rgba(255,59,48,0.14)') : 'rgba(0,113,227,0.14)';
-    const origBg = targetEl.style.background || '';
+    // Color sólido del tipo para el destello (visible en claro y oscuro)
+    const flash = e ? (e.type==='ingreso'?'52,199,89' : e.type==='ahorro-pasivo'?'175,82,222' : e.type==='egreso'?'255,59,48' : '0,113,227') : '0,113,227';
+    // Asegurar que la escala tenga un punto de origen central y no sea recortada
+    const prevZ=targetEl.style.zIndex, prevPos=targetEl.style.position;
+    targetEl.style.position='relative';
+    targetEl.style.zIndex='5';
     try{
-      // Destello de color (fondo) + pulso de escala, un poco lento
       targetEl.animate([
-        {background:'transparent',transform:'scale(1)'},
-        {background:typeColor,transform:'scale(1.025)',offset:0.35},
-        {background:'transparent',transform:'scale(1)'}
-      ],{duration:900,easing:'cubic-bezier(0.34,1.4,0.64,1)'});
+        { transform:'scale(1)',   boxShadow:`0 0 0 0 rgba(${flash},0)` },
+        { transform:'scale(1.04)', boxShadow:`0 0 0 3px rgba(${flash},0.55), 0 6px 20px rgba(${flash},0.25)`, offset:0.4 },
+        { transform:'scale(1)',   boxShadow:`0 0 0 0 rgba(${flash},0)` }
+      ],{ duration:950, easing:'cubic-bezier(0.34,1.4,0.64,1)' });
     }catch(err){}
-  }, 120);
+    setTimeout(()=>{ targetEl.style.zIndex=prevZ; targetEl.style.position=prevPos; }, 1000);
+  }, 140);
 }
 
 function deleteEntry(){
