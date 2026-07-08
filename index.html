@@ -1319,11 +1319,11 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
 
         <!-- Inline toggles propina + beneficio (solo para egreso) -->
         <div id="e-inline-toggles" style="display:none;margin-bottom:14px;">
-          <div style="display:flex;gap:10px;">
-            <button type="button" id="e-inline-propina-btn" onclick="toggleEPropina()" style="display:flex;align-items:center;gap:6px;padding:7px 14px;border-radius:100px;border:1.5px solid var(--border2);background:var(--surface2);font-family:inherit;font-size:13px;font-weight:600;color:var(--text2);cursor:pointer;transition:all 0.18s;">
+          <div class="inline-row">
+            <button type="button" id="e-inline-propina-btn" class="inline-tgl" onclick="toggleEPropina()">
               <span>💰</span><span>Propina</span>
             </button>
-            <button type="button" id="e-inline-ben-btn" onclick="toggleEBen()" style="display:flex;align-items:center;gap:6px;padding:7px 14px;border-radius:100px;border:1.5px solid var(--border2);background:var(--surface2);font-family:inherit;font-size:13px;font-weight:600;color:var(--text2);cursor:pointer;transition:all 0.18s;">
+            <button type="button" id="e-inline-ben-btn" class="inline-tgl" onclick="toggleEBen()">
               <span>★</span><span>Beneficio</span>
             </button>
           </div>
@@ -1446,7 +1446,7 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
         </div>
       </div>
 
-      <button class="btn-submit" onclick="saveEdit()">Guardar</button>
+      <button class="btn-submit" id="e-submit-btn" onclick="saveEdit()">Guardar</button>
       <button class="btn-delete" onclick="deleteEntry()">Eliminar registro</button>
     </div>
   </div>
@@ -2546,25 +2546,85 @@ function updateDesglose(id, field, value){
   if(field==='amount'){ updateDesgloseRemaining(); updateNoteDesgloseIndicators(); }
 }
 
-// Selección de categoría de un desglose — actualiza solo su dropdown de subcategoría
+// Selección de categoría de un desglose — revela la subcategoría progresivamente
 function setDesgloseCat(id, cat){
   const d=desgloses.find(x=>x.id===id);
   if(!d) return;
   d.category=cat; d.subcategory='';
-  // Actualizar quirúrgicamente solo la tarjeta afectada (evita parpadeo)
-  const card=document.querySelector(`#desglose-list [data-desg-id="${id}"]`);
-  if(card){
-    updateDesgloseSubcatDropdown(card, d, 'setDesgloseSubcat');
-    updateDesgloseRemaining();
-  } else {
-    renderDesgloses(false);
-  }
+  refreshAllDesgloseSubcatDropdowns();
+  revealDesgloseFields(id);
+  updateAddDesgloseBtnVisibility();
+  updateDesgloseRemaining();
 }
 function setDesgloseSubcat(id, sub){
   const d=desgloses.find(x=>x.id===id);
   if(!d) return;
   d.subcategory=sub;
+  refreshAllDesgloseSubcatDropdowns();
+  revealDesgloseFields(id);
+  updateAddDesgloseBtnVisibility();
   updateDesgloseRemaining();
+}
+
+// Revela progresivamente subcategoría y nota dentro de una tarjeta de desglose,
+// con animación suave, sin reconstruir toda la tarjeta.
+function revealDesgloseFields(id){
+  const d=desgloses.find(x=>x.id===id);
+  const card=document.querySelector(`#desglose-list [data-desg-id="${id}"]`);
+  if(!d || !card) return;
+  const subs=d.category?sortedSubcats(curType,d.category):[];
+  const hasSubs=subs && !(subs.length===1&&subs[0]==='—');
+  const isComplete = !!d.category && (!hasSubs || !!d.subcategory);
+  // Nota: aparece cuando el desglose está completo
+  let noteEl=card.querySelector('[data-desg-note]');
+  if(isComplete && !noteEl){
+    noteEl=document.createElement('input');
+    noteEl.setAttribute('data-desg-note','');
+    noteEl.type='text';
+    noteEl.placeholder='Nota (opcional)';
+    noteEl.value=d.note||'';
+    noteEl.setAttribute('oninput',`updateDesglose(${d.id},'note',this.value)`);
+    noteEl.style.cssText='width:100%;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:13px;outline:none;';
+    card.appendChild(noteEl);
+    revealAnimate(noteEl);
+  } else if(!isComplete && noteEl){
+    noteEl.remove();
+  }
+}
+
+// Actualiza quirúrgicamente el dropdown de subcategoría de cada tarjeta de desglose,
+// reflejando las subcategorías tomadas (madre + otros desgloses), sin reconstruir todo.
+function refreshAllDesgloseSubcatDropdowns(){
+  const list=document.getElementById('desglose-list');
+  if(!list) return;
+  desgloses.forEach(d=>{
+    const card=list.querySelector(`[data-desg-id="${d.id}"]`);
+    if(!card) return;
+    const subInfo=buildDesgloseSubcatOptions(desgloses, d, curCat, curSubcat, curType);
+    const selects=card.querySelectorAll('select');
+    let subSelect=null;
+    selects.forEach(s=>{ if((s.getAttribute('onchange')||'').includes('setDesgloseSubcat')) subSelect=s; });
+    if(subInfo.hasSubs){
+      if(subSelect){
+        subSelect.innerHTML=subInfo.html;
+        subSelect.value=d.subcategory||'';
+      } else {
+        // No existía dropdown (la categoría no tenía subcats antes) → insertarlo
+        const newSel=document.createElement('select');
+        newSel.setAttribute('onchange', `setDesgloseSubcat(${d.id},this.value)`);
+        newSel.style.cssText='width:100%;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;margin-bottom:8px;';
+        newSel.innerHTML=subInfo.html;
+        const rows=card.querySelectorAll(':scope > div');
+        const anchor=rows.length>=2?rows[1]:null;
+        if(anchor && anchor.nextSibling) card.insertBefore(newSel, anchor.nextSibling);
+        else card.appendChild(newSel);
+        newSel.value=d.subcategory||'';
+        revealAnimate(newSel);
+      }
+    } else if(subSelect){
+      subSelect.remove();
+    }
+  });
 }
 
 // Inserta o reemplaza el dropdown de subcategoría dentro de una tarjeta de desglose,
@@ -2605,6 +2665,47 @@ function desglosesTotal(){
   return desgloses.reduce((s,d)=>s+(d.amount||0),0);
 }
 
+// Construye las opciones del dropdown de subcategoría de un desglose.
+// Las subcategorías ya "tomadas" (por el gasto madre o por OTROS desgloses de la
+// misma categoría) se atenúan, se deshabilitan y se recorren al final de la lista,
+// en el orden en que fueron tomándose.
+function buildDesgloseSubcatOptions(desgloseArr, d, parentCat, parentSubcat, typ){
+  const subs = d.category ? sortedSubcats(typ, d.category) : [];
+  const hasSubs = subs && !(subs.length===1 && subs[0]==='—');
+  if(!hasSubs) return { hasSubs:false, html:'' };
+
+  // Recolectar subcategorías tomadas EN LA MISMA CATEGORÍA que este desglose,
+  // en orden: primero la del madre, luego las de los otros desgloses (en orden).
+  const takenOrder = [];
+  if(parentCat===d.category && parentSubcat){
+    takenOrder.push(parentSubcat);
+  }
+  desgloseArr.forEach(other=>{
+    if(other.id===d.id) return;               // no contar el propio desglose
+    if(other.category!==d.category) return;   // solo misma categoría
+    if(other.subcategory && !takenOrder.includes(other.subcategory)){
+      takenOrder.push(other.subcategory);
+    }
+  });
+  const takenSet = new Set(takenOrder);
+
+  // Subcategorías activas (no tomadas), en su orden normal; salvo la que este
+  // desglose ya tiene seleccionada, que siempre debe poder mostrarse activa.
+  const active = subs.filter(s=> !takenSet.has(s) || s===d.subcategory );
+  // Tomadas (excepto la propia selección) al final, en orden de haberse tomado
+  const disabled = takenOrder.filter(s=> s!==d.subcategory );
+
+  const optHtml = [];
+  optHtml.push(`<option value="">Subcategoría...</option>`);
+  active.forEach(s=>{
+    optHtml.push(`<option value="${s}" ${d.subcategory===s?'selected':''}>${s}</option>`);
+  });
+  disabled.forEach(s=>{
+    optHtml.push(`<option value="${s}" disabled style="color:var(--text3);opacity:0.5;">${s}</option>`);
+  });
+  return { hasSubs:true, html:optHtml.join('') };
+}
+
 function renderDesgloses(animateNew){
   const list=document.getElementById('desglose-list');
   if(!list) return;
@@ -2619,9 +2720,15 @@ function renderDesgloses(animateNew){
     card.style.cssText='background:var(--surface2);border-radius:var(--radius-sm);padding:11px;margin-bottom:8px;position:relative;';
     // Categorías del tipo actual para el dropdown
     const catOpts=sortedCats(curType).map(c=>`<option value="${c}" ${d.category===c?'selected':''}>${c}</option>`).join('');
-    const subs=d.category?sortedSubcats(curType,d.category):[];
-    const hasSubs=subs && !(subs.length===1&&subs[0]==='—');
-    const subOpts=hasSubs?subs.map(s=>`<option value="${s}" ${d.subcategory===s?'selected':''}>${s}</option>`).join(''):'';
+    const subInfo=buildDesgloseSubcatOptions(desgloses, d, curCat, curSubcat, curType);
+    const hasSubs=subInfo.hasSubs;
+    const subOpts=subInfo.html;
+    // Revelación progresiva:
+    // - Subcategoría: aparece cuando hay categoría elegida
+    // - Nota: aparece cuando el desglose está "completo" (categoría + subcat si aplica)
+    const showSubcat = !!d.category && hasSubs;
+    const isComplete = !!d.category && (!hasSubs || !!d.subcategory);
+    const showNote = isComplete;
     card.innerHTML=`
       <button type="button" onclick="removeDesglose(${d.id})" style="position:absolute;top:8px;right:8px;background:none;border:none;cursor:pointer;color:var(--danger);font-size:16px;line-height:1;padding:2px;">✕</button>
       <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:8px;">Desglose ${idx+1}${curLabel}</div>
@@ -2631,8 +2738,8 @@ function renderDesgloses(animateNew){
           <option value="">Categoría...</option>${catOpts}
         </select>
       </div>
-      ${hasSubs?`<select onchange="setDesgloseSubcat(${d.id},this.value)" style="width:100%;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;margin-bottom:8px;"><option value="">Subcategoría...</option>${subOpts}</select>`:''}
-      <input type="text" placeholder="Nota (opcional)" value="${d.note||''}" oninput="updateDesglose(${d.id},'note',this.value)" style="width:100%;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:13px;outline:none;">
+      ${showSubcat?`<select data-desg-subcat onchange="setDesgloseSubcat(${d.id},this.value)" style="width:100%;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;margin-bottom:8px;">${subOpts}</select>`:''}
+      ${showNote?`<input data-desg-note type="text" placeholder="Nota (opcional)" value="${d.note||''}" oninput="updateDesglose(${d.id},'note',this.value)" style="width:100%;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:13px;outline:none;">`:''}
     `;
     list.appendChild(card);
     // Animar solo si se pidió y esta card es nueva (no estaba antes)
@@ -2640,7 +2747,21 @@ function renderDesgloses(animateNew){
       revealAnimate(card);
     }
   });
+  // El botón "Agregar desglose" solo aparece si el ÚLTIMO desglose está completo
+  updateAddDesgloseBtnVisibility();
   updateDesgloseRemaining();
+}
+
+// Muestra el botón "Agregar desglose" solo si el último desglose está completo.
+// No interfiere si está oculto por exceso/monto exacto (flag exceedHidden).
+function updateAddDesgloseBtnVisibility(){
+  const btn=document.getElementById('add-desglose-btn');
+  if(!btn) return;
+  // Si está oculto por exceso o monto exacto, respetarlo (lo maneja setAddDesgloseHidden)
+  if(btn.dataset.exceedHidden==='1'){ btn.style.display='none'; return; }
+  const complete = lastDesgloseComplete();
+  btn.style.display = complete ? 'flex' : 'none';
+  btn.style.opacity=''; // asegurar visible sin opacidad residual
 }
 
 // Muestra cuánto queda del monto original tras restar desgloses
@@ -2649,21 +2770,86 @@ function updateDesgloseRemaining(){
   if(!remEl) return;
   const amount=parseFloat(document.getElementById('amount').value)||0;
   const total=desglosesTotal();
-  const remaining=amount-total;
+  const remaining=+(amount-total).toFixed(2); // evitar ruido de punto flotante
   if(desgloses.length===0){
     remEl.style.display='none';
+    setSubmitDisabled(false);
+    setAddDesgloseHidden(false);
     return;
   }
   remEl.style.display='block';
   const cur=document.getElementById('currency')?.value||'MXN';
   const sym=cur==='MXN'?'$':`${cur} `;
   if(remaining<0){
+    // Los desgloses (de CUALQUIER categoría) exceden el monto principal
     remEl.style.color='var(--danger)';
     remEl.textContent=`Los desgloses exceden el monto por ${sym}${Math.abs(remaining).toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})}`;
+    setSubmitDisabled(true);
+    setAddDesgloseHidden(true);   // ocultar "Agregar desglose" mientras haya exceso
   } else {
     remEl.style.color='var(--text3)';
-    remEl.textContent=`Queda ${sym}${remaining.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})} en "${curCat||'principal'}"`;
+    // Gramática: "Quedan" si es > $1; "Queda" si es exactamente $1 o $0.
+    const verbo = remaining>1 ? 'Quedan' : 'Queda';
+    remEl.textContent=`${verbo} ${sym}${remaining.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})}`;
+    setSubmitDisabled(false);
+    // Si el desglose es exacto (no queda nada), ocultar "Agregar desglose"
+    setAddDesgloseHidden(remaining===0);
   }
+}
+
+// Oculta/muestra el botón "Agregar desglose" con fade.
+// Robusto ante cambios rápidos: cancela animaciones previas y no depende de onfinish
+// asíncrono para fijar el estado final.
+function setAddDesgloseHidden(hidden){
+  const btn=document.getElementById('add-desglose-btn');
+  if(!btn) return;
+  const currentlyHidden = btn.dataset.exceedHidden==='1';
+  if(hidden){
+    if(currentlyHidden) return;         // ya está oculto, nada que hacer
+    btn.dataset.exceedHidden='1';
+    // Cancelar cualquier animación pendiente
+    try{ btn.getAnimations().forEach(a=>a.cancel()); }catch(e){}
+    try{
+      const anim=btn.animate([{opacity:1},{opacity:0}],{duration:220,easing:'ease-out',fill:'forwards'});
+      anim.onfinish=()=>{
+        // Solo ocultar si SEGUIMOS en estado oculto (no cambió durante el fade)
+        if(btn.dataset.exceedHidden==='1'){ btn.style.display='none'; btn.style.opacity=''; }
+      };
+    }catch(e){ btn.style.display='none'; }
+  } else {
+    if(!currentlyHidden) return;        // ya está visible/normal, nada que hacer
+    btn.dataset.exceedHidden='';
+    // Cancelar animación de fade-out pendiente
+    try{ btn.getAnimations().forEach(a=>a.cancel()); }catch(e){}
+    // Decidir si debe mostrarse (último desglose completo)
+    const shouldShow = lastDesgloseComplete();
+    if(shouldShow){
+      btn.style.display='flex';
+      btn.style.opacity='';
+      try{ btn.animate([{opacity:0},{opacity:1}],{duration:260,easing:'ease-out'}); }catch(e){}
+    } else {
+      btn.style.display='none';
+      btn.style.opacity='';
+    }
+  }
+}
+
+// ¿El último desglose está completo (categoría + subcategoría si aplica)?
+function lastDesgloseComplete(){
+  if(desgloses.length===0) return false;
+  const last=desgloses[desgloses.length-1];
+  const subs=last.category?sortedSubcats(curType,last.category):[];
+  const hasSubs=subs && !(subs.length===1&&subs[0]==='—');
+  return !!last.category && (!hasSubs || !!last.subcategory);
+}
+
+// Activa/desactiva el botón de guardar (registro) por validación de desgloses
+function setSubmitDisabled(disabled){
+  const btn=document.getElementById('submit-btn');
+  if(!btn) return;
+  btn.disabled=disabled;
+  btn.style.opacity=disabled?'0.45':'';
+  btn.style.pointerEvents=disabled?'none':'';
 }
 
 // Muestra/oculta la sección de desglose (aplica a egreso, ingreso y beneficio)
@@ -2696,19 +2882,75 @@ function setEditDesgloseCat(id, cat){
   const d=editDesgloses.find(x=>x.id===id);
   if(!d) return;
   d.category=cat; d.subcategory='';
-  const card=document.querySelector(`#e-desglose-list [data-desg-id="${id}"]`);
-  if(card){
-    updateDesgloseSubcatDropdownEdit(card, d);
-    updateEditDesgloseRemaining();
-  } else {
-    renderEditDesgloses();
-  }
+  refreshAllEditDesgloseSubcatDropdowns();
+  revealEditDesgloseFields(id);
+  updateEditAddDesgloseBtnVisibility();
+  updateEditDesgloseRemaining();
 }
 function setEditDesgloseSubcat(id, sub){
   const d=editDesgloses.find(x=>x.id===id);
   if(!d) return;
   d.subcategory=sub;
+  refreshAllEditDesgloseSubcatDropdowns();
+  revealEditDesgloseFields(id);
+  updateEditAddDesgloseBtnVisibility();
   updateEditDesgloseRemaining();
+}
+
+function revealEditDesgloseFields(id){
+  const d=editDesgloses.find(x=>x.id===id);
+  const card=document.querySelector(`#e-desglose-list [data-desg-id="${id}"]`);
+  if(!d || !card) return;
+  const subs=d.category?sortedSubcats(editType,d.category):[];
+  const hasSubs=subs && !(subs.length===1&&subs[0]==='—');
+  const isComplete = !!d.category && (!hasSubs || !!d.subcategory);
+  let noteEl=card.querySelector('[data-desg-note]');
+  if(isComplete && !noteEl){
+    noteEl=document.createElement('input');
+    noteEl.setAttribute('data-desg-note','');
+    noteEl.type='text';
+    noteEl.placeholder='Nota (opcional)';
+    noteEl.value=d.note||'';
+    noteEl.setAttribute('oninput',`updateEditDesglose(${d.id},'note',this.value)`);
+    noteEl.style.cssText='width:100%;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:13px;outline:none;';
+    card.appendChild(noteEl);
+    revealAnimate(noteEl);
+  } else if(!isComplete && noteEl){
+    noteEl.remove();
+  }
+}
+
+// Actualiza los dropdowns de subcategoría de todas las tarjetas de edición
+function refreshAllEditDesgloseSubcatDropdowns(){
+  const list=document.getElementById('e-desglose-list');
+  if(!list) return;
+  editDesgloses.forEach(d=>{
+    const card=list.querySelector(`[data-desg-id="${d.id}"]`);
+    if(!card) return;
+    const subInfo=buildDesgloseSubcatOptions(editDesgloses, d, editCat, editSubcat, editType);
+    const selects=card.querySelectorAll('select');
+    let subSelect=null;
+    selects.forEach(s=>{ if((s.getAttribute('onchange')||'').includes('setEditDesgloseSubcat')) subSelect=s; });
+    if(subInfo.hasSubs){
+      if(subSelect){
+        subSelect.innerHTML=subInfo.html;
+        subSelect.value=d.subcategory||'';
+      } else {
+        const newSel=document.createElement('select');
+        newSel.setAttribute('onchange', `setEditDesgloseSubcat(${d.id},this.value)`);
+        newSel.style.cssText='width:100%;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;margin-bottom:8px;';
+        newSel.innerHTML=subInfo.html;
+        const rows=card.querySelectorAll(':scope > div');
+        const anchor=rows.length>=2?rows[1]:null;
+        if(anchor && anchor.nextSibling) card.insertBefore(newSel, anchor.nextSibling);
+        else card.appendChild(newSel);
+        newSel.value=d.subcategory||'';
+        revealAnimate(newSel);
+      }
+    } else if(subSelect){
+      subSelect.remove();
+    }
+  });
 }
 
 function updateDesgloseSubcatDropdownEdit(card, d){
@@ -2748,9 +2990,11 @@ function renderEditDesgloses(){
     card.dataset.desgId=String(d.id);
     card.style.cssText='background:var(--surface2);border-radius:var(--radius-sm);padding:11px;margin-bottom:8px;position:relative;';
     const catOpts=sortedCats(editType).map(c=>`<option value="${c}" ${d.category===c?'selected':''}>${c}</option>`).join('');
-    const subs=d.category?sortedSubcats(editType,d.category):[];
-    const hasSubs=subs && !(subs.length===1&&subs[0]==='—');
-    const subOpts=hasSubs?subs.map(s=>`<option value="${s}" ${d.subcategory===s?'selected':''}>${s}</option>`).join(''):'';
+    const subInfo=buildDesgloseSubcatOptions(editDesgloses, d, editCat, editSubcat, editType);
+    const hasSubs=subInfo.hasSubs;
+    const subOpts=subInfo.html;
+    const showSubcat = !!d.category && hasSubs;
+    const isComplete = !!d.category && (!hasSubs || !!d.subcategory);
     card.innerHTML=`
       <button type="button" onclick="removeEditDesglose(${d.id})" style="position:absolute;top:8px;right:8px;background:none;border:none;cursor:pointer;color:var(--danger);font-size:16px;line-height:1;padding:2px;">✕</button>
       <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:8px;">Desglose ${idx+1}</div>
@@ -2760,30 +3004,86 @@ function renderEditDesgloses(){
           <option value="">Categoría...</option>${catOpts}
         </select>
       </div>
-      ${hasSubs?`<select onchange="setEditDesgloseSubcat(${d.id},this.value)" style="width:100%;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;margin-bottom:8px;"><option value="">Subcategoría...</option>${subOpts}</select>`:''}
-      <input type="text" placeholder="Nota (opcional)" value="${d.note||''}" oninput="updateEditDesglose(${d.id},'note',this.value)" style="width:100%;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:13px;outline:none;">
+      ${showSubcat?`<select onchange="setEditDesgloseSubcat(${d.id},this.value)" style="width:100%;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;margin-bottom:8px;">${subOpts}</select>`:''}
+      ${isComplete?`<input data-desg-note type="text" placeholder="Nota (opcional)" value="${d.note||''}" oninput="updateEditDesglose(${d.id},'note',this.value)" style="width:100%;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:13px;outline:none;">`:''}
     `;
     list.appendChild(card);
   });
+  updateEditAddDesgloseBtnVisibility();
   updateEditDesgloseRemaining();
+}
+
+function updateEditAddDesgloseBtnVisibility(){
+  const btn=document.getElementById('e-add-desglose-btn');
+  if(!btn) return;
+  if(btn.dataset.exceedHidden==='1'){ btn.style.display='none'; return; }
+  const complete = lastEditDesgloseComplete();
+  btn.style.display = complete ? 'flex' : 'none';
+  btn.style.opacity='';
+}
+function lastEditDesgloseComplete(){
+  if(editDesgloses.length===0) return false;
+  const last=editDesgloses[editDesgloses.length-1];
+  const subs=last.category?sortedSubcats(editType,last.category):[];
+  const hasSubs=subs && !(subs.length===1&&subs[0]==='—');
+  return !!last.category && (!hasSubs || !!last.subcategory);
 }
 function updateEditDesgloseRemaining(){
   const remEl=document.getElementById('e-desglose-remaining');
   if(!remEl) return;
   const amount=parseFloat(document.getElementById('e-amount').value)||0;
   const total=editDesglosesTotal();
-  const remaining=amount-total;
-  if(editDesgloses.length===0){ remEl.style.display='none'; return; }
+  const remaining=+(amount-total).toFixed(2);
+  if(editDesgloses.length===0){ remEl.style.display='none'; setEditSubmitDisabled(false); setEditAddDesgloseHidden(false); return; }
   remEl.style.display='block';
   const cur=document.getElementById('e-currency')?.value||'MXN';
   const sym=cur==='MXN'?'$':`${cur} `;
   if(remaining<0){
     remEl.style.color='var(--danger)';
     remEl.textContent=`Los desgloses exceden el monto por ${sym}${Math.abs(remaining).toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})}`;
+    setEditSubmitDisabled(true);
+    setEditAddDesgloseHidden(true);
   } else {
     remEl.style.color='var(--text3)';
-    remEl.textContent=`Queda ${sym}${remaining.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})} en el gasto principal`;
+    const verbo = remaining>1 ? 'Quedan' : 'Queda';
+    remEl.textContent=`${verbo} ${sym}${remaining.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})}`;
+    setEditSubmitDisabled(false);
+    setEditAddDesgloseHidden(remaining===0);
   }
+}
+function setEditAddDesgloseHidden(hidden){
+  const btn=document.getElementById('e-add-desglose-btn');
+  if(!btn) return;
+  const currentlyHidden = btn.dataset.exceedHidden==='1';
+  if(hidden){
+    if(currentlyHidden) return;
+    btn.dataset.exceedHidden='1';
+    try{ btn.getAnimations().forEach(a=>a.cancel()); }catch(e){}
+    try{
+      const anim=btn.animate([{opacity:1},{opacity:0}],{duration:220,easing:'ease-out',fill:'forwards'});
+      anim.onfinish=()=>{ if(btn.dataset.exceedHidden==='1'){ btn.style.display='none'; btn.style.opacity=''; } };
+    }catch(e){ btn.style.display='none'; }
+  } else {
+    if(!currentlyHidden) return;
+    btn.dataset.exceedHidden='';
+    try{ btn.getAnimations().forEach(a=>a.cancel()); }catch(e){}
+    const shouldShow = lastEditDesgloseComplete();
+    if(shouldShow){
+      btn.style.display='flex';
+      btn.style.opacity='';
+      try{ btn.animate([{opacity:0},{opacity:1}],{duration:260,easing:'ease-out'}); }catch(e){}
+    } else {
+      btn.style.display='none';
+      btn.style.opacity='';
+    }
+  }
+}
+function setEditSubmitDisabled(disabled){
+  const btn=document.getElementById('e-submit-btn');
+  if(!btn) return;
+  btn.disabled=disabled;
+  btn.style.opacity=disabled?'0.45':'';
+  btn.style.pointerEvents=disabled?'none':'';
 }
 function updateEditDesgloseVisibility(){
   // Al abrir edición: si hay desgloses cargados, activar el toggle; si no, ocultar.
@@ -4568,7 +4868,7 @@ function openEdit(id) {
     const pp=document.getElementById('e-propina-panel');
     const pb=document.getElementById('e-inline-propina-btn');
     if(pp) pp.style.display='none';
-    if(pb){ pb.style.background='var(--surface2)'; pb.style.color='var(--text2)'; pb.style.borderColor='var(--border2)'; }
+    if(pb){ updateInlineBtn('e-inline-propina-btn', false, false); }
   }
 
   // Limpiar cualquier estilo residual de una animación de cierre previa
@@ -4737,13 +5037,8 @@ function toggleEBen(){
   }
 }
 function updateEBenUI(){
-  const btn=document.getElementById('e-inline-ben-btn');
   const panel=document.getElementById('e-ben-panel');
-  if(btn){
-    btn.style.background = editBenOn?'var(--accent)':'var(--surface2)';
-    btn.style.color      = editBenOn?'white':'var(--text2)';
-    btn.style.borderColor= editBenOn?'var(--accent)':'var(--border2)';
-  }
+  updateInlineBtn('e-inline-ben-btn', editBenOn, editBenOn);
   if(panel) panel.style.display = editBenOn?'block':'none';
 }
 
@@ -5203,13 +5498,8 @@ let editPropinaExistingId = null;    // id del registro de propina existente (si
 function toggleEPropina(){
   editPropinaOn = !editPropinaOn;
   const panel=document.getElementById('e-propina-panel');
-  const btn=document.getElementById('e-inline-propina-btn');
   if(panel) panel.style.display = editPropinaOn ? 'block' : 'none';
-  if(btn){
-    btn.style.background = editPropinaOn ? 'var(--accent)' : 'var(--surface2)';
-    btn.style.color = editPropinaOn ? 'white' : 'var(--text2)';
-    btn.style.borderColor = editPropinaOn ? 'var(--accent)' : 'var(--border2)';
-  }
+  updateInlineBtn('e-inline-propina-btn', editPropinaOn, editPropinaOn);
   if(editPropinaOn) revealAnimate(panel);
 }
 
@@ -5319,13 +5609,8 @@ function loadEditPropina(parentId){
   }
   // Reflejar en UI: botón activado y panel visible si hay propina
   const panel=document.getElementById('e-propina-panel');
-  const btn=document.getElementById('e-inline-propina-btn');
   if(panel) panel.style.display=editPropinaOn?'block':'none';
-  if(btn){
-    btn.style.background=editPropinaOn?'var(--accent)':'var(--surface2)';
-    btn.style.color=editPropinaOn?'white':'var(--text2)';
-    btn.style.borderColor=editPropinaOn?'var(--accent)':'var(--border2)';
-  }
+  updateInlineBtn('e-inline-propina-btn', editPropinaOn, editPropinaOn);
   // Aplicar el estado visual de los toggles
   setEditPropinaType(editPropinaType);
   setEditPropinaIncluida(editPropinaIncluida);
