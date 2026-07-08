@@ -996,11 +996,11 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
       <div class="field" id="method-field">
         <label>Método de pago</label>
         <div class="chips">
-          <button class="chip active" id="method-credito" onclick="setMethod('Tarjeta de crédito',this)">Crédito</button>
-          <button class="chip" onclick="setMethod('Efectivo',this)">Efectivo</button>
-          <button class="chip" onclick="setMethod('Bono de despensa',this)">Bono despensa</button>
-          <button class="chip" onclick="setMethod('SPEI',this)">SPEI</button>
-          <button class="chip" onclick="setMethod('Débito',this)">Débito</button>
+          <button class="chip active" id="method-credito" data-method="Tarjeta de crédito" onclick="setMethod('Tarjeta de crédito',this)">Crédito</button>
+          <button class="chip" data-method="Efectivo" onclick="setMethod('Efectivo',this)">Efectivo</button>
+          <button class="chip" data-method="Bono de despensa" onclick="setMethod('Bono de despensa',this)">Bono despensa</button>
+          <button class="chip" data-method="SPEI" onclick="setMethod('SPEI',this)">SPEI</button>
+          <button class="chip" data-method="Débito" onclick="setMethod('Débito',this)">Débito</button>
         </div>
       </div>
 
@@ -2283,8 +2283,26 @@ function predictCategory(){
   // Funciona para egreso, ingreso y beneficio (ahorro-pasivo)
   if(curType !== 'egreso' && curType !== 'ingreso' && curType !== 'ahorro-pasivo') return;
 
-  // Contar frecuencia de cat+subcat en registros del MISMO tipo con descripción similar
+  // Ponderación por recencia: el año se parte en 4 cuartos de ~91 días.
+  // Los registros más recientes pesan más. Nada más viejo de 365 días cuenta.
+  // Pesos por cuarto: 0-91d → 4, 92-182d → 3, 183-273d → 2, 274-365d → 1.
+  const MS_PER_DAY = 86400000;
+  const now = Date.now();
+  function recencyWeight(dateStr){
+    const t = parseDate(dateStr).getTime();
+    const days = (now - t) / MS_PER_DAY;
+    if(days < 0)   return 4; // fecha futura → tratar como más reciente
+    if(days <= 91)  return 4;
+    if(days <= 182) return 3;
+    if(days <= 273) return 2;
+    if(days <= 365) return 1;
+    return 0; // más de 365 días → no cuenta
+  }
+
+  // Contar frecuencia PONDERADA de cat+subcat Y de método en registros del MISMO tipo
+  // con descripción similar, dando más peso a los registros recientes.
   const freq = {};
+  const methodFreq = {};
   data.forEach(e => {
     if(e.type !== curType) return;
     // Ignorar hijos vinculados (desgloses/propina/beneficio) para no sesgar
@@ -2293,10 +2311,33 @@ function predictCategory(){
     if(d.length < 2) return;
     // Coincide si la descripción histórica contiene lo escrito, o lo escrito contiene la histórica
     if(d.includes(desc) || desc.includes(d)){
+      const w = recencyWeight(e.date);
+      if(w === 0) return; // fuera de la ventana de 365 días
       const key = (e.category || '') + '||' + (e.subcategory || '');
-      freq[key] = (freq[key] || 0) + 1;
+      freq[key] = (freq[key] || 0) + w;
+      // Frecuencia ponderada de método de pago para descripciones similares
+      if(e.method){
+        methodFreq[e.method] = (methodFreq[e.method] || 0) + w;
+      }
     }
   });
+
+  // ── Predecir método de pago (el más frecuente para descripciones similares) ──
+  const methodEntries = Object.entries(methodFreq);
+  if(methodEntries.length > 0 && curType !== 'ahorro-pasivo'){
+    const [bestMethod] = methodEntries.sort((a,b)=>b[1]-a[1])[0];
+    if(bestMethod && bestMethod !== selMethod){
+      selMethod = bestMethod;
+      // Actualizar el chip visual del método
+      document.querySelectorAll('#method-field .chip').forEach(c=>{
+        if(!c) return;
+        c.classList.remove('active');
+        // El texto del chip puede diferir del valor (ej. "Crédito" vs "Tarjeta de crédito")
+        const chipMethod = c.getAttribute('data-method');
+        if(chipMethod === bestMethod) c.classList.add('active');
+      });
+    }
+  }
 
   const entries = Object.entries(freq);
   if(entries.length === 0) return;
