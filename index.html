@@ -317,6 +317,31 @@ nav {
 }
 .btn-submit:active { transform: scale(0.98); background: var(--accent-dark); }
 
+/* ── Botones inline (Propina / Beneficio / Nota / Desglose) ── */
+.inline-row { display: flex; gap: 10px; }
+.inline-tgl {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 7px 14px; border-radius: 100px; border: 1.5px solid var(--border2);
+  background: var(--surface2); font-family: inherit; font-size: 13px; font-weight: 600;
+  color: var(--text2); cursor: pointer; transition: all 0.18s;
+}
+/* Estado activo (panel abierto) */
+.inline-tgl.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+/* Estado "tiene contenido" (aunque el panel esté cerrado) — indicador sutil */
+.inline-tgl.has-data:not(.on) {
+  border-color: var(--accent); color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface2));
+}
+/* En web: recargados a la izquierda, tamaño natural */
+@media (min-width: 768px) {
+  .inline-row { justify-content: flex-start; }
+  .inline-tgl { flex: 0 0 auto; }
+}
+/* En móvil: cada botón ocupa 50% del renglón */
+@media (max-width: 767px) {
+  .inline-tgl { flex: 1 1 0; }
+}
+
 /* BALANCE HERO */
 .bal-hero {
   margin: 0 16px 20px; border-radius: var(--radius);
@@ -932,11 +957,11 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
 
       <!-- Inline toggles for propina + beneficio — only visible for egresos -->
       <div id="inline-toggles" style="display:none;margin-bottom:14px;">
-        <div style="display:flex;gap:10px;">
-          <button type="button" id="inline-propina-btn" onclick="inlineTogglePropina()" style="display:flex;align-items:center;gap:6px;padding:7px 14px;border-radius:100px;border:1.5px solid var(--border2);background:var(--surface2);font-family:inherit;font-size:13px;font-weight:600;color:var(--text2);cursor:pointer;transition:all 0.18s;">
+        <div class="inline-row">
+          <button type="button" id="inline-propina-btn" class="inline-tgl" onclick="inlineTogglePropina()">
             <span>🪙</span><span>Propina</span>
           </button>
-          <button type="button" id="inline-ben-btn" onclick="inlineToggleBen()" style="display:flex;align-items:center;gap:6px;padding:7px 14px;border-radius:100px;border:1.5px solid var(--border2);background:var(--surface2);font-family:inherit;font-size:13px;font-weight:600;color:var(--text2);cursor:pointer;transition:all 0.18s;">
+          <button type="button" id="inline-ben-btn" class="inline-tgl" onclick="inlineToggleBen()">
             <span>★</span><span>Beneficio</span>
           </button>
         </div>
@@ -1035,13 +1060,19 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
       </div>
 
       <div id="note-section" style="margin-bottom:0;display:none">
-        <button type="button" id="note-toggle-btn" onclick="toggleNoteField()" style="background:none;border:none;cursor:pointer;font-size:13px;color:var(--text3);padding:6px 0;font-family:inherit;display:flex;align-items:center;gap:4px;">
-          <span id="note-toggle-icon">＋</span><span id="note-toggle-lbl"> Agregar nota</span>
-        </button>
-        <div id="note-field-wrap" style="display:none;margin-top:6px">
-          <textarea id="note" placeholder="Detalles adicionales..." style="width:100%;padding:11px 13px;border:none;border-radius:var(--radius-sm);background:var(--surface2);color:var(--text);font-family:inherit;font-size:15px;outline:none;resize:none;height:64px;"></textarea>
+        <!-- Botones toggle Nota / Desglose (mismo estilo que Propina/Beneficio) -->
+        <div class="inline-row" id="note-desglose-row">
+          <button type="button" id="note-toggle-btn" class="inline-tgl" onclick="toggleNoteField()">
+            <span>📝</span><span>Nota</span>
+          </button>
+          <button type="button" id="desglose-toggle-btn" class="inline-tgl" onclick="toggleDesgloseSection()">
+            <span>🧾</span><span>Desglose</span>
+          </button>
         </div>
-        <!-- Desgloses (solo egresos) -->
+        <div id="note-field-wrap" style="display:none;margin-top:10px">
+          <textarea id="note" placeholder="Detalles adicionales..." oninput="updateNoteDesgloseIndicators()" style="width:100%;padding:11px 13px;border:none;border-radius:var(--radius-sm);background:var(--surface2);color:var(--text);font-family:inherit;font-size:15px;outline:none;resize:none;height:64px;"></textarea>
+        </div>
+        <!-- Desgloses -->
         <div id="desglose-section" style="display:none;margin-top:10px;">
           <div id="desglose-list"></div>
           <button type="button" id="add-desglose-btn" onclick="addDesglose()" style="background:none;border:1.5px dashed var(--border2);border-radius:var(--radius-sm);cursor:pointer;font-size:13px;color:var(--text2);padding:9px 0;font-family:inherit;width:100%;display:flex;align-items:center;justify-content:center;gap:5px;margin-top:4px;">
@@ -1122,9 +1153,9 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
       <div class="card" style="padding:16px;">
         <canvas id="annual-canvas" height="200"></canvas>
         <div style="display:flex;justify-content:center;gap:16px;margin-top:12px;flex-wrap:wrap;">
-          <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2);"><span style="width:10px;height:10px;border-radius:2px;background:#34c759;"></span>Ingresos</div>
-          <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2);"><span style="width:10px;height:10px;border-radius:2px;background:#ff3b30;"></span>Egresos</div>
-          <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2);"><span style="width:10px;height:10px;border-radius:2px;background:#af52de;"></span>Beneficios</div>
+          <div id="legend-ingreso" onclick="toggleChartSeries('ingreso')" style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2);cursor:pointer;user-select:none;transition:opacity 0.18s;"><span style="width:10px;height:10px;border-radius:2px;background:#34c759;"></span>Ingresos</div>
+          <div id="legend-egreso" onclick="toggleChartSeries('egreso')" style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2);cursor:pointer;user-select:none;transition:opacity 0.18s;"><span style="width:10px;height:10px;border-radius:2px;background:#ff3b30;"></span>Egresos</div>
+          <div id="legend-ahorro-pasivo" onclick="toggleChartSeries('ahorro-pasivo')" style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2);cursor:pointer;user-select:none;transition:opacity 0.18s;"><span style="width:10px;height:10px;border-radius:2px;background:#af52de;"></span>Beneficios</div>
         </div>
       </div>
     </div>
@@ -1393,16 +1424,19 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
           </div>
         </div>
 
-        <!-- Nota colapsable -->
-        <div style="margin-bottom:0">
-          <button type="button" id="e-note-toggle-btn" onclick="toggleENoteField()" style="background:none;border:none;cursor:pointer;font-size:13px;color:var(--text3);padding:6px 0;font-family:inherit;display:flex;align-items:center;gap:4px;">
-            <span id="e-note-toggle-icon">＋</span><span id="e-note-toggle-lbl"> Agregar nota</span>
+        <!-- Botones toggle Nota / Desglose (mismo estilo que Propina/Beneficio) -->
+        <div class="inline-row" style="margin-bottom:0">
+          <button type="button" id="e-note-toggle-btn" class="inline-tgl" onclick="toggleENoteField()">
+            <span>📝</span><span>Nota</span>
           </button>
-          <div id="e-note-field-wrap" style="display:none;margin-top:6px">
-            <textarea id="e-note" placeholder="Detalles adicionales..." style="width:100%;padding:11px 13px;border:none;border-radius:var(--radius-sm);background:var(--surface2);color:var(--text);font-family:inherit;font-size:15px;outline:none;resize:none;height:64px;"></textarea>
-          </div>
+          <button type="button" id="e-desglose-toggle-btn" class="inline-tgl" onclick="toggleEditDesgloseSection()">
+            <span>🧾</span><span>Desglose</span>
+          </button>
         </div>
-        <!-- Desgloses (solo egresos) -->
+        <div id="e-note-field-wrap" style="display:none;margin-top:10px">
+          <textarea id="e-note" placeholder="Detalles adicionales..." oninput="updateEditNoteDesgloseIndicators()" style="width:100%;padding:11px 13px;border:none;border-radius:var(--radius-sm);background:var(--surface2);color:var(--text);font-family:inherit;font-size:15px;outline:none;resize:none;height:64px;"></textarea>
+        </div>
+        <!-- Desgloses -->
         <div id="e-desglose-section" style="display:none;margin-top:10px;">
           <div id="e-desglose-list"></div>
           <button type="button" id="e-add-desglose-btn" onclick="addEditDesglose()" style="background:none;border:1.5px dashed var(--border2);border-radius:var(--radius-sm);cursor:pointer;font-size:13px;color:var(--text2);padding:9px 0;font-family:inherit;width:100%;display:flex;align-items:center;justify-content:center;gap:5px;margin-top:4px;">
@@ -1745,15 +1779,46 @@ async function fetchRates() {
   } catch(e){}
 }
 
+// Estado de visibilidad de los paneles Nota / Desglose
+let _noteVisible=false;
+let _desgloseVisible=false;
+
+function noteHasData(){
+  const el=document.getElementById('note');
+  return !!(el && el.value.trim().length>0);
+}
+function desgloseHasData(){
+  return desgloses.some(d=>d.amount>0);
+}
+
+// Actualiza el indicador "tiene contenido" en los botones Nota / Desglose
+function updateNoteDesgloseIndicators(){
+  updateInlineBtn('note-toggle-btn', _noteVisible, noteHasData());
+  updateInlineBtn('desglose-toggle-btn', _desgloseVisible, desgloseHasData());
+}
+
 function toggleNoteField(forceOpen){
   const wrap=document.getElementById('note-field-wrap');
-  const icon=document.getElementById('note-toggle-icon');
-  const lbl=document.getElementById('note-toggle-lbl');
   if(!wrap) return;
-  const open=forceOpen!==undefined?forceOpen:wrap.style.display==='none';
+  const open = forceOpen!==undefined ? forceOpen : !_noteVisible;
+  _noteVisible=open;
   wrap.style.display=open?'block':'none';
-  if(icon) icon.textContent=open?'−':'＋';
-  if(lbl) lbl.textContent=open?' Ocultar nota':' Agregar nota';
+  if(open) revealAnimate(wrap);
+  updateNoteDesgloseIndicators();
+}
+
+function toggleDesgloseSection(forceOpen){
+  const sec=document.getElementById('desglose-section');
+  if(!sec) return;
+  const open = forceOpen!==undefined ? forceOpen : !_desgloseVisible;
+  _desgloseVisible=open;
+  sec.style.display=open?'block':'none';
+  if(open){
+    revealAnimate(sec);
+    // Si no hay ningún desglose aún, agregar uno automáticamente para agilizar
+    if(desgloses.length===0) addDesglose();
+  }
+  updateNoteDesgloseIndicators();
 }
 
 function onCurChange() {
@@ -2147,19 +2212,8 @@ function applyCatBorder(btn, catName){
 function updateInlineBtn(id, active, hasData){
   const btn=document.getElementById(id);
   if(!btn) return;
-  if(active){
-    btn.style.background='var(--accent)';
-    btn.style.color='white';
-    btn.style.borderColor='var(--accent)';
-  } else if(hasData){
-    btn.style.background='var(--surface2)';
-    btn.style.color='var(--accent)';
-    btn.style.borderColor='var(--accent)';
-  } else {
-    btn.style.background='var(--surface2)';
-    btn.style.color='var(--text2)';
-    btn.style.borderColor='var(--border2)';
-  }
+  btn.classList.toggle('on', !!active);
+  btn.classList.toggle('has-data', !active && !!hasData);
 }
 
 function propinaHasData(){
@@ -2473,7 +2527,7 @@ function updateDesglose(id, field, value){
   if(!d) return;
   if(field==='amount') d.amount = parseFloat(value)||0;
   else d[field] = value;
-  if(field==='amount') updateDesgloseRemaining();
+  if(field==='amount'){ updateDesgloseRemaining(); updateNoteDesgloseIndicators(); }
 }
 
 // Selección de categoría de un desglose — actualiza solo su dropdown de subcategoría
@@ -2598,9 +2652,8 @@ function updateDesgloseRemaining(){
 
 // Muestra/oculta la sección de desglose (aplica a egreso, ingreso y beneficio)
 function updateDesgloseVisibility(){
-  const sec=document.getElementById('desglose-section');
-  if(!sec) return;
-  sec.style.display = 'block';
+  // La sección de desglose ahora se controla con el botón toggle "Desglose".
+  // Esta función se mantiene por compatibilidad, sin forzar visibilidad.
 }
 
 // ══════════════════════════════════════
@@ -2621,7 +2674,7 @@ function updateEditDesglose(id, field, value){
   if(!d) return;
   if(field==='amount') d.amount = parseFloat(value)||0;
   else d[field] = value;
-  if(field==='amount') updateEditDesgloseRemaining();
+  if(field==='amount'){ updateEditDesgloseRemaining(); updateEditNoteDesgloseIndicators(); }
 }
 function setEditDesgloseCat(id, cat){
   const d=editDesgloses.find(x=>x.id===id);
@@ -2717,9 +2770,13 @@ function updateEditDesgloseRemaining(){
   }
 }
 function updateEditDesgloseVisibility(){
+  // Al abrir edición: si hay desgloses cargados, activar el toggle; si no, ocultar.
   const sec=document.getElementById('e-desglose-section');
   if(!sec) return;
-  sec.style.display = 'block';
+  const hasDesg = editDesgloses.length>0;
+  _eDesgloseVisible = hasDesg;
+  sec.style.display = hasDesg ? 'block' : 'none';
+  updateEditNoteDesgloseIndicators();
 }
 
 
@@ -3121,10 +3178,12 @@ function resetForm(){
   if(bp) bp.style.display='none';
   const noteWrap=document.getElementById('note-field-wrap');
   if(noteWrap) noteWrap.style.display='none';
-  const noteIcon=document.getElementById('note-toggle-icon');
-  if(noteIcon) noteIcon.textContent='＋';
-  const noteLbl=document.getElementById('note-toggle-lbl');
-  if(noteLbl) noteLbl.textContent=' Agregar nota';
+  // Reset toggles Nota / Desglose
+  _noteVisible=false; _desgloseVisible=false;
+  const dsec=document.getElementById('desglose-section');
+  if(dsec) dsec.style.display='none';
+  updateInlineBtn('note-toggle-btn', false, false);
+  updateInlineBtn('desglose-toggle-btn', false, false);
   curBenType='';
   // Limpiar los bloques de tipo de beneficio para que se reconstruyan al reactivar
   const benBlocks=document.getElementById('ben-type-blocks');
@@ -4259,14 +4318,42 @@ let editSubcat = '';
 let editMethod = 'Tarjeta de crédito';
 let editBenOn = false;
 
+let _eNoteVisible=false;
+let _eDesgloseVisible=false;
+
+function eNoteHasData(){
+  const el=document.getElementById('e-note');
+  return !!(el && el.value.trim().length>0);
+}
+function eDesgloseHasData(){
+  return editDesgloses.some(d=>d.amount>0);
+}
+function updateEditNoteDesgloseIndicators(){
+  updateInlineBtn('e-note-toggle-btn', _eNoteVisible, eNoteHasData());
+  updateInlineBtn('e-desglose-toggle-btn', _eDesgloseVisible, eDesgloseHasData());
+}
+
 function toggleENoteField(open){
   const wrap=document.getElementById('e-note-field-wrap');
-  const icon=document.getElementById('e-note-toggle-icon');
-  const lbl=document.getElementById('e-note-toggle-lbl');
-  const show = open !== undefined ? open : wrap.style.display==='none';
+  if(!wrap) return;
+  const show = open !== undefined ? open : !_eNoteVisible;
+  _eNoteVisible=show;
   wrap.style.display=show?'block':'none';
-  if(icon) icon.textContent=show?'−':'＋';
-  if(lbl)  lbl.textContent=show?' Ocultar nota':' Agregar nota';
+  if(show) revealAnimate(wrap);
+  updateEditNoteDesgloseIndicators();
+}
+
+function toggleEditDesgloseSection(open){
+  const sec=document.getElementById('e-desglose-section');
+  if(!sec) return;
+  const show = open !== undefined ? open : !_eDesgloseVisible;
+  _eDesgloseVisible=show;
+  sec.style.display=show?'block':'none';
+  if(show){
+    revealAnimate(sec);
+    if(editDesgloses.length===0) addEditDesglose();
+  }
+  updateEditNoteDesgloseIndicators();
 }
 
 function openEdit(id) {
@@ -5516,6 +5603,25 @@ function populateAnnualYear(){
   sel.innerHTML=years.map(y=>`<option value="${y}"${y===viewYear?' selected':''}>${y}</option>`).join('');
 }
 
+// Series visibles en la gráfica anual (se togglean con las leyendas)
+let chartSeriesVisible = { ingreso:true, egreso:true, 'ahorro-pasivo':true };
+
+function toggleChartSeries(type){
+  // Forzar mínimo una serie activa
+  const activeCount = Object.values(chartSeriesVisible).filter(Boolean).length;
+  if(chartSeriesVisible[type] && activeCount<=1) return; // no desactivar la última
+  chartSeriesVisible[type] = !chartSeriesVisible[type];
+  updateLegendStyles();
+  renderAnnual();
+}
+
+function updateLegendStyles(){
+  [['ingreso','legend-ingreso'],['egreso','legend-egreso'],['ahorro-pasivo','legend-ahorro-pasivo']].forEach(([type,id])=>{
+    const el=document.getElementById(id);
+    if(el) el.style.opacity = chartSeriesVisible[type] ? '1' : '0.35';
+  });
+}
+
 function renderAnnual(){
   const sel=document.getElementById('bal-annual-year-sel');
   if(!sel) return;
@@ -5542,7 +5648,6 @@ function renderAnnual(){
     saldoEl.textContent=(saldoAnual>=0?'+':'−')+fmt(saldoAnual);
   }
   if(heroEl){
-    // Fondo verde si positivo, rojo si negativo (igual que el balance mensual)
     heroEl.style.background = saldoAnual>=0
       ? 'linear-gradient(135deg, #34c759, #248a3d)'
       : 'linear-gradient(135deg, #ff3b30, #c1271d)';
@@ -5558,49 +5663,49 @@ function renderAnnual(){
     }
   }
 
-  // El máximo considera la barra de egreso + beneficio apilado encima
-  const maxVal=Math.max(...ingData,...egrData.map((e,m)=>e+benData[m]),1);
+  // El máximo SOLO considera las series visibles (para reescalar en vivo).
+  // Cada serie ahora es su propia barra agrupada (no apilada).
+  let maxCandidates=[1];
+  if(chartSeriesVisible.ingreso) maxCandidates.push(...ingData);
+  if(chartSeriesVisible.egreso) maxCandidates.push(...egrData);
+  if(chartSeriesVisible['ahorro-pasivo']) maxCandidates.push(...benData);
+  const maxVal=Math.max(...maxCandidates);
 
   const padL=4,padR=4,padT=10,padB=24;
   const chartW=W-padL-padR;
   const chartH=200-padT-padB;
   const groupW=chartW/12;
-  const barW=Math.max(3,Math.floor(groupW*0.32));
+
+  // Determinar cuántas barras se muestran por grupo (para el ancho)
+  const visibleSeries=['ingreso','egreso','ahorro-pasivo'].filter(t=>chartSeriesVisible[t]);
+  const nBars=visibleSeries.length||1;
+  // Ancho de cada barra según cuántas series visibles (más delgadas si son 3)
+  const barW=Math.max(3,Math.floor(groupW*0.62/nBars));
+  const gap=Math.max(1,Math.floor(barW*0.18));
+  const colorMap={ingreso:'#34c759',egreso:'#ff3b30','ahorro-pasivo':'#af52de'};
+  const dataMap={ingreso:ingData,egreso:egrData,'ahorro-pasivo':benData};
 
   Array.from({length:12},(_,m)=>{
-    const x=padL+m*groupW+groupW/2;
-    const iH=Math.max(0,(ingData[m]/maxVal)*chartH);
-    const eH=Math.max(0,(egrData[m]/maxVal)*chartH);
-    const bH=Math.max(0,(benData[m]/maxVal)*chartH);
-    if(iH>0){
-      ctx.fillStyle='#34c759';
-      ctx.beginPath();
-      if(ctx.roundRect) ctx.roundRect(x-barW-1,padT+chartH-iH,barW,iH,[2,2,0,0]);
-      else ctx.rect(x-barW-1,padT+chartH-iH,barW,iH);
-      ctx.fill();
-    }
-    if(eH>0){
-      // Barra roja de egreso
-      ctx.fillStyle='#ff3b30';
-      ctx.beginPath();
-      // Si hay beneficio encima, la esquina superior del egreso va cuadrada
-      const egrRadius = bH>0 ? [0,0,0,0] : [2,2,0,0];
-      if(ctx.roundRect) ctx.roundRect(x+1,padT+chartH-eH,barW,eH,egrRadius);
-      else ctx.rect(x+1,padT+chartH-eH,barW,eH);
-      ctx.fill();
-    }
-    if(bH>0){
-      // Segmento violeta de beneficios, apilado encima del egreso
-      ctx.fillStyle='#af52de';
-      ctx.beginPath();
-      if(ctx.roundRect) ctx.roundRect(x+1,padT+chartH-eH-bH,barW,bH,[2,2,0,0]);
-      else ctx.rect(x+1,padT+chartH-eH-bH,barW,bH);
-      ctx.fill();
-    }
+    const cx=padL+m*groupW+groupW/2;
+    // Ancho total del grupo de barras visibles
+    const totalW=nBars*barW+(nBars-1)*gap;
+    let bx=cx-totalW/2;
+    visibleSeries.forEach(type=>{
+      const val=dataMap[type][m];
+      const h=Math.max(0,(val/maxVal)*chartH);
+      if(h>0){
+        ctx.fillStyle=colorMap[type];
+        ctx.beginPath();
+        if(ctx.roundRect) ctx.roundRect(bx,padT+chartH-h,barW,h,[2,2,0,0]);
+        else ctx.rect(bx,padT+chartH-h,barW,h);
+        ctx.fill();
+      }
+      bx+=barW+gap;
+    });
     ctx.fillStyle='#8e8e93';
     ctx.font=`9px -apple-system,sans-serif`;
     ctx.textAlign='center';
-    ctx.fillText(MONTHS_ES[m].slice(0,3),x,200-6);
+    ctx.fillText(MONTHS_ES[m].slice(0,3),cx,200-6);
   });
 
   canvas.onclick=(ev)=>{
@@ -5608,7 +5713,6 @@ function renderAnnual(){
     const cx=(ev.clientX-rect.left)*(canvas.width/rect.width);
     const m=Math.floor((cx-padL)/groupW);
     if(m>=0&&m<12){
-      // Solo permitir meses que tengan al menos un registro
       const hasRecords = ingData[m]>0 || egrData[m]>0 || benData[m]>0;
       if(hasRecords) showAnnualMonthDetail(m,yr);
     }
