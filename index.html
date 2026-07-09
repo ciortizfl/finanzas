@@ -2852,8 +2852,10 @@ function updateDesgloseRemaining(){
     const verbo = remaining>1 ? 'Quedan' : 'Queda';
     remEl.textContent=`${verbo} ${fmtMoney(remaining)}`;
     setSubmitDisabled(false);
-    // Si no queda nada que desglosar (remanente 0), ocultar "Agregar desglose"
-    setAddDesgloseHidden(remaining===0);
+    // Ocultar "Agregar desglose" si ya no cabría otro sin romper la regla:
+    // agregar un desglose adicional reduciría el remanente por debajo del mayor
+    // desglose actual. Si el remanente ya es <= al mayor desglose (o es 0), se oculta.
+    setAddDesgloseHidden(remaining<=maxDesglose || remaining===0);
   }
 }
 
@@ -3158,7 +3160,7 @@ function updateEditDesgloseRemaining(){
     const verbo = remaining>1 ? 'Quedan' : 'Queda';
     remEl.textContent=`${verbo} ${fmtMoney(remaining)}`;
     setEditSubmitDisabled(false);
-    setEditAddDesgloseHidden(remaining===0);
+    setEditAddDesgloseHidden(remaining<=maxDesglose || remaining===0);
   }
 }
 function setEditAddDesgloseHidden(hidden){
@@ -6226,12 +6228,58 @@ function renderAnnual(){
   if(chartSeriesVisible.ingreso) maxCandidates.push(...ingData);
   if(chartSeriesVisible.egreso) maxCandidates.push(...egrData);
   if(chartSeriesVisible['ahorro-pasivo']) maxCandidates.push(...benData);
-  const maxVal=Math.max(...maxCandidates);
+  const dataMax=Math.max(...maxCandidates);
 
-  const padL=4,padR=4,padT=10,padB=24;
+  // ── Eje Y: intervalo escalado según el máximo ──
+  // >= $10,000 → intervalos de $10,000; >= $1,000 → $1,000; si no → $100.
+  let step;
+  if(dataMax>=10000) step=10000;
+  else if(dataMax>=1000) step=1000;
+  else step=100;
+  // Evitar demasiadas líneas: si con este intervalo saldrían más de 6, duplicar/subir.
+  while(Math.ceil(dataMax/step) > 6){
+    if(step===100) step=200;
+    else if(step===200) step=500;
+    else if(step===500) step=1000;
+    else if(step===1000) step=2000;
+    else if(step===2000) step=5000;
+    else if(step===5000) step=10000;
+    else step=step*2;
+  }
+  // Redondear el tope hacia arriba al múltiplo del intervalo (mínimo un intervalo)
+  const maxVal=Math.max(step, Math.ceil(dataMax/step)*step);
+  const nLines=Math.round(maxVal/step); // cantidad de intervalos
+
+  // Etiqueta compacta para el eje ($10k, $1.5k, $500)
+  const yLabel=v=>{
+    if(v>=1000){ const k=v/1000; return '$'+(k%1===0?k:k.toFixed(1))+'k'; }
+    return '$'+v;
+  };
+  // Ancho del área de etiquetas Y (depende del texto más largo)
+  const yAxisW=34;
+
+  const padL=yAxisW,padR=6,padT=10,padB=24;
   const chartW=W-padL-padR;
   const chartH=200-padT-padB;
   const groupW=chartW/12;
+
+  // ── Dibujar gridlines horizontales sutiles + etiquetas Y ──
+  ctx.textAlign='right';
+  ctx.font='9px -apple-system,sans-serif';
+  for(let i=0;i<=nLines;i++){
+    const val=i*step;
+    const y=padT+chartH-(val/maxVal)*chartH;
+    // Línea sutil
+    ctx.strokeStyle='rgba(142,142,147,0.18)';
+    ctx.lineWidth=1;
+    ctx.beginPath();
+    ctx.moveTo(padL,y+0.5);
+    ctx.lineTo(W-padR,y+0.5);
+    ctx.stroke();
+    // Etiqueta
+    ctx.fillStyle='#8e8e93';
+    ctx.fillText(yLabel(val), padL-6, y+3);
+  }
 
   // Determinar cuántas barras se muestran por grupo (para el ancho)
   const visibleSeries=['ingreso','egreso','ahorro-pasivo'].filter(t=>chartSeriesVisible[t]);
