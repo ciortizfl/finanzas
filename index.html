@@ -2170,6 +2170,27 @@ function updateFinalizeVisibility(animDelay){
   const submitBtn=document.getElementById('submit-btn');
   if(!noteSection||!submitBtn) return;
 
+  // El desglose solo aplica a egresos. En ingreso/beneficio se oculta el botón
+  // Desglose y la Nota ocupa todo el ancho del renglón.
+  const desgBtn=document.getElementById('desglose-toggle-btn');
+  const noteBtn=document.getElementById('note-toggle-btn');
+  if(desgBtn && noteBtn){
+    if(curType==='egreso'){
+      desgBtn.style.display='';
+      noteBtn.style.flex='';
+    } else {
+      desgBtn.style.display='none';
+      noteBtn.style.flex='1 1 100%';
+      // Si había un desglose abierto de un tipo previo, cerrarlo
+      if(_desgloseVisible){
+        _desgloseVisible=false;
+        const sec=document.getElementById('desglose-section');
+        if(sec) sec.style.display='none';
+      }
+      desgloses=[];
+    }
+  }
+
   let complete=false;
   if(curCat){
     const subs=sortedSubcats(curType, curCat);
@@ -2684,37 +2705,6 @@ function refreshAllDesgloseSubcatDropdowns(){
 
 // Inserta o reemplaza el dropdown de subcategoría dentro de una tarjeta de desglose,
 // sin reconstruir toda la tarjeta (evita el re-flash de animación).
-function updateDesgloseSubcatDropdown(card, d, subcatFnName){
-  const subs=d.category?sortedSubcats(curType,d.category):[];
-  const hasSubs=subs && !(subs.length===1&&subs[0]==='—');
-  // Buscar el select de subcategoría existente (es el segundo select, si existe)
-  const selects=card.querySelectorAll('select');
-  let subSelect=null;
-  selects.forEach(s=>{ if((s.getAttribute('onchange')||'').includes(subcatFnName)) subSelect=s; });
-
-  if(hasSubs){
-    const subOpts=subs.map(s=>`<option value="${s}" ${d.subcategory===s?'selected':''}>${s}</option>`).join('');
-    if(subSelect){
-      subSelect.innerHTML=`<option value="">Subcategoría...</option>${subOpts}`;
-      subSelect.value=d.subcategory||'';
-    } else {
-      // Insertar un nuevo select después del row de monto+categoría
-      const newSel=document.createElement('select');
-      newSel.setAttribute('onchange', `${subcatFnName}(${d.id},this.value)`);
-      newSel.style.cssText='width:100%;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;margin-bottom:8px;';
-      newSel.innerHTML=`<option value="">Subcategoría...</option>${subOpts}`;
-      // Insertar después del primer div (row de monto+categoría)
-      const rows=card.querySelectorAll(':scope > div');
-      const anchor=rows.length>=2?rows[1]:null; // [0]=label, [1]=row monto+cat
-      if(anchor && anchor.nextSibling) card.insertBefore(newSel, anchor.nextSibling);
-      else card.appendChild(newSel);
-    }
-  } else if(subSelect){
-    // La categoría nueva no tiene subcategorías → quitar el select
-    subSelect.remove();
-  }
-}
-
 // Suma de desgloses en la moneda del gasto
 function desglosesTotal(){
   return desgloses.reduce((s,d)=>s+(d.amount||0),0);
@@ -3063,31 +3053,6 @@ function refreshAllEditDesgloseSubcatDropdowns(){
   });
 }
 
-function updateDesgloseSubcatDropdownEdit(card, d){
-  const subs=d.category?sortedSubcats(editType,d.category):[];
-  const hasSubs=subs && !(subs.length===1&&subs[0]==='—');
-  const selects=card.querySelectorAll('select');
-  let subSelect=null;
-  selects.forEach(s=>{ if((s.getAttribute('onchange')||'').includes('setEditDesgloseSubcat')) subSelect=s; });
-  if(hasSubs){
-    const subOpts=subs.map(s=>`<option value="${s}" ${d.subcategory===s?'selected':''}>${s}</option>`).join('');
-    if(subSelect){
-      subSelect.innerHTML=`<option value="">Subcategoría...</option>${subOpts}`;
-      subSelect.value=d.subcategory||'';
-    } else {
-      const newSel=document.createElement('select');
-      newSel.setAttribute('onchange', `setEditDesgloseSubcat(${d.id},this.value)`);
-      newSel.style.cssText='width:100%;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;margin-bottom:8px;';
-      newSel.innerHTML=`<option value="">Subcategoría...</option>${subOpts}`;
-      const rows=card.querySelectorAll(':scope > div');
-      const anchor=rows.length>=2?rows[1]:null;
-      if(anchor && anchor.nextSibling) card.insertBefore(newSel, anchor.nextSibling);
-      else card.appendChild(newSel);
-    }
-  } else if(subSelect){
-    subSelect.remove();
-  }
-}
 function editDesglosesTotal(){
   return editDesgloses.reduce((s,d)=>s+(d.amount||0),0);
 }
@@ -3198,10 +3163,23 @@ function setEditSubmitDisabled(disabled){
   btn.style.pointerEvents=disabled?'none':'';
 }
 function updateEditDesgloseVisibility(){
+  // El desglose solo aplica a egresos. En ingreso/beneficio se oculta el botón
+  // Desglose y la Nota ocupa todo el ancho.
+  const desgBtn=document.getElementById('e-desglose-toggle-btn');
+  const noteBtn=document.getElementById('e-note-toggle-btn');
+  if(desgBtn && noteBtn){
+    if(editType==='egreso'){
+      desgBtn.style.display='';
+      noteBtn.style.flex='';
+    } else {
+      desgBtn.style.display='none';
+      noteBtn.style.flex='1 1 100%';
+    }
+  }
   // Al abrir edición: si hay desgloses cargados, activar el toggle; si no, ocultar.
   const sec=document.getElementById('e-desglose-section');
   if(!sec) return;
-  const hasDesg = editDesgloses.length>0;
+  const hasDesg = editType==='egreso' && editDesgloses.length>0;
   _eDesgloseVisible = hasDesg;
   sec.style.display = hasDesg ? 'block' : 'none';
   updateEditNoteDesgloseIndicators();
