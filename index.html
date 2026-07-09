@@ -2534,8 +2534,63 @@ function addDesglose(){
 }
 
 function removeDesglose(id){
-  desgloses = desgloses.filter(d=>d.id!==id);
-  renderDesgloses(false);
+  const list=document.getElementById('desglose-list');
+  const card=list?list.querySelector(`[data-desg-id="${id}"]`):null;
+  const isOnlyOne = desgloses.length<=1;
+  const applyRemoval=()=>{
+    desgloses = desgloses.filter(d=>d.id!==id);
+    if(isOnlyOne){
+      // Era el único desglose: colapsar la sección de desglose por completo
+      _desgloseVisible=false;
+      const sec=document.getElementById('desglose-section');
+      if(sec) sec.style.display='none';
+      const addBtn=document.getElementById('add-desglose-btn');
+      if(addBtn){ addBtn.dataset.exceedHidden=''; addBtn.style.opacity=''; }
+      updateNoteDesgloseIndicators();
+      updateDesgloseRemaining();
+    } else {
+      renderDesgloses(false);
+    }
+  };
+  animateDesgloseRemoval(card, isOnlyOne, applyRemoval);
+}
+
+// Fade out de la tarjeta eliminada; si quedan otras, se recorren hacia arriba
+// reapareciendo en cascada (mismo estilo que el historial).
+function animateDesgloseRemoval(card, isOnlyOne, applyRemoval){
+  const reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if(!card || reduced){ applyRemoval(); return; }
+  // Elementos hermanos posteriores (para recorrer hacia arriba)
+  const following = [];
+  let sib = card.nextElementSibling;
+  while(sib){ following.push(sib); sib = sib.nextElementSibling; }
+  // 1) Fade out de la tarjeta eliminada
+  try{
+    card.animate([
+      {opacity:1, transform:'translateY(0)'},
+      {opacity:0, transform:'translateY(-6px)'}
+    ],{duration:300,easing:'cubic-bezier(0.55,0,0.67,0.2)',fill:'forwards'});
+  }catch(e){}
+  // 2) Los siguientes se desvanecen para reaparecer recorridos
+  following.forEach(el=>{ try{ el.animate([{opacity:1},{opacity:0}],{duration:220,easing:'ease-out',fill:'forwards'}); }catch(e){} });
+  // 3) Aplicar cambio real y re-cascada tras el fade
+  setTimeout(()=>{
+    applyRemoval();
+    if(!isOnlyOne){
+      // Re-cascada de las tarjetas restantes (de arriba hacia abajo)
+      const list=document.getElementById('desglose-list');
+      if(list){
+        Array.from(list.children).forEach((el,i)=>{
+          try{
+            el.animate([
+              {opacity:0,transform:'translateY(-12px)'},
+              {opacity:1,transform:'translateY(0)'}
+            ],{duration:400,delay:i*55,easing:'cubic-bezier(0.22,0.61,0.36,1)',fill:'backwards'});
+          }catch(e){}
+        });
+      }
+    }
+  }, 320);
 }
 
 function updateDesglose(id, field, value){
@@ -2780,19 +2835,24 @@ function updateDesgloseRemaining(){
   remEl.style.display='block';
   const cur=document.getElementById('currency')?.value||'MXN';
   const sym=cur==='MXN'?'$':`${cur} `;
-  if(remaining<0){
-    // Los desgloses (de CUALQUIER categoría) exceden el monto principal
+  // Regla: el gasto principal (remanente) debe seguir siendo el mayor.
+  // Ningún desglose individual puede superar el remanente (se permite empate).
+  const maxDesglose = desgloses.reduce((mx,d)=>Math.max(mx, d.amount||0), 0);
+  const fmtMoney = v => `${sym}${v.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})}`;
+  if(remaining < maxDesglose){
+    // Se viola la regla: algún desglose es mayor que lo que queda como principal.
+    // (Esto también cubre el caso de exceso total, donde remaining es negativo.)
     remEl.style.color='var(--danger)';
-    remEl.textContent=`Los desgloses exceden el monto por ${sym}${Math.abs(remaining).toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})}`;
+    remEl.textContent=`Ningún desglose puede superar el gasto principal (${fmtMoney(Math.max(remaining,0))})`;
     setSubmitDisabled(true);
-    setAddDesgloseHidden(true);   // ocultar "Agregar desglose" mientras haya exceso
+    setAddDesgloseHidden(true);
   } else {
     remEl.style.color='var(--text3)';
     // Gramática: "Quedan" si es > $1; "Queda" si es exactamente $1 o $0.
     const verbo = remaining>1 ? 'Quedan' : 'Queda';
-    remEl.textContent=`${verbo} ${sym}${remaining.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})}`;
+    remEl.textContent=`${verbo} ${fmtMoney(remaining)}`;
     setSubmitDisabled(false);
-    // Si el desglose es exacto (no queda nada), ocultar "Agregar desglose"
+    // Si no queda nada que desglosar (remanente 0), ocultar "Agregar desglose"
     setAddDesgloseHidden(remaining===0);
   }
 }
@@ -2868,8 +2928,56 @@ function addEditDesglose(){
   renderEditDesgloses();
 }
 function removeEditDesglose(id){
-  editDesgloses = editDesgloses.filter(d=>d.id!==id);
-  renderEditDesgloses();
+  const list=document.getElementById('e-desglose-list');
+  const card=list?list.querySelector(`[data-desg-id="${id}"]`):null;
+  const isOnlyOne = editDesgloses.length<=1;
+  const applyRemoval=()=>{
+    editDesgloses = editDesgloses.filter(d=>d.id!==id);
+    if(isOnlyOne){
+      // Era el único desglose: colapsar la sección por completo
+      _eDesgloseVisible=false;
+      const sec=document.getElementById('e-desglose-section');
+      if(sec) sec.style.display='none';
+      const addBtn=document.getElementById('e-add-desglose-btn');
+      if(addBtn){ addBtn.dataset.exceedHidden=''; addBtn.style.opacity=''; }
+      updateEditNoteDesgloseIndicators();
+      updateEditDesgloseRemaining();
+    } else {
+      renderEditDesgloses();
+    }
+  };
+  animateEditDesgloseRemoval(card, isOnlyOne, applyRemoval);
+}
+
+function animateEditDesgloseRemoval(card, isOnlyOne, applyRemoval){
+  const reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if(!card || reduced){ applyRemoval(); return; }
+  const following = [];
+  let sib = card.nextElementSibling;
+  while(sib){ following.push(sib); sib = sib.nextElementSibling; }
+  try{
+    card.animate([
+      {opacity:1, transform:'translateY(0)'},
+      {opacity:0, transform:'translateY(-6px)'}
+    ],{duration:300,easing:'cubic-bezier(0.55,0,0.67,0.2)',fill:'forwards'});
+  }catch(e){}
+  following.forEach(el=>{ try{ el.animate([{opacity:1},{opacity:0}],{duration:220,easing:'ease-out',fill:'forwards'}); }catch(e){} });
+  setTimeout(()=>{
+    applyRemoval();
+    if(!isOnlyOne){
+      const list=document.getElementById('e-desglose-list');
+      if(list){
+        Array.from(list.children).forEach((el,i)=>{
+          try{
+            el.animate([
+              {opacity:0,transform:'translateY(-12px)'},
+              {opacity:1,transform:'translateY(0)'}
+            ],{duration:400,delay:i*55,easing:'cubic-bezier(0.22,0.61,0.36,1)',fill:'backwards'});
+          }catch(e){}
+        });
+      }
+    }
+  }, 320);
 }
 function updateEditDesglose(id, field, value){
   const d = editDesgloses.find(x=>x.id===id);
@@ -3038,15 +3146,17 @@ function updateEditDesgloseRemaining(){
   remEl.style.display='block';
   const cur=document.getElementById('e-currency')?.value||'MXN';
   const sym=cur==='MXN'?'$':`${cur} `;
-  if(remaining<0){
+  const maxDesglose = editDesgloses.reduce((mx,d)=>Math.max(mx, d.amount||0), 0);
+  const fmtMoney = v => `${sym}${v.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})}`;
+  if(remaining < maxDesglose){
     remEl.style.color='var(--danger)';
-    remEl.textContent=`Los desgloses exceden el monto por ${sym}${Math.abs(remaining).toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})}`;
+    remEl.textContent=`Ningún desglose puede superar el gasto principal (${fmtMoney(Math.max(remaining,0))})`;
     setEditSubmitDisabled(true);
     setEditAddDesgloseHidden(true);
   } else {
     remEl.style.color='var(--text3)';
     const verbo = remaining>1 ? 'Quedan' : 'Queda';
-    remEl.textContent=`${verbo} ${sym}${remaining.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})}`;
+    remEl.textContent=`${verbo} ${fmtMoney(remaining)}`;
     setEditSubmitDisabled(false);
     setEditAddDesgloseHidden(remaining===0);
   }
@@ -3338,7 +3448,9 @@ function _submitEntry(){
       if(dHasSubs && !d.subcategory) return toast('Cada desglose necesita una subcategoría');
     }
     const totalDesg=activeDesgloses.reduce((s,d)=>s+d.amount,0);
-    if(totalDesg>amount) return toast('Los desgloses exceden el monto original');
+    const remainingPrincipal=+(amount-totalDesg).toFixed(2);
+    const maxDesg=activeDesgloses.reduce((mx,d)=>Math.max(mx,d.amount),0);
+    if(remainingPrincipal < maxDesg) return toast('Ningún desglose puede superar el gasto principal');
   }
 
   // Si la propina está incluida en el monto, el gasto real = monto - propina
@@ -5101,6 +5213,12 @@ function saveEdit(){
 
   let mainAmount = +(amount - benAmt - totalDesg - propinaIncludedAmt).toFixed(2);
   if(mainAmount < 0) mainAmount = 0;
+
+  // Regla: ningún desglose individual puede superar el remanente del gasto principal
+  if(activeEditDesgloses.length>0){
+    const maxDesg=activeEditDesgloses.reduce((mx,d)=>Math.max(mx,d.amount),0);
+    if(mainAmount < maxDesg) return toast('Ningún desglose puede superar el gasto principal');
+  }
   const amountMXN=toMXN(mainAmount,cur);
 
   // Nota principal: SOLO la nota del usuario (sin "Monto original", que se
