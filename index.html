@@ -1698,6 +1698,41 @@ function toggleMethodFilters(){
   if(arrow) arrow.style.transform = isOpen ? '' : 'rotate(90deg)';
 }
 
+// Ajusta el filtro de método de pago según los métodos realmente presentes en el
+// conjunto que se está viendo (fecha/rango + búsqueda + tipo + categorías).
+// - Si hay 0 o 1 método distinto: oculta el botón "Método" (no aporta filtrar).
+// - Si hay varios: muestra solo los chips de esos métodos, oculta los demás.
+function updateMethodFilterChips(visibleEntries){
+  const toggleBtn=document.getElementById('method-filter-toggle-btn');
+  const row=document.getElementById('method-filter-row');
+  if(!toggleBtn) return;
+  const methodsPresent=new Set((visibleEntries||[]).map(e=>e.method).filter(Boolean));
+  // Etiqueta → valor de método (para casar chips)
+  const chipMap={
+    'Tarjeta de crédito':'Tarjeta de crédito','Efectivo':'Efectivo',
+    'Débito':'Débito','SPEI':'SPEI','Bono de despensa':'Bono de despensa'
+  };
+  if(methodsPresent.size<=1){
+    // No aporta filtrar: ocultar botón y panel, y limpiar cualquier filtro activo
+    toggleBtn.style.display='none';
+    if(row) row.style.display='none';
+    if(histMethodFilter){ histMethodFilter=null; updateMethodIndicator(); }
+    return;
+  }
+  toggleBtn.style.display='';
+  // Mostrar solo los chips de métodos presentes
+  const chips=document.querySelectorAll('#method-filter-row .f-chip');
+  chips.forEach(chip=>{
+    const id=chip.id;
+    if(id==='method-filter-all'){ chip.style.display=''; return; } // "Todos" siempre
+    // Deducir el método del onclick
+    const oc=chip.getAttribute('onclick')||'';
+    const match=oc.match(/setMethodFilter\('([^']+)'/);
+    const method=match?match[1]:null;
+    chip.style.display = (method && methodsPresent.has(method)) ? '' : 'none';
+  });
+}
+
 function updateMethodIndicator(){
   const dot=document.getElementById('method-filter-indicator');
   if(!dot) return;
@@ -4937,15 +4972,19 @@ function setFilter(f,el){
   el.classList.add('active');
 
   const rangeActive = histRangeMode && histRangeApplied;
+  const searchEl=document.getElementById('hist-search');
+  const hasSearch=(searchEl?.value||'').trim().length>0;
   // Auto-seleccionar categorías con registros:
   //  - Ingresos y beneficios: siempre (todas activas por defecto).
   //  - Egresos: normalmente empieza vacío, PERO en modo rango también preselecciona
-  //    (todas las categorías con datos activas, para el flujo de búsqueda por rango).
+  //    (todas las categorías con datos activas).
   if(f!=='todos' && (f!=='egreso' || rangeActive)){
     const typed=entriesInCurrentDateScope(f);
     histSelCats=[...new Set(typed.map(e=>e.category))];
-    // En egresos, además preseleccionar las subcategorías con datos
-    if(f==='egreso'){
+    // En egresos, preseleccionar subcategorías SOLO si el panel de subcats se va a
+    // mostrar (es decir, cuando queda una sola categoría — típico de búsqueda acotada).
+    // Con varias categorías en rango, las subcats no se muestran, así que no se filtran.
+    if(f==='egreso' && histSelCats.length===1){
       histSelSubcats=[...new Set(typed.map(e=>e.subcategory).filter(Boolean))];
     }
   }
@@ -5027,6 +5066,18 @@ function buildSubFilterPanel(){
   const otros=(catList.includes('Otros')&&catsWithRec.has('Otros'))?['Otros']:[];
   const ordered=[...withRec,...otros];
 
+  // Si NO aporta filtrar, ocultar todo el panel:
+  //  - Solo hay 1 categoría con registros, Y
+  //  - esa categoría tiene 0 o 1 subcategoría con registros.
+  // (Aplica a egreso, ingreso y beneficio: sin opciones que discriminar, sobra el panel.)
+  if(ordered.length<=1){
+    const subsWithRec=new Set(typed.map(e=>e.subcategory).filter(Boolean));
+    if(subsWithRec.size<=1){
+      panel.classList.remove('vis');
+      return;
+    }
+  }
+
   title.textContent='Filtrar por categoría';
 
   // Show cat toggle for non-egreso (all pre-selected) OR egreso with >1 cat selected
@@ -5051,6 +5102,13 @@ function buildSubFilterPanel(){
         else histSelCats.push(cat);
         b.classList.toggle('active', histSelCats.includes(cat));
         histSelSubcats=[];
+        // En modo rango, al quedar UNA sola categoría, preseleccionar sus subcategorías
+        // (con datos) para que se muestren todas activas por defecto.
+        const rangeActive2 = histRangeMode && histRangeApplied;
+        if(rangeActive2 && histSelCats.length===1){
+          const typed=entriesInCurrentDateScope('egreso').filter(e=>e.category===histSelCats[0]);
+          histSelSubcats=[...new Set(typed.map(e=>e.subcategory).filter(Boolean))];
+        }
         syncCatToggle();
         // Show/hide cat toggle for egreso based on count
         if(histFilter==='egreso'){
@@ -5075,6 +5133,13 @@ function buildSubcatFilter(){
   if(histFilter!=='egreso'){ wrap.style.display='none'; renderHistorial(); return; }
   // Hide subcats until user selects at least one category
   if(histSelCats.length===0){ wrap.style.display='none'; renderHistorial(); return; }
+  // En modo rango, para mantener el panel compacto (los rangos largos generan
+  // muchísimas subcategorías), las subcategorías solo se muestran cuando el usuario
+  // ha elegido UNA sola categoría. Con varias/todas seleccionadas, no se despliegan.
+  const rangeActive = histRangeMode && histRangeApplied;
+  if(rangeActive && histSelCats.length!==1){
+    wrap.style.display='none'; renderHistorial(); return;
+  }
 
   const allPossible=[];
   histSelCats.forEach(cat=>{
@@ -5383,6 +5448,10 @@ function renderHistorial(animate){
     if(histSelCats.length>0) filtered=filtered.filter(e=>histSelCats.includes(e.category));
     if(histSelSubcats.length>0) filtered=filtered.filter(e=>histSelSubcats.includes(e.subcategory));
   }
+
+  // Antes de aplicar el filtro de método, calcular qué métodos existen en el
+  // conjunto visible (para mostrar solo esos, u ocultar el filtro si hay ≤1).
+  updateMethodFilterChips(filtered);
 
   // Apply method filter
   if(histMethodFilter) filtered=filtered.filter(e=>e.method===histMethodFilter);
