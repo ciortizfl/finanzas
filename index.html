@@ -635,6 +635,62 @@ nav {
 }
 #hist-apply-range-btn.breathe { animation: applyBreathe 1.6s ease-in-out infinite; }
 
+/* ═══════════ DATEPICKER PROPIO ═══════════ */
+.dp-overlay { position:fixed; inset:0; z-index:300; background:rgba(0,0,0,0.4);
+  opacity:0; pointer-events:none; transition:opacity 0.25s; display:flex; align-items:flex-end; justify-content:center; }
+.dp-overlay.open { opacity:1; pointer-events:auto; }
+.dp-dialog { background:var(--surface); width:100%; max-width:400px; border-radius:22px 22px 0 0;
+  padding:20px; transform:translateY(100%); transition:transform 0.32s cubic-bezier(0.22,0.61,0.36,1); }
+.dp-overlay.open .dp-dialog { transform:translateY(0); }
+@media (min-width:768px) {
+  .dp-overlay { align-items:center; }
+  .dp-dialog { border-radius:20px; max-width:360px; transform:translateY(12px) scale(0.98); opacity:0;
+    transition:transform 0.28s cubic-bezier(0.22,0.61,0.36,1),opacity 0.28s; }
+  .dp-overlay.open .dp-dialog { transform:translateY(0) scale(1); opacity:1; }
+}
+.dp-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; }
+.dp-nav { width:36px; height:36px; border-radius:50%; border:none; background:var(--surface2);
+  color:var(--text); font-size:16px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:background 0.15s; }
+.dp-nav:hover { background:var(--border2); }
+.dp-month-year { font-size:16px; font-weight:700; text-align:center; cursor:pointer;
+  padding:6px 12px; border-radius:8px; transition:background 0.15s; }
+.dp-month-year:hover { background:var(--surface2); }
+.dp-weekdays { display:grid; grid-template-columns:repeat(7,1fr); gap:2px; margin-bottom:6px; }
+.dp-weekday { text-align:center; font-size:11px; font-weight:700; color:var(--text3); text-transform:uppercase; padding:4px 0; }
+.dp-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:2px; }
+.dp-day { aspect-ratio:1; display:flex; align-items:center; justify-content:center; font-size:14px;
+  border:none; background:none; color:var(--text); border-radius:50%; cursor:pointer; transition:background 0.12s; }
+.dp-day:hover:not(.empty):not(.selected):not(.disabled) { background:var(--surface2); }
+.dp-day.empty { cursor:default; }
+.dp-day.today { font-weight:700; color:var(--accent); }
+.dp-day.selected { background:var(--accent); color:#fff; font-weight:600; }
+.dp-day.disabled { color:var(--text3); opacity:0.3; cursor:default; }
+.dp-footer { margin-top:16px; }
+.dp-cancel { width:100%; padding:11px; border:none; border-radius:var(--radius-sm); background:var(--surface2);
+  color:var(--text2); font-family:inherit; font-size:14px; font-weight:600; cursor:pointer; }
+.dp-presets { margin-top:16px; padding-top:16px; border-top:1px solid var(--border2); }
+.dp-preset-today { width:100%; padding:12px; border:none; border-radius:var(--radius-sm);
+  background:var(--accent); color:#fff; font-family:inherit; font-size:14px; font-weight:600; cursor:pointer; margin-bottom:10px; }
+.dp-preset-row { display:flex; gap:6px; }
+.dp-preset { flex:1; padding:10px 0; border:1px solid var(--border2); border-radius:10px;
+  background:var(--surface); color:var(--text); font-family:inherit; font-size:13px; font-weight:600;
+  cursor:pointer; transition:all 0.12s; }
+.dp-preset:hover:not(:disabled) { border-color:var(--accent); color:var(--accent); }
+.dp-preset:disabled { opacity:0.32; cursor:default; color:var(--text3); }
+.dp-my-select { display:none; }
+.dp-my-select.show { display:block; }
+.dp-cal-view.hide { display:none; }
+.dp-year-row { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
+.dp-year-label { font-size:18px; font-weight:700; }
+.dp-months-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+.dp-month-cell { padding:12px 0; text-align:center; border:none; background:var(--surface2);
+  border-radius:10px; font-size:13px; font-weight:600; color:var(--text); cursor:pointer; transition:background 0.12s; }
+.dp-month-cell:hover { background:var(--border2); }
+.dp-month-cell.current { background:var(--accent); color:#fff; }
+/* Campo de fecha con estilo botón (reemplaza input type=date) */
+.dp-field { display:flex; align-items:center; gap:8px; cursor:pointer; }
+.dp-field .dp-field-val.placeholder { color:var(--text3); }
+
 .modal-header {
   display: flex; align-items: center; justify-content: space-between;
   padding: 18px 20px 14px; position: sticky; top: 0;
@@ -1137,12 +1193,10 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
           <div class="date-field-label">
             <label style="margin-bottom:0">Fecha</label>
             <span style="color:var(--text3);font-size:12px;margin-right:2px;">|</span>
-            <span style="position:relative;display:inline-flex;align-items:center;cursor:pointer;" title="Elegir fecha">
+            <span onclick="openRegDatePicker()" style="position:relative;display:inline-flex;align-items:center;cursor:pointer;" title="Elegir fecha">
               <span style="font-size:16px;line-height:1;color:var(--text3);">📅</span>
-              <input type="date" id="tx-date"
-                style="position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;z-index:2;"
-                onchange="onNativeDateChange('tx-date','tx-date-strip')">
             </span>
+            <input type="hidden" id="tx-date">
           </div>
 
           <div class="date-strip-wrap">
@@ -1328,13 +1382,20 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
   </div>
   <div id="hist-range-row" style="display:none;flex-direction:column;gap:10px;margin-bottom:12px;padding:0 16px;">
     <div style="display:flex;gap:8px;align-items:center;">
-      <input type="date" id="hist-range-from" onchange="onRangeDateChange()" style="flex:1 1 0;min-width:0;padding:9px 11px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
+      <button type="button" id="hist-range-from-field" onclick="openRangeFromPicker()" class="dp-field" style="flex:1 1 0;min-width:0;padding:9px 11px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;">
+        <span style="font-size:14px;">📅</span><span class="dp-field-val placeholder" id="hist-range-from-val">Desde</span>
+      </button>
       <span style="font-size:13px;color:var(--text3);flex:0 0 auto;">a</span>
-      <input type="date" id="hist-range-to" onchange="onRangeDateChange()" style="flex:1 1 0;min-width:0;padding:9px 11px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
+      <button type="button" id="hist-range-to-field" onclick="openRangeToPicker()" class="dp-field" style="flex:1 1 0;min-width:0;padding:9px 11px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;">
+        <span style="font-size:14px;">📅</span><span class="dp-field-val placeholder" id="hist-range-to-val">Hasta</span>
+      </button>
       <button type="button" onclick="toggleDateRange()" title="Regresar a meses" style="flex:0 0 auto;width:40px;height:40px;background:var(--surface2);color:var(--text2);border:none;border-radius:var(--radius-sm);font-size:17px;cursor:pointer;display:flex;align-items:center;justify-content:center;">↩︎</button>
     </div>
     <button type="button" id="hist-apply-range-btn" onclick="applyDateRange()" style="width:100%;padding:11px;background:var(--accent);color:#fff;border:none;border-radius:var(--radius-sm);font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;">Aplicar rango</button>
   </div>
+  <!-- Valores de fecha del rango (ocultos, alimentados por el datepicker) -->
+  <input type="hidden" id="hist-range-from">
+  <input type="hidden" id="hist-range-to">
   <!-- Ancla donde reaparece el buscador tras aplicar un rango -->
   <div id="hist-search-anchor-range"></div>
   <div class="filter-bar" id="hist-filter-bar">
@@ -1539,12 +1600,10 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
           <div class="date-field-label">
             <label style="margin-bottom:0">Fecha</label>
             <span style="color:var(--text3);font-size:12px;margin-right:2px;">|</span>
-            <span style="position:relative;display:inline-flex;align-items:center;cursor:pointer;" title="Elegir fecha">
+            <span onclick="openEditDatePicker()" style="position:relative;display:inline-flex;align-items:center;cursor:pointer;" title="Elegir fecha">
               <span style="font-size:16px;line-height:1;color:var(--text3);">📅</span>
-              <input type="date" id="e-date"
-                style="position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;z-index:2;"
-                onchange="onNativeDateChange('e-date','e-date-strip')">
             </span>
+            <input type="hidden" id="e-date">
           </div>
 
           <div class="date-strip-wrap">
@@ -1602,6 +1661,46 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
       <button type="button" class="emoji-close" onclick="closeEmojiPicker()" aria-label="Cerrar">✕</button>
     </div>
     <div id="emoji-picker-body" class="emoji-dialog-body"></div>
+  </div>
+</div>
+
+<!-- DATEPICKER (reutilizable: rango con presets o simple para registro/edición) -->
+<div class="dp-overlay" id="dp-overlay" onclick="dpCloseBg(event)">
+  <div class="dp-dialog" onclick="event.stopPropagation()">
+    <div class="dp-cal-view" id="dp-cal-view">
+      <div class="dp-header">
+        <button type="button" class="dp-nav" onclick="dpChangeMonth(-1)">&lsaquo;</button>
+        <div class="dp-month-year" id="dp-month-year" onclick="dpShowMonthYear()">Mes Año</div>
+        <button type="button" class="dp-nav" onclick="dpChangeMonth(1)">&rsaquo;</button>
+      </div>
+      <div class="dp-weekdays">
+        <div class="dp-weekday">Do</div><div class="dp-weekday">Lu</div><div class="dp-weekday">Ma</div>
+        <div class="dp-weekday">Mi</div><div class="dp-weekday">Ju</div><div class="dp-weekday">Vi</div><div class="dp-weekday">Sa</div>
+      </div>
+      <div class="dp-grid" id="dp-grid"></div>
+      <div class="dp-presets" id="dp-presets" style="display:none;">
+        <button type="button" class="dp-preset-today" onclick="dpApplyPreset('today')">Hoy</button>
+        <div class="dp-preset-row">
+          <button type="button" class="dp-preset" data-preset="1s" onclick="dpApplyPreset('1s')">1s</button>
+          <button type="button" class="dp-preset" data-preset="2s" onclick="dpApplyPreset('2s')">2s</button>
+          <button type="button" class="dp-preset" data-preset="3s" onclick="dpApplyPreset('3s')">3s</button>
+          <button type="button" class="dp-preset" data-preset="1m" onclick="dpApplyPreset('1m')">1m</button>
+          <button type="button" class="dp-preset" data-preset="3m" onclick="dpApplyPreset('3m')">3m</button>
+          <button type="button" class="dp-preset" data-preset="6m" onclick="dpApplyPreset('6m')">6m</button>
+        </div>
+      </div>
+      <div class="dp-footer">
+        <button type="button" class="dp-cancel" onclick="dpClose()">Cancelar</button>
+      </div>
+    </div>
+    <div class="dp-my-select" id="dp-my-select">
+      <div class="dp-year-row">
+        <button type="button" class="dp-nav" onclick="dpChangeYear(-1)">&lsaquo;</button>
+        <div class="dp-year-label" id="dp-year-label">2026</div>
+        <button type="button" class="dp-nav" onclick="dpChangeYear(1)">&rsaquo;</button>
+      </div>
+      <div class="dp-months-grid" id="dp-months-grid"></div>
+    </div>
   </div>
 </div>
 
@@ -4975,15 +5074,13 @@ function setFilter(f,el){
   const searchEl=document.getElementById('hist-search');
   const hasSearch=(searchEl?.value||'').trim().length>0;
   // Auto-seleccionar categorías con registros:
-  //  - Ingresos y beneficios: siempre (todas activas por defecto).
-  //  - Egresos: normalmente empieza vacío, PERO en modo rango también preselecciona
-  //    (todas las categorías y subcategorías con datos activas, como en el flujo mensual).
-  if(f!=='todos' && (f!=='egreso' || rangeActive)){
+  //  - Ingresos y beneficios: siempre todas activas por defecto.
+  //  - Egresos en rango: NO preselecciona. Los chips arrancan "apagados" y el usuario
+  //    los va activando (Casa → subcategorías apagadas → activa las que quiera).
+  //    La lista muestra todos los egresos mientras no haya categorías activas.
+  if(f!=='todos' && f!=='egreso'){
     const typed=entriesInCurrentDateScope(f);
     histSelCats=[...new Set(typed.map(e=>e.category))];
-    if(f==='egreso'){
-      histSelSubcats=[...new Set(typed.map(e=>e.subcategory).filter(Boolean))];
-    }
   }
 
   buildSubFilterPanel();
@@ -5686,6 +5783,125 @@ function txEl(e, showDelete){
   return el;
 }
 
+// ═══════════════════════════════════════════
+// DATEPICKER genérico (rango con presets o simple)
+// ═══════════════════════════════════════════
+let _dpViewMonth=new Date().getMonth();
+let _dpViewYear=new Date().getFullYear();
+let _dpSelected=null;      // Date actualmente seleccionada en el picker
+let _dpMinDate=null;       // fecha mínima permitida (para "hasta" ≥ "desde")
+let _dpShowPresets=false;  // mostrar presets (solo para "hasta")
+let _dpPresetStart=null;   // fecha inicial (para calcular presets)
+let _dpOnPick=null;        // callback(dateObj) al elegir
+
+function _dpFmt(d){ return d?`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`:null; }
+
+// Abre el datepicker.
+// opts: { initial:Date|null, min:Date|null, presets:bool, presetStart:Date|null, onPick:fn }
+function openDatepicker(opts){
+  opts=opts||{};
+  _dpMinDate=opts.min||null;
+  _dpShowPresets=!!opts.presets;
+  _dpPresetStart=opts.presetStart||null;
+  _dpOnPick=opts.onPick||null;
+  _dpSelected=opts.initial||null;
+  const cur=_dpSelected||opts.presetStart||new Date();
+  _dpViewMonth=cur.getMonth(); _dpViewYear=cur.getFullYear();
+  document.getElementById('dp-cal-view').classList.remove('hide');
+  document.getElementById('dp-my-select').classList.remove('show');
+  const presets=document.getElementById('dp-presets');
+  if(presets) presets.style.display=_dpShowPresets?'block':'none';
+  if(_dpShowPresets) _dpUpdatePresets();
+  _dpRenderGrid();
+  document.getElementById('dp-overlay').classList.add('open');
+}
+function dpClose(){ document.getElementById('dp-overlay').classList.remove('open'); }
+function dpCloseBg(ev){ if(ev.target===document.getElementById('dp-overlay')) dpClose(); }
+function dpChangeMonth(delta){
+  _dpViewMonth+=delta;
+  if(_dpViewMonth<0){ _dpViewMonth=11; _dpViewYear--; }
+  if(_dpViewMonth>11){ _dpViewMonth=0; _dpViewYear++; }
+  _dpRenderGrid();
+}
+function _dpRenderGrid(){
+  document.getElementById('dp-month-year').textContent=`${MONTHS_ES[_dpViewMonth]} ${_dpViewYear}`;
+  const grid=document.getElementById('dp-grid'); grid.innerHTML='';
+  const firstDay=new Date(_dpViewYear,_dpViewMonth,1).getDay();
+  const daysInMonth=new Date(_dpViewYear,_dpViewMonth+1,0).getDate();
+  const today=new Date(); today.setHours(0,0,0,0);
+  for(let i=0;i<firstDay;i++){ const e=document.createElement('div'); e.className='dp-day empty'; grid.appendChild(e); }
+  for(let day=1;day<=daysInMonth;day++){
+    const d=new Date(_dpViewYear,_dpViewMonth,day);
+    const btn=document.createElement('button'); btn.type='button'; btn.className='dp-day'; btn.textContent=day;
+    if(d.getTime()===today.getTime()) btn.classList.add('today');
+    const belowMin = _dpMinDate && d < _dpMinDate;
+    if(belowMin){ btn.classList.add('disabled'); }
+    else {
+      if(_dpSelected && d.getTime()===_dpSelected.getTime()) btn.classList.add('selected');
+      btn.onclick=()=>_dpPick(d);
+    }
+    grid.appendChild(btn);
+  }
+}
+function _dpPick(d){
+  if(_dpMinDate && d < _dpMinDate) return;
+  if(_dpOnPick) _dpOnPick(d);
+  dpClose();
+}
+// Presets
+function _dpAddDays(start,days){ const d=new Date(start); d.setDate(d.getDate()+days); return d; }
+function _dpAddMonths(start,months){ const d=new Date(start.getFullYear(),start.getMonth()+months,start.getDate()); d.setDate(d.getDate()-1); return d; }
+function _dpPresetResult(preset){
+  const s=_dpPresetStart;
+  if(preset==='today'){ const t=new Date(); t.setHours(0,0,0,0); return t; }
+  if(!s) return null;
+  if(preset==='1s') return _dpAddDays(s,6);
+  if(preset==='2s') return _dpAddDays(s,13);
+  if(preset==='3s') return _dpAddDays(s,20);
+  if(preset==='1m') return _dpAddMonths(s,1);
+  if(preset==='3m') return _dpAddMonths(s,3);
+  if(preset==='6m') return _dpAddMonths(s,6);
+  return null;
+}
+function _dpUpdatePresets(){
+  const today=new Date(); today.setHours(0,0,0,0);
+  document.querySelectorAll('.dp-preset').forEach(btn=>{
+    const res=_dpPresetResult(btn.dataset.preset);
+    btn.disabled = !res || res>today;
+  });
+}
+function dpApplyPreset(preset){
+  const res=_dpPresetResult(preset);
+  const today=new Date(); today.setHours(0,0,0,0);
+  if(!res) return;
+  if(preset!=='today' && res>today) return;
+  if(_dpOnPick) _dpOnPick(res);
+  dpClose();
+}
+// Selección rápida mes/año
+function dpShowMonthYear(){
+  document.getElementById('dp-cal-view').classList.add('hide');
+  document.getElementById('dp-my-select').classList.add('show');
+  _dpRenderMonthYear();
+}
+function dpChangeYear(delta){ _dpViewYear+=delta; _dpRenderMonthYear(); }
+function _dpRenderMonthYear(){
+  document.getElementById('dp-year-label').textContent=_dpViewYear;
+  const g=document.getElementById('dp-months-grid'); g.innerHTML='';
+  const short=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  short.forEach((m,i)=>{
+    const b=document.createElement('button'); b.type='button';
+    b.className='dp-month-cell'+(i===_dpViewMonth?' current':''); b.textContent=m;
+    b.onclick=()=>{
+      _dpViewMonth=i;
+      document.getElementById('dp-cal-view').classList.remove('hide');
+      document.getElementById('dp-my-select').classList.remove('show');
+      _dpRenderGrid();
+    };
+    g.appendChild(b);
+  });
+}
+
 // ── Filtro por rango de fechas en el historial (modo alternativo al mes/año) ──
 let histRangeMode=false;
 let histRangeApplied=false; // si el rango ya fue confirmado con "Aplicar"
@@ -5730,6 +5946,55 @@ function showSearchInRangePosition(){
   }, 450); // tras la animación de la lista
 }
 
+// Formatea una fecha 'yyyy-MM-dd' a "8 Jul 2026" para mostrar en el campo
+function _dpNice(dateStr){
+  if(!dateStr) return null;
+  const p=String(dateStr).split('-');
+  if(p.length!==3) return dateStr;
+  const short=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  return `${parseInt(p[2])} ${short[parseInt(p[1])-1]} ${p[0]}`;
+}
+// Refleja los valores de los inputs ocultos en los botones visuales del rango
+function updateRangeFieldLabels(){
+  const fromV=document.getElementById('hist-range-from')?.value;
+  const toV=document.getElementById('hist-range-to')?.value;
+  const fromLbl=document.getElementById('hist-range-from-val');
+  const toLbl=document.getElementById('hist-range-to-val');
+  if(fromLbl){ if(fromV){ fromLbl.textContent=_dpNice(fromV); fromLbl.classList.remove('placeholder'); } else { fromLbl.textContent='Desde'; fromLbl.classList.add('placeholder'); } }
+  if(toLbl){ if(toV){ toLbl.textContent=_dpNice(toV); toLbl.classList.remove('placeholder'); } else { toLbl.textContent='Hasta'; toLbl.classList.add('placeholder'); } }
+}
+function openRangeFromPicker(){
+  const cur=document.getElementById('hist-range-from')?.value;
+  openDatepicker({
+    initial: cur?parseDate(cur):null,
+    presets:false,
+    onPick:(d)=>{
+      document.getElementById('hist-range-from').value=_dpFmt(d);
+      // Si "hasta" quedó antes que "desde", limpiarlo
+      const toV=document.getElementById('hist-range-to').value;
+      if(toV && parseDate(toV)<d){ document.getElementById('hist-range-to').value=''; }
+      updateRangeFieldLabels();
+      onRangeDateChange();
+    }
+  });
+}
+function openRangeToPicker(){
+  const cur=document.getElementById('hist-range-to')?.value;
+  const fromV=document.getElementById('hist-range-from')?.value;
+  const startD=fromV?parseDate(fromV):null;
+  openDatepicker({
+    initial: cur?parseDate(cur):null,
+    min: startD,
+    presets:!!startD,
+    presetStart:startD,
+    onPick:(d)=>{
+      document.getElementById('hist-range-to').value=_dpFmt(d);
+      updateRangeFieldLabels();
+      onRangeDateChange();
+    }
+  });
+}
+
 function toggleDateRange(){
   histRangeMode=!histRangeMode;
   const monthRow=document.getElementById('hist-date-row');
@@ -5748,6 +6013,7 @@ function toggleDateRange(){
     const toEl=document.getElementById('hist-range-to');
     if(fromEl && !fromEl.value) fromEl.value=first;
     if(toEl && !toEl.value) toEl.value=last;
+    updateRangeFieldLabels(); // reflejar en los botones visuales
     if(monthRow) monthRow.style.display='none';
     if(rangeRow) rangeRow.style.display='flex';
     // Ocultar el buscador mientras se elige el rango (reaparece al aplicar)
@@ -7636,6 +7902,36 @@ function onNativeDateChange(inputId, stripId){
     stripOffsets[stripId] = iso;
     renderStrip(stripId, iso);
   }
+}
+
+// Aplica una fecha elegida al input y actualiza su date-strip (registro o edición)
+function _applyPickedDateToStrip(inputId, stripId, iso){
+  const inp=document.getElementById(inputId);
+  if(inp) inp.value=iso;
+  const strip=document.getElementById(stripId);
+  const existing=strip?strip.querySelector(`[data-iso="${iso}"]`):null;
+  if(existing){ selectStripDate(stripId, iso); }
+  else { stripOffsets[stripId]=iso; renderStrip(stripId, iso); }
+}
+
+// Datepicker para el campo de fecha del REGISTRO (sin presets)
+function openRegDatePicker(){
+  const cur=document.getElementById('tx-date')?.value;
+  openDatepicker({
+    initial: cur?parseDate(cur):new Date(),
+    presets:false,
+    onPick:(d)=>{ _applyPickedDateToStrip('tx-date','tx-date-strip', _dpFmt(d)); }
+  });
+}
+
+// Datepicker para el campo de fecha de EDICIÓN (sin presets)
+function openEditDatePicker(){
+  const cur=document.getElementById('e-date')?.value;
+  openDatepicker({
+    initial: cur?parseDate(cur):new Date(),
+    presets:false,
+    onPick:(d)=>{ _applyPickedDateToStrip('e-date','e-date-strip', _dpFmt(d)); }
+  });
 }
 
 // ══════════════════════════════════════
