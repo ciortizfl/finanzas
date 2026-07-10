@@ -1316,16 +1316,14 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
     <select id="hist-year-sel" onchange="renderHistorial(true)"></select>
     <button type="button" id="hist-range-toggle" onclick="toggleDateRange()" title="Filtrar por rango de fechas" style="flex:0 0 auto;width:38px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface);color:var(--text3);font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;">📅</button>
   </div>
-  <div id="hist-range-row" style="display:none;flex-direction:column;gap:10px;margin-bottom:12px;">
-    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-      <input type="date" id="hist-range-from" style="flex:1 1 40%;min-width:130px;padding:9px 11px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
-      <span style="font-size:13px;color:var(--text3);">a</span>
-      <input type="date" id="hist-range-to" style="flex:1 1 40%;min-width:130px;padding:9px 11px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
-    </div>
+  <div id="hist-range-row" style="display:none;flex-direction:column;gap:10px;margin-bottom:12px;padding:0 16px;">
     <div style="display:flex;gap:8px;align-items:center;">
-      <button type="button" onclick="applyDateRange()" style="flex:1;padding:10px;background:var(--accent);color:#fff;border:none;border-radius:var(--radius-sm);font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;">Aplicar rango</button>
-      <button type="button" onclick="toggleDateRange()" style="flex:0 0 auto;padding:10px 14px;background:var(--surface2);color:var(--text2);border:none;border-radius:var(--radius-sm);font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;">Meses</button>
+      <input type="date" id="hist-range-from" style="flex:1 1 0;min-width:0;padding:9px 11px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
+      <span style="font-size:13px;color:var(--text3);flex:0 0 auto;">a</span>
+      <input type="date" id="hist-range-to" style="flex:1 1 0;min-width:0;padding:9px 11px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
+      <button type="button" onclick="toggleDateRange()" title="Regresar a meses" style="flex:0 0 auto;width:40px;height:40px;background:var(--surface2);color:var(--text2);border:none;border-radius:var(--radius-sm);font-size:17px;cursor:pointer;display:flex;align-items:center;justify-content:center;">↩︎</button>
     </div>
+    <button type="button" onclick="applyDateRange()" style="width:100%;padding:11px;background:var(--accent);color:#fff;border:none;border-radius:var(--radius-sm);font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;">Aplicar rango</button>
   </div>
   <div class="filter-bar">
     <button class="f-chip active" id="fchip-todos" onclick="setFilter('todos',this)">Todos</button>
@@ -4308,10 +4306,18 @@ async function loadFromSheets(silent) {
     const newData = rows.map(r => {
       let dateVal = r[1];
       if (dateVal instanceof Date) {
-        dateVal = dateVal.toISOString().split('T')[0];
+        // Usar componentes LOCALES (no toISOString, que usa UTC y puede correr el día)
+        const y=dateVal.getFullYear();
+        const mo=String(dateVal.getMonth()+1).padStart(2,'0');
+        const da=String(dateVal.getDate()).padStart(2,'0');
+        dateVal = `${y}-${mo}-${da}`;
       } else if (typeof dateVal === 'number') {
+        // Serial de Sheets → fecha; construir en local para no correr el día
         const d = new Date(Math.round((dateVal - 25569) * 86400 * 1000));
-        dateVal = d.toISOString().split('T')[0];
+        const y=d.getUTCFullYear();
+        const mo=String(d.getUTCMonth()+1).padStart(2,'0');
+        const da=String(d.getUTCDate()).padStart(2,'0');
+        dateVal = `${y}-${mo}-${da}`;
       } else {
         dateVal = String(dateVal).slice(0,10);
       }
