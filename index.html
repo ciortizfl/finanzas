@@ -4977,14 +4977,11 @@ function setFilter(f,el){
   // Auto-seleccionar categorías con registros:
   //  - Ingresos y beneficios: siempre (todas activas por defecto).
   //  - Egresos: normalmente empieza vacío, PERO en modo rango también preselecciona
-  //    (todas las categorías con datos activas).
+  //    (todas las categorías y subcategorías con datos activas, como en el flujo mensual).
   if(f!=='todos' && (f!=='egreso' || rangeActive)){
     const typed=entriesInCurrentDateScope(f);
     histSelCats=[...new Set(typed.map(e=>e.category))];
-    // En egresos, preseleccionar subcategorías SOLO si el panel de subcats se va a
-    // mostrar (es decir, cuando queda una sola categoría — típico de búsqueda acotada).
-    // Con varias categorías en rango, las subcats no se muestran, así que no se filtran.
-    if(f==='egreso' && histSelCats.length===1){
+    if(f==='egreso'){
       histSelSubcats=[...new Set(typed.map(e=>e.subcategory).filter(Boolean))];
     }
   }
@@ -5102,13 +5099,6 @@ function buildSubFilterPanel(){
         else histSelCats.push(cat);
         b.classList.toggle('active', histSelCats.includes(cat));
         histSelSubcats=[];
-        // En modo rango, al quedar UNA sola categoría, preseleccionar sus subcategorías
-        // (con datos) para que se muestren todas activas por defecto.
-        const rangeActive2 = histRangeMode && histRangeApplied;
-        if(rangeActive2 && histSelCats.length===1){
-          const typed=entriesInCurrentDateScope('egreso').filter(e=>e.category===histSelCats[0]);
-          histSelSubcats=[...new Set(typed.map(e=>e.subcategory).filter(Boolean))];
-        }
         syncCatToggle();
         // Show/hide cat toggle for egreso based on count
         if(histFilter==='egreso'){
@@ -5133,13 +5123,6 @@ function buildSubcatFilter(){
   if(histFilter!=='egreso'){ wrap.style.display='none'; renderHistorial(); return; }
   // Hide subcats until user selects at least one category
   if(histSelCats.length===0){ wrap.style.display='none'; renderHistorial(); return; }
-  // En modo rango, para mantener el panel compacto (los rangos largos generan
-  // muchísimas subcategorías), las subcategorías solo se muestran cuando el usuario
-  // ha elegido UNA sola categoría. Con varias/todas seleccionadas, no se despliegan.
-  const rangeActive = histRangeMode && histRangeApplied;
-  if(rangeActive && histSelCats.length!==1){
-    wrap.style.display='none'; renderHistorial(); return;
-  }
 
   const allPossible=[];
   histSelCats.forEach(cat=>{
