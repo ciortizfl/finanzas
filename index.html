@@ -1333,7 +1333,7 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
     </div>
     <button type="button" id="hist-apply-range-btn" onclick="applyDateRange()" style="width:100%;padding:11px;background:var(--accent);color:#fff;border:none;border-radius:var(--radius-sm);font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;">Aplicar rango</button>
   </div>
-  <div class="filter-bar">
+  <div class="filter-bar" id="hist-filter-bar">
     <button class="f-chip active" id="fchip-todos" onclick="setFilter('todos',this)">Todos</button>
     <button class="f-chip" id="fchip-egreso" onclick="setFilter('egreso',this)">Egresos</button>
     <button class="f-chip" id="fchip-ingreso" onclick="setFilter('ingreso',this)">Ingresos</button>
@@ -5272,6 +5272,13 @@ function renderHistorial(animate){
     if(dateRow) dateRow.style.display=histRangeMode?'none':'flex';
     if(rangeRow) rangeRow.style.display=histRangeMode?'flex':'none';
   }
+  // La barra de tipos (Todos/Egresos/Ingresos/Beneficios/Método) se oculta cuando
+  // se está eligiendo un rango pero aún no se aplica.
+  const filterBar=document.getElementById('hist-filter-bar');
+  if(filterBar){
+    const hideBar = histRangeMode && !histRangeApplied && !isSearchMode;
+    filterBar.style.display = hideBar ? 'none' : '';
+  }
 
   const mSel=document.getElementById('hist-month-sel');
   const ySel=document.getElementById('hist-year-sel');
@@ -5600,9 +5607,11 @@ function toggleDateRange(){
     // El filtro se aplica al confirmar. Mientras tanto, vaciar la lista para no
     // dar la falsa impresión de que los registros del mes son el resultado del rango.
     histRangeApplied=false;
+    // Al aplicar, la vista siempre arranca en "Todos"
+    histFilter='todos'; histSelCats=[]; histSelSubcats=[];
     renderHistorial(); // renderHistorial ve histRangeMode && !applied → muestra vacío
-    // Arrancar el recordatorio del botón tras 2s (aún no ha aplicado)
-    startRangeBreathe();
+    // NOTA: no arrancamos el recordatorio aquí. Solo cuenta los 2s cuando el
+    // usuario efectivamente modifica una fecha (para no apresurarlo sin motivo).
   } else {
     if(monthRow) monthRow.style.display='flex';
     if(rangeRow) rangeRow.style.display='none';
@@ -5650,6 +5659,13 @@ function applyDateRange(){
   }
   histRangeApplied=true;
   stopRangeBreathe(); // al aplicar, detener el recordatorio
+  // La vista siempre arranca en "Todos" al aplicar un rango
+  histFilter='todos'; histSelCats=[]; histSelSubcats=[];
+  document.querySelectorAll('.filter-bar .f-chip').forEach(c=>c.classList.remove('active'));
+  const todosChip=document.getElementById('fchip-todos');
+  if(todosChip) todosChip.classList.add('active');
+  const subPanel=document.getElementById('sub-filter-panel');
+  if(subPanel) subPanel.classList.remove('vis');
   renderHistorial(true);
 }
 
