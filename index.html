@@ -1423,14 +1423,22 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
           <div class="rate-note" id="e-rate-note"><span class="rate-dot"></span><span id="e-rate-text"></span></div>
         </div>
 
-        <!-- Inline toggles propina + beneficio (solo para egreso) -->
+        <!-- Inline toggles propina + beneficio + diferir (solo para egreso) -->
         <div id="e-inline-toggles" style="display:none;margin-bottom:14px;">
-          <div class="inline-row">
-            <button type="button" id="e-inline-propina-btn" class="inline-tgl" onclick="toggleEPropina()">
-              <span>💰</span><span>Propina</span>
-            </button>
-            <button type="button" id="e-inline-ben-btn" class="inline-tgl" onclick="toggleEBen()">
-              <span>★</span><span>Beneficio</span>
+          <div class="stack" id="e-inline-stack">
+            <div class="inline-row" id="e-inline-row-main">
+              <button type="button" id="e-inline-propina-btn" class="inline-tgl" onclick="toggleEPropina()">
+                <span>💰</span><span>Propina</span>
+              </button>
+              <button type="button" id="e-inline-ben-btn" class="inline-tgl" onclick="toggleEBen()">
+                <span>★</span><span>Beneficio</span>
+              </button>
+              <button type="button" id="e-inline-diferir-btn" class="inline-tgl" onclick="editInlineToggleDiferir()">
+                <span>🗓️</span><span>Diferir</span>
+              </button>
+            </div>
+            <button type="button" id="e-inline-diferir-full" class="diferir-full" onclick="editInlineToggleDiferir()">
+              <span>🗓️</span><span>Diferir</span>
             </button>
           </div>
           <!-- Propina panel (misma estructura que en registro) -->
@@ -1484,6 +1492,19 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
               <div class="cat-grid-ui" id="e-ben-type-blocks"></div>
             </div>
           </div>
+          <!-- Diferir panel (edición) -->
+          <div id="e-diferir-panel" style="display:none;margin-top:12px;padding:12px;background:var(--surface2);border-radius:var(--radius-sm);">
+            <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:3px;">Repartir en mensualidades</div>
+            <div style="font-size:12px;color:var(--text3);margin-bottom:12px;line-height:1.4;">El monto total se divide en partes iguales, una por mes, empezando este mes.</div>
+            <div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:10px;" id="e-diferir-presets"></div>
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+              <span style="font-size:13px;color:var(--text2);">Personalizado:</span>
+              <input type="number" id="e-diferir-custom" min="2" max="120" placeholder="Ej. 18" inputmode="numeric" oninput="onEditDiferirCustomInput()" style="width:78px;padding:8px 10px;border:1.5px solid var(--border2);border-radius:10px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;-webkit-appearance:none;appearance:none;">
+              <span style="font-size:13px;color:var(--text2);">meses</span>
+            </div>
+            <div id="e-diferir-preview" style="background:var(--surface);border-radius:10px;padding:12px 14px;border:1px solid var(--border2);display:none;"></div>
+            <button type="button" id="e-diferir-clear-btn" onclick="editClearDiferir()" style="display:none;margin-top:10px;background:none;border:none;color:var(--danger);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;padding:4px 0;">Quitar diferido</button>
+          </div>
         </div>
 
         <!-- Método de pago -->
@@ -1528,19 +1549,6 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
             <div class="subcat-lbl" id="e-subcat-lbl">Subcategoría</div>
             <div class="cat-grid-ui" id="e-subcat-blocks"></div>
           </div>
-        </div>
-
-        <!-- Panel de Diferir en edición (solo visible para gastos diferidos) -->
-        <div id="e-diferir-section" style="display:none;margin-bottom:14px;padding:12px;background:var(--surface2);border-radius:var(--radius-sm);">
-          <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:3px;">Gasto diferido en mensualidades</div>
-          <div style="font-size:12px;color:var(--text3);margin-bottom:12px;line-height:1.4;">Cambia el número de meses; el monto total se reparte de nuevo.</div>
-          <div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:10px;" id="e-diferir-presets"></div>
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
-            <span style="font-size:13px;color:var(--text2);">Personalizado:</span>
-            <input type="number" id="e-diferir-custom" min="2" max="120" placeholder="Ej. 18" inputmode="numeric" oninput="onEditDiferirCustomInput()" style="width:78px;padding:8px 10px;border:1.5px solid var(--border2);border-radius:10px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;-webkit-appearance:none;appearance:none;">
-            <span style="font-size:13px;color:var(--text2);">meses</span>
-          </div>
-          <div id="e-diferir-preview" style="background:var(--surface);border-radius:10px;padding:12px 14px;border:1px solid var(--border2);"></div>
         </div>
 
         <!-- Botones toggle Nota / Desglose (mismo estilo que Propina/Beneficio) -->
@@ -2051,6 +2059,13 @@ function parseDate(str) {
   const parts = s.split('-');
   if (parts.length === 3) return new Date(Number(parts[0]), Number(parts[1])-1, Number(parts[2]));
   return new Date('invalid');
+}
+
+// Compara dos deferGroup de forma robusta (evita problemas number vs string
+// que pueden surgir al ir y volver de Google Sheets).
+function sameGroup(a,b){
+  if(a==null || b==null) return false;
+  return String(a)===String(b);
 }
 
 // Un registro es "futuro" si su fecha es posterior a hoy. Los gastos diferidos
@@ -3978,7 +3993,7 @@ function submitDeferredEntry({amount, desc, cur, date, note, subcat}){
   save();
   showSyncing('⟳ Guardando...');
   // Guardar todas las mensualidades en Sheets
-  const saves=data.filter(x=>x.deferGroup===groupId).map(e=>saveEntryToSheets(e));
+  const saves=data.filter(x=>sameGroup(x.deferGroup,groupId)).map(e=>saveEntryToSheets(e));
   Promise.all(saves).then(()=>{ hideSyncing(); });
 
   playRegisterSaveAnimation(()=>{
@@ -5410,10 +5425,10 @@ function txEl(e, showDelete){
       ev.stopPropagation();
       // Gasto diferido: alerta especial y borrado de TODO el grupo
       if(e.deferGroup){
-        const groupCount=data.filter(x=>x.deferGroup===e.deferGroup).length;
+        const groupCount=data.filter(x=>sameGroup(x.deferGroup,e.deferGroup)).length;
         if(!confirm(`Este es un gasto diferido (mes ${e.deferIndex} de ${e.deferTotal}).\n\nBorrarlo eliminará las ${groupCount} mensualidades ligadas, incluyendo las anteriores y futuras. ¿Continuar?`)) return;
         const groupId=e.deferGroup;
-        const groupIds=data.filter(x=>x.deferGroup===groupId).map(x=>x.id);
+        const groupIds=data.filter(x=>sameGroup(x.deferGroup,groupId)).map(x=>x.id);
         const list=document.getElementById('hist-list');
         const allItems=Array.from(list.querySelectorAll('.day-group-hdr, .tx-item'));
         let cascadeFrom=allItems.indexOf(el);
@@ -5424,7 +5439,7 @@ function txEl(e, showDelete){
           if(hdr && hdr.classList.contains('day-group-hdr')){ const hi=allItems.indexOf(hdr); if(hi>=0) cascadeFrom=hi; }
         }
         playDeleteAnimation(e.id, ()=>{
-          data=data.filter(x=>x.deferGroup!==groupId);
+          data=data.filter(x=>!sameGroup(x.deferGroup,groupId));
           save();
           showSyncing('⟳ Eliminando...');
           Promise.all(groupIds.map(gid=>deleteEntryInSheets(gid))).then(()=>{ hideSyncing(); toast('Gasto diferido eliminado'); });
@@ -5701,7 +5716,6 @@ function openEdit(id) {
   }));
   renderEditDesgloses();
   updateEditDesgloseVisibility();
-  setupEditDiferirPanel();
 
   // --- Nota: mostrar colapsada, pero con contenido si existe ---
   // Filtrar TODAS las etiquetas del sistema (se generan/muestran dinámicamente),
@@ -5740,7 +5754,7 @@ function openEdit(id) {
   buildEditCatBlocks(e.type, e.category, e.subcategory||'');
 
   // --- Inline toggles (solo egreso) ---
-  document.getElementById('e-inline-toggles').style.display = (e.type==='egreso' && !e.deferGroup)?'block':'none';
+  document.getElementById('e-inline-toggles').style.display = (e.type==='egreso')?'block':'none';
 
   // --- Beneficio ---
   const linked = e.type==='egreso' ? data.find(x=>x.linkedTo===id&&x.type==='ahorro-pasivo') : null;
@@ -5776,6 +5790,7 @@ function openEdit(id) {
   document.getElementById('edit-modal').classList.add('open');
   document.body.style.overflow='hidden';
   refreshEditEmojiBtn();
+  setupEditDiferirPanel();
 }
 
 function closeModal(){
@@ -5953,23 +5968,121 @@ function onECurChange(){
     `1 ${cur} = $${rates[cur].toLocaleString('es-MX',{minimumFractionDigits:2})} MXN${ratesLoaded?'':' (estimado)'}`;
 }
 
-// Recrea un grupo de gasto diferido con nuevos valores (monto total, desc, categoría,
-// método, nota). Mantiene el número de meses y la fecha de inicio del grupo original.
-// ── Panel de Diferir en EDICIÓN ──
-// Renderiza el panel con los meses actuales del grupo diferido.
+// ══════════════════════════════════════
+// DIFERIR en EDICIÓN — paridad total con el registro
+// ══════════════════════════════════════
+let _eDiferirVisible=false;
+
+function editDiferirHasData(){ return editDiferirMonths>0; }
+
+// Al abrir edición: si el registro ya es diferido, mostrar el panel desplegado
+// con los meses actuales. Si no, dejar el botón Diferir disponible como en registro.
 function setupEditDiferirPanel(){
-  const sec=document.getElementById('e-diferir-section');
-  if(!sec) return;
-  if(!editDeferGroup){ sec.style.display='none'; return; }
-  sec.style.display='block';
-  // Meses actuales del grupo
-  const grp=data.filter(x=>x.deferGroup===editDeferGroup);
-  editDiferirMonths = grp.length>0 ? grp[0].deferTotal : 0;
-  editDiferirCustom = !DIFERIR_PRESETS.includes(editDiferirMonths);
-  const ci=document.getElementById('e-diferir-custom');
-  if(ci) ci.value = editDiferirCustom ? editDiferirMonths : '';
-  renderEditDiferirPresets();
-  renderEditDiferirPreview();
+  const panel=document.getElementById('e-diferir-panel');
+  if(!panel) return;
+  if(editDeferGroup){
+    // Es un diferido existente: cargar meses y desplegar el panel
+    const grp=data.filter(x=>sameGroup(x.deferGroup,editDeferGroup));
+    editDiferirMonths = grp.length>0 ? grp[0].deferTotal : 0;
+    editDiferirCustom = !DIFERIR_PRESETS.includes(editDiferirMonths);
+    _eDiferirVisible=true;
+    const ci=document.getElementById('e-diferir-custom');
+    if(ci) ci.value = editDiferirCustom ? editDiferirMonths : '';
+    panel.style.display='block';
+    // Estado final del crossfade SIN animación (el modal recién abre)
+    const row=document.getElementById('e-inline-row-main');
+    const full=document.getElementById('e-inline-diferir-full');
+    if(row){ row.getAnimations().forEach(a=>a.cancel()); row.style.opacity='0'; row.style.pointerEvents='none'; }
+    if(full){ full.getAnimations().forEach(a=>a.cancel()); full.style.opacity='1'; full.style.transform='none'; full.style.pointerEvents='auto'; }
+    updateInlineBtn('e-inline-diferir-btn', true, true);
+    renderEditDiferirPresets();
+    renderEditDiferirPreview();
+    editUpdateDesgloseForDiferir();
+  } else {
+    // No diferido: panel oculto, botón normal, crossfade en estado inicial
+    editDiferirMonths=0; editDiferirCustom=false; _eDiferirVisible=false;
+    panel.style.display='none';
+    const ci=document.getElementById('e-diferir-custom');
+    if(ci) ci.value='';
+    updateInlineBtn('e-inline-diferir-btn', false, false);
+    // Restaurar crossfade: fila de 3 botones visible, botón completo oculto
+    const row=document.getElementById('e-inline-row-main');
+    const full=document.getElementById('e-inline-diferir-full');
+    if(row){ row.getAnimations().forEach(a=>a.cancel()); row.style.opacity=''; row.style.pointerEvents=''; }
+    if(full){ full.getAnimations().forEach(a=>a.cancel()); full.style.opacity='0'; full.style.transform=''; full.style.pointerEvents='none'; }
+  }
+}
+
+// Toggle del botón Diferir en edición (crossfade igual que registro)
+function editInlineToggleDiferir(){
+  if(_eDiferirVisible){
+    _eDiferirVisible=false;
+    document.getElementById('e-diferir-panel').style.display='none';
+    updateInlineBtn('e-inline-diferir-btn', editDiferirHasData(), editDiferirHasData());
+    if(!editDiferirHasData()){
+      editShowPropinaBenButtons();
+    }
+  } else {
+    _eDiferirVisible=true;
+    editPropinaOn=false; editBenOn=false;
+    const pp=document.getElementById('e-propina-panel'); if(pp) pp.style.display='none';
+    const bp=document.getElementById('e-ben-panel'); if(bp) bp.style.display='none';
+    const panel=document.getElementById('e-diferir-panel');
+    panel.style.display='block';
+    revealAnimate(panel);
+    updateInlineBtn('e-inline-diferir-btn', true, editDiferirHasData());
+    editHidePropinaBenButtons();
+    renderEditDiferirPresets();
+    renderEditDiferirPreview();
+    editUpdateDesgloseForDiferir();
+  }
+}
+
+// Crossfade: ocultar propina/beneficio, mostrar botón Diferir completo
+function editHidePropinaBenButtons(){
+  const row=document.getElementById('e-inline-row-main');
+  const full=document.getElementById('e-inline-diferir-full');
+  if(!row || !full) return;
+  row.getAnimations().forEach(a=>a.cancel());
+  full.getAnimations().forEach(a=>a.cancel());
+  row.animate([{opacity:1},{opacity:0}],{duration:220,easing:'cubic-bezier(0.4,0,0.2,1)',fill:'forwards'});
+  row.style.pointerEvents='none';
+  full.style.pointerEvents='auto';
+  full.animate([{opacity:0,transform:'scale(0.98)'},{opacity:1,transform:'scale(1)'}],{duration:220,easing:'cubic-bezier(0.22,0.61,0.36,1)',fill:'forwards'});
+}
+function editShowPropinaBenButtons(){
+  const row=document.getElementById('e-inline-row-main');
+  const full=document.getElementById('e-inline-diferir-full');
+  if(row && full){
+    row.getAnimations().forEach(a=>a.cancel());
+    full.getAnimations().forEach(a=>a.cancel());
+    full.animate([{opacity:1,transform:'scale(1)'},{opacity:0,transform:'scale(0.98)'}],{duration:220,easing:'cubic-bezier(0.4,0,0.2,1)',fill:'forwards'});
+    full.style.pointerEvents='none';
+    row.style.pointerEvents='auto';
+    row.animate([{opacity:0},{opacity:1}],{duration:220,easing:'cubic-bezier(0.22,0.61,0.36,1)',fill:'forwards'});
+  }
+  editUpdateDesgloseForDiferir();
+}
+
+// Ocultar Desglose abajo cuando Diferir está activo en edición
+function editUpdateDesgloseForDiferir(){
+  const desgBtn=document.getElementById('e-desglose-toggle-btn');
+  const noteBtn=document.getElementById('e-note-toggle-btn');
+  if(!desgBtn || !noteBtn) return;
+  if(_eDiferirVisible || editDiferirHasData()){
+    if(_eDesgloseVisible){
+      _eDesgloseVisible=false;
+      const sec=document.getElementById('e-desglose-section');
+      if(sec) sec.style.display='none';
+    }
+    editDesgloses=[];
+    desgBtn.style.display='none';
+    noteBtn.style.flex='1 1 100%';
+  } else if(editType==='egreso'){
+    desgBtn.style.display='';
+    noteBtn.style.flex='';
+  }
+  updateEditNoteMode();
 }
 
 function renderEditDiferirPresets(){
@@ -5987,14 +6100,18 @@ function renderEditDiferirPresets(){
 }
 
 function toggleEditDiferirPreset(p){
-  // En edición no permitimos "sin meses" (siempre debe haber al menos los presets);
-  // elegir un preset lo activa. Volver a picarlo lo mantiene (un diferido siempre tiene meses).
-  editDiferirMonths=p;
-  editDiferirCustom=false;
-  const ci=document.getElementById('e-diferir-custom');
-  if(ci) ci.value='';
+  if(!editDiferirCustom && editDiferirMonths===p){
+    editDiferirMonths=0; // desactivar
+  } else {
+    editDiferirMonths=p;
+    editDiferirCustom=false;
+    const ci=document.getElementById('e-diferir-custom');
+    if(ci) ci.value='';
+  }
   renderEditDiferirPresets();
   renderEditDiferirPreview();
+  updateInlineBtn('e-inline-diferir-btn', true, editDiferirHasData());
+  editUpdateDesgloseForDiferir();
 }
 
 function onEditDiferirCustomInput(){
@@ -6003,41 +6120,57 @@ function onEditDiferirCustomInput(){
     editDiferirMonths=v;
     editDiferirCustom=!DIFERIR_PRESETS.includes(v);
   } else {
-    // vacío: no cambiar el valor efectivo, pero marcar custom en 0 temporalmente
     editDiferirMonths=0;
     editDiferirCustom=false;
   }
   renderEditDiferirPresets();
   renderEditDiferirPreview();
+  updateInlineBtn('e-inline-diferir-btn', true, editDiferirHasData());
+  editUpdateDesgloseForDiferir();
+}
+
+// Quitar diferido: vuelve el gasto a ser único (de una vez)
+function editClearDiferir(){
+  editDiferirMonths=0;
+  editDiferirCustom=false;
+  const ci=document.getElementById('e-diferir-custom');
+  if(ci) ci.value='';
+  _eDiferirVisible=false;
+  document.getElementById('e-diferir-panel').style.display='none';
+  updateInlineBtn('e-inline-diferir-btn', false, false);
+  editShowPropinaBenButtons();
 }
 
 function renderEditDiferirPreview(){
-  if(!editDeferGroup) return;
   const prev=document.getElementById('e-diferir-preview');
+  const clearBtn=document.getElementById('e-diferir-clear-btn');
   if(!prev) return;
-  const amount=parseFloat(rawAmount(document.getElementById('e-amount').value))||0;
-  const n=editDiferirMonths;
-  if(!n || n<2){
-    prev.innerHTML=`<div style="font-size:12.5px;color:var(--danger);">Elige al menos 2 meses</div>`;
+  if(!editDiferirHasData()){
+    prev.style.display='none';
+    if(clearBtn) clearBtn.style.display='none';
     return;
   }
+  const amount=parseFloat(rawAmount(document.getElementById('e-amount').value))||0;
+  const n=editDiferirMonths;
   const perMonth=Math.floor((amount/n)*100)/100;
-  // Fecha de inicio = fecha del mes 1 del grupo original
-  const grp=data.filter(x=>x.deferGroup===editDeferGroup).sort((a,b)=>a.deferIndex-b.deferIndex);
-  const base=grp.length>0 ? parseDate(grp[0].date) : (parseDate(document.getElementById('e-date').value)||new Date());
+  // Fecha de inicio: si ya era diferido, la del mes 1; si es nuevo, la fecha del registro
+  const grp=data.filter(x=>sameGroup(x.deferGroup,editDeferGroup)).sort((a,b)=>a.deferIndex-b.deferIndex);
+  const base=(editDeferGroup && grp.length>0) ? parseDate(grp[0].date) : (parseDate(document.getElementById('e-date').value)||new Date());
   const start=diferirMonthlyDate(base,0);
   const end=diferirMonthlyDate(base,n-1);
   const startLbl=`${MONTHS_ES[start.getMonth()].slice(0,3)} ${start.getFullYear()}`;
   const endLbl=`${MONTHS_ES[end.getMonth()].slice(0,3)} ${end.getFullYear()}`;
+  prev.style.display='block';
   prev.innerHTML=`
     <div style="font-size:20px;font-weight:700;letter-spacing:-0.02em;color:var(--accent);margin-bottom:3px;">${fmt(perMonth)} <span style="font-size:13px;font-weight:500;color:var(--text3);">/ mes</span></div>
     <div style="font-size:12.5px;color:var(--text2);margin-bottom:2px;">Durante <b>${n} meses</b> · ${startLbl} – ${endLbl}</div>
     <div style="font-size:11.5px;color:var(--text3);">Cada día ${base.getDate()} de cada mes</div>
   `;
+  if(clearBtn) clearBtn.style.display='block';
 }
 
 function saveEditDeferred({amount, desc, cur, note, subcat}){
-  const group=data.filter(x=>x.deferGroup===editDeferGroup).sort((a,b)=>a.deferIndex-b.deferIndex);
+  const group=data.filter(x=>sameGroup(x.deferGroup,editDeferGroup)).sort((a,b)=>a.deferIndex-b.deferIndex);
   if(group.length===0){ closeModal(); return; }
   // Nuevo número de meses (editable); si no es válido, conservar el original
   let n = (editDiferirMonths && editDiferirMonths>=2) ? editDiferirMonths : group[0].deferTotal;
@@ -6063,7 +6196,7 @@ function saveEditDeferred({amount, desc, cur, note, subcat}){
       deferGroup:groupId, deferIndex:i+1, deferTotal:n, deferOriginal:amount
     });
   }
-  data=data.filter(x=>x.deferGroup!==groupId);
+  data=data.filter(x=>!sameGroup(x.deferGroup,groupId));
   newEntries.forEach(e=>data.unshift(e));
   save();
   showSyncing('⟳ Guardando...');
@@ -6072,6 +6205,75 @@ function saveEditDeferred({amount, desc, cur, note, subcat}){
     ...newEntries.map(e=>saveEntryToSheets(e))
   ];
   Promise.all(saves).then(()=>{ hideSyncing(); toast('✓ Gasto diferido actualizado'); });
+  closeModalWithSlide();
+  renderHistorial(); renderBalance();
+}
+
+// Convierte un gasto único (no diferido) en un grupo diferido de N mensualidades.
+function saveEditConvertToDefer({amount, desc, cur, note, subcat}){
+  const orig=data.find(x=>x.id===editId);
+  const method=orig?orig.method:selMethod;
+  const startDate=parseDate(document.getElementById('e-date').value)||new Date();
+  const n=editDiferirMonths;
+  const groupId=genId();
+  // Borrar el registro original y sus hijos (propina/beneficio/desglose no aplican)
+  const oldChildIds=data.filter(x=>x.linkedTo===editId).map(x=>x.id);
+  data=data.filter(x=>x.id!==editId && x.linkedTo!==editId);
+  const perMonth=Math.floor((amount/n)*100)/100;
+  let acc=0;
+  const newEntries=[];
+  for(let i=0;i<n;i++){
+    let monthAmt=perMonth;
+    if(i===n-1) monthAmt=+(amount-acc).toFixed(2);
+    acc+=perMonth;
+    const d=diferirMonthlyDate(startDate,i);
+    const dateStr=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    newEntries.push({
+      id: genId(), type:'egreso',
+      amount:monthAmt, amountMXN:toMXN(monthAmt,cur), currency:cur,
+      desc, category:editCat, subcategory:subcat,
+      method, date:dateStr, note,
+      deferGroup:groupId, deferIndex:i+1, deferTotal:n, deferOriginal:amount
+    });
+  }
+  newEntries.forEach(e=>data.unshift(e));
+  save();
+  showSyncing('⟳ Guardando...');
+  const saves=[
+    deleteEntryInSheets(editId),
+    ...oldChildIds.map(cid=>deleteEntryInSheets(cid)),
+    ...newEntries.map(e=>saveEntryToSheets(e))
+  ];
+  Promise.all(saves).then(()=>{ hideSyncing(); toast(`✓ Gasto diferido en ${n} meses`); });
+  closeModalWithSlide();
+  renderHistorial(); renderBalance();
+}
+
+// Quita el diferido: colapsa el grupo a un solo gasto único (de una vez).
+function saveEditRemoveDefer({amount, desc, cur, note, subcat}){
+  const group=data.filter(x=>sameGroup(x.deferGroup,editDeferGroup)).sort((a,b)=>a.deferIndex-b.deferIndex);
+  if(group.length===0){ closeModal(); return; }
+  const startDate=parseDate(group[0].date); // conservar la fecha del mes 1
+  const method=group[0].method;
+  const oldIds=group.map(x=>x.id);
+  const dateStr=`${startDate.getFullYear()}-${String(startDate.getMonth()+1).padStart(2,'0')}-${String(startDate.getDate()).padStart(2,'0')}`;
+  // Borrar todo el grupo
+  data=data.filter(x=>!sameGroup(x.deferGroup,editDeferGroup));
+  // Crear un único gasto con el monto total
+  const single={
+    id: genId(), type:'egreso',
+    amount:amount, amountMXN:toMXN(amount,cur), currency:cur,
+    desc, category:editCat, subcategory:subcat,
+    method, date:dateStr, note, linkedTo:null
+  };
+  data.unshift(single);
+  save();
+  showSyncing('⟳ Guardando...');
+  const saves=[
+    ...oldIds.map(oid=>deleteEntryInSheets(oid)),
+    saveEntryToSheets(single)
+  ];
+  Promise.all(saves).then(()=>{ hideSyncing(); toast('✓ Diferido convertido en gasto único'); });
   closeModalWithSlide();
   renderHistorial(); renderBalance();
 }
@@ -6099,10 +6301,20 @@ function saveEdit(){
     setMerchantEmoji(desc, subcat || editCat, editEmojiOverride);
   }
 
-  // ── GASTO DIFERIDO: recrear todo el grupo con los nuevos valores ──
-  if(editDeferGroup){
+  // ── GASTO DIFERIDO: manejar conversiones ──
+  const wasDeferred = !!editDeferGroup;
+  const nowDeferred = editType==='egreso' && editDiferirHasData();
+  if(wasDeferred && nowDeferred){
+    // Sigue diferido: recrear el grupo con nuevos valores/meses
     return saveEditDeferred({amount, desc, cur, note, subcat});
+  } else if(wasDeferred && !nowDeferred){
+    // Quitó el diferido: colapsar el grupo a un solo gasto único
+    return saveEditRemoveDefer({amount, desc, cur, note, subcat});
+  } else if(!wasDeferred && nowDeferred){
+    // Se volvió diferido: convertir el gasto único en grupo diferido
+    return saveEditConvertToDefer({amount, desc, cur, note, subcat});
   }
+  // else: no diferido ni antes ni ahora → flujo normal
 
   // ── Validar desgloses (egreso, ingreso y beneficio) ──
   const activeEditDesgloses = editDesgloses.filter(d=>d.amount>0);
@@ -6313,14 +6525,14 @@ function deleteEntry(){
   if(!editId) return;
   // Gasto diferido: alerta especial y borrado de todo el grupo
   if(editDeferGroup){
-    const grp=data.filter(x=>x.deferGroup===editDeferGroup);
+    const grp=data.filter(x=>sameGroup(x.deferGroup,editDeferGroup));
     const anyE=grp[0];
     if(!confirm(`Este es un gasto diferido (mes ${anyE?anyE.deferIndex:'?'} de ${anyE?anyE.deferTotal:'?'}).\n\nBorrarlo eliminará las ${grp.length} mensualidades ligadas, incluyendo las anteriores y futuras. ¿Continuar?`)) return;
     const groupId=editDeferGroup;
     const groupIds=grp.map(x=>x.id);
     closeModalWithSlide();
     setTimeout(()=>{
-      data=data.filter(x=>x.deferGroup!==groupId);
+      data=data.filter(x=>!sameGroup(x.deferGroup,groupId));
       save();
       showSyncing('⟳ Eliminando...');
       Promise.all(groupIds.map(gid=>deleteEntryInSheets(gid))).then(()=>{ hideSyncing(); toast('Gasto diferido eliminado'); });
