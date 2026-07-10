@@ -60,6 +60,19 @@ html, body {
   font-size: 15px; -webkit-font-smoothing: antialiased; letter-spacing: -0.01em;
 }
 
+/* Franja superior que cubre la "safe area" del iPhone (isla dinámica, reloj,
+   batería). Evita que el contenido, al hacer scroll, se encime con esos elementos.
+   Del color del encabezado para que se vea continuo y limpio. */
+body::before {
+  content: '';
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: env(safe-area-inset-top, 0px);
+  background: var(--surface);
+  z-index: 90;
+  pointer-events: none;
+}
+
 /* NAV */
 nav {
   position: fixed; bottom: 0; left: 0; right: 0; z-index: 100;
@@ -89,7 +102,7 @@ nav {
 
 /* HEADER */
 .page-header {
-  padding: 56px 20px 16px; background: var(--surface);
+  padding: calc(56px + env(safe-area-inset-top, 0px)) 20px 16px; background: var(--surface);
   border-bottom: 0.5px solid var(--border2); margin-bottom: 20px;
 }
 .page-header h1 {
