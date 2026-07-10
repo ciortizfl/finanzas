@@ -67,20 +67,16 @@ function restoreRegisterForm(){
   const btnTxt=document.getElementById('submit-btn-txt');
   const check=document.getElementById('submit-check');
 
-  // Regresar suavemente hacia arriba: tras enviar (sobre todo en móvil, donde se
-  // hizo scroll hacia abajo), subir a la parte superior de forma elegante mientras
-  // el formulario reaparece en cascada. Respeta reduce-motion.
-  const reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // Regresar al inicio ANTES de la cascada: saltar arriba de forma directa
+  // (instantáneo, sin animación tosca) para que el formulario reaparezca desde
+  // arriba en cascada. Se ve intencional y elegante en móvil y web.
   try {
     const scroller = document.scrollingElement || document.documentElement;
-    if(scroller && scroller.scrollTop > 0){
-      window.scrollTo({ top:0, behavior: reduced ? 'auto' : 'smooth' });
-    }
-    // Por si el scroll vive en el contenedor de la página (no en window)
+    if(scroller) scroller.scrollTop = 0;
+    if(document.body) document.body.scrollTop = 0;
     const page = document.getElementById('page-registro');
-    if(page && page.scrollTop > 0){
-      page.scrollTo({ top:0, behavior: reduced ? 'auto' : 'smooth' });
-    }
+    if(page) page.scrollTop = 0;
+    window.scrollTo(0, 0);
   } catch(e){}
 
   // 1) Ocultar palomita y restaurar el botón a su forma normal instantáneamente.
