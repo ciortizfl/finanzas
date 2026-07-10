@@ -352,17 +352,60 @@ nav {
 
 /* Stack para el crossfade de Diferir (renglón de 3 botones + botón completo encima) */
 .stack{ position:relative; }
-.emoji-group-lbl{font-size:12px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.04em;margin:14px 0 8px;}
+.emoji-group-lbl{font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.05em;margin:18px 4px 10px;}
 .emoji-group-lbl:first-child{margin-top:0;}
-.emoji-grid{display:grid;grid-template-columns:repeat(8,1fr);gap:4px;}
-@media(max-width:420px){ .emoji-grid{grid-template-columns:repeat(7,1fr);} }
+.emoji-grid{display:grid;grid-template-columns:repeat(8,1fr);gap:2px;}
 .emoji-cell{
   aspect-ratio:1;display:flex;align-items:center;justify-content:center;
-  font-size:22px;border:none;background:none;cursor:pointer;border-radius:10px;
-  transition:background 0.12s;padding:0;
+  font-size:23px;border:none;background:none;cursor:pointer;border-radius:12px;
+  transition:background 0.12s,transform 0.08s;padding:0;line-height:1;
 }
-.emoji-cell:active{background:var(--surface2);}
-.emoji-cell.current{background:var(--accent);box-shadow:0 0 0 2px var(--accent);}
+.emoji-cell:hover{background:var(--surface2);}
+.emoji-cell:active{transform:scale(0.88);}
+.emoji-cell.current{background:var(--accent);}
+
+/* Overlay del selector */
+.emoji-overlay{
+  position:fixed;inset:0;z-index:120;background:rgba(0,0,0,0.4);
+  opacity:0;pointer-events:none;transition:opacity 0.25s;
+  display:flex;align-items:flex-end;justify-content:center;
+}
+.emoji-overlay.open{opacity:1;pointer-events:auto;}
+.emoji-dialog{
+  background:var(--surface);width:100%;max-height:72vh;
+  border-radius:22px 22px 0 0;display:flex;flex-direction:column;
+  transform:translateY(100%);transition:transform 0.32s cubic-bezier(0.22,0.61,0.36,1);
+  box-shadow:0 -8px 40px rgba(0,0,0,0.18);
+}
+.emoji-overlay.open .emoji-dialog{transform:translateY(0);}
+.emoji-dialog-hdr{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:18px 20px 12px;flex:0 0 auto;
+  font-size:17px;font-weight:700;color:var(--text);
+  border-bottom:1px solid var(--border2);
+}
+.emoji-close{
+  background:var(--surface2);border:none;width:30px;height:30px;border-radius:50%;
+  font-size:15px;color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:center;
+  line-height:1;transition:background 0.12s;
+}
+.emoji-close:hover{background:var(--border2);}
+.emoji-dialog-body{
+  overflow-y:auto;flex:1 1 auto;-webkit-overflow-scrolling:touch;
+  padding:16px 18px 24px;
+}
+/* En web: diálogo centrado, contenido y discreto (no ocupa todo) */
+@media(min-width:768px){
+  .emoji-overlay{align-items:center;}
+  .emoji-dialog{
+    width:440px;max-width:90vw;max-height:66vh;border-radius:20px;
+    transform:translateY(12px) scale(0.98);opacity:0;
+    transition:transform 0.28s cubic-bezier(0.22,0.61,0.36,1),opacity 0.28s;
+  }
+  .emoji-overlay.open .emoji-dialog{transform:translateY(0) scale(1);opacity:1;}
+  .emoji-grid{grid-template-columns:repeat(9,1fr);gap:3px;}
+  .emoji-cell{font-size:22px;}
+}
 .diferir-full{
   position:absolute; inset:0; display:flex; align-items:center; justify-content:center; gap:6px;
   padding:7px 14px; border-radius:100px; border:1.5px solid var(--accent);
@@ -1509,13 +1552,13 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
 </div>
 
 <!-- SELECTOR DE EMOJIS -->
-<div class="modal-overlay" id="emoji-modal" onclick="closeEmojiPicker(event)">
-  <div class="modal-sheet" id="emoji-sheet" onclick="event.stopPropagation()" style="max-height:70vh;display:flex;flex-direction:column;">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex:0 0 auto;">
-      <div style="font-size:17px;font-weight:700;">Elegir emoji</div>
-      <button type="button" onclick="closeEmojiPicker()" style="background:none;border:none;font-size:22px;color:var(--text3);cursor:pointer;line-height:1;padding:2px;">✕</button>
+<div class="emoji-overlay" id="emoji-modal" onclick="closeEmojiPicker(event)">
+  <div class="emoji-dialog" onclick="event.stopPropagation()">
+    <div class="emoji-dialog-hdr">
+      <span>Elegir emoji</span>
+      <button type="button" class="emoji-close" onclick="closeEmojiPicker()" aria-label="Cerrar">✕</button>
     </div>
-    <div id="emoji-picker-body" style="overflow-y:auto;flex:1 1 auto;-webkit-overflow-scrolling:touch;"></div>
+    <div id="emoji-picker-body" class="emoji-dialog-body"></div>
   </div>
 </div>
 
@@ -1759,13 +1802,15 @@ function dynamicSubcatEmoji(subcat){
   return best;
 }
 
-// Emoji FINAL para mostrar un registro, en orden de prioridad:
-// 1) personalizado por comercio+subcat  2) default dinámico de subcat
-// 3) emoji estático de subcat/categoría
+// Emoji FINAL para mostrar un registro EN EL HISTORIAL.
+// Solo dos capas para NO repintar registros pasados por tendencias de subcategoría:
+//   1) personalizado exacto por comercio+subcat (lo que el usuario asignó a ESE comercio)
+//   2) emoji estático de subcat/categoría (el default de siempre)
+// El default dinámico NO se usa aquí: personalizar un comercio no debe alterar
+// otros registros de la misma subcategoría, ni pasados ni presentes.
 function emojiForEntry(e){
   const sc = e.subcategory || e.category;
   return getMerchantEmoji(e.desc, sc)
-      || dynamicSubcatEmoji(e.subcategory)
       || ICONS[e.subcategory] || ICONS[e.category] || '📌';
 }
 
@@ -1778,7 +1823,6 @@ function currentEditEmoji(){
   const desc=document.getElementById('e-desc')?.value||'';
   const sc = editSubcat || editCat;
   return getMerchantEmoji(desc, sc)
-      || dynamicSubcatEmoji(editSubcat)
       || ICONS[editSubcat] || ICONS[editCat] || '📌';
 }
 
@@ -1793,22 +1837,24 @@ function openEmojiPicker(){
   const body=document.getElementById('emoji-picker-body');
   if(!body) return;
   const current=currentEditEmoji();
-  // Grupo relevante según la categoría del registro (se muestra primero)
   const primaryGroup=CAT_EMOJI_GROUP[editCat]||null;
+  const allGroups=Object.keys(EMOJI_GROUPS);
+  // Orden de grupos: primero el relevante a la categoría, luego el resto
+  const ordered = primaryGroup && EMOJI_GROUPS[primaryGroup]
+    ? [primaryGroup, ...allGroups.filter(g=>g!==primaryGroup)]
+    : allGroups;
+
   let html='';
-  // 1) Emoji actual, destacado al principio
-  html+=`<div class="emoji-group-lbl">Actual</div><div class="emoji-grid">`;
-  html+=`<button type="button" class="emoji-cell current" onclick="pickEmoji('${current}')">${current}</button>`;
-  html+=`</div>`;
-  // 2) Grupo relevante a la categoría
-  const orderedGroups=Object.keys(EMOJI_GROUPS);
-  if(primaryGroup && EMOJI_GROUPS[primaryGroup]){
-    html+=renderEmojiGroup(primaryGroup, EMOJI_GROUPS[primaryGroup], current);
-  }
-  // 3) El resto de grupos
-  orderedGroups.forEach(g=>{
-    if(g===primaryGroup) return;
-    html+=renderEmojiGroup(g, EMOJI_GROUPS[g], current);
+  let currentPlaced=false;
+  ordered.forEach((g,i)=>{
+    let emojis=EMOJI_GROUPS[g].slice();
+    // En el PRIMER grupo mostrado, poner el emoji actual al principio (preseleccionado)
+    if(i===0 && !currentPlaced){
+      emojis=emojis.filter(e=>e!==current);
+      emojis.unshift(current);
+      currentPlaced=true;
+    }
+    html+=renderEmojiGroup(g, emojis, current);
   });
   body.innerHTML=html;
   body.scrollTop=0;
