@@ -366,7 +366,7 @@ nav {
 
 /* Overlay del selector */
 .emoji-overlay{
-  position:fixed;inset:0;z-index:120;background:rgba(0,0,0,0.4);
+  position:fixed;inset:0;z-index:250;background:rgba(0,0,0,0.4);
   opacity:0;pointer-events:none;transition:opacity 0.25s;
   display:flex;align-items:flex-end;justify-content:center;
 }
@@ -1775,6 +1775,18 @@ function setMerchantEmoji(desc, subcatOrCat, emoji){
   if(emoji){ merchantEmojis[key]=emoji; }
   else { delete merchantEmojis[key]; }
   try { localStorage.setItem('merchantEmojis', JSON.stringify(merchantEmojis)); } catch(e){}
+  // Sincronizar con Sheets (para coherencia entre dispositivos)
+  saveEmojiToSheets(key, emoji||'');
+}
+
+// Guarda (o borra, si emoji es '') un emoji personalizado en Sheets
+async function saveEmojiToSheets(key, emoji){
+  try {
+    await fetch(SHEETS_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'saveEmoji', key, emoji })
+    });
+  } catch(e){ console.warn('Sheets emoji save failed', e); }
 }
 
 // Emoji default DINÁMICO de una subcategoría: el más usado (personalizado por comercio)
@@ -4297,7 +4309,20 @@ async function loadFromSheets(silent) {
     const changed = norm(newData) !== norm(data);
     data = newData;
     localStorage.setItem(SK, JSON.stringify(data));
-    if(changed){
+
+    // Sincronizar emojis personalizados desde Sheets (fuente de verdad entre dispositivos)
+    let emojisChanged=false;
+    if(json.emojis && typeof json.emojis==='object'){
+      const before=JSON.stringify(merchantEmojis);
+      const after=JSON.stringify(json.emojis);
+      if(before!==after){
+        merchantEmojis = json.emojis;
+        try { localStorage.setItem('merchantEmojis', JSON.stringify(merchantEmojis)); } catch(e){}
+        emojisChanged=true;
+      }
+    }
+
+    if(changed || emojisChanged){
       populateSelectors();
       renderBalance();
       renderHistorial(); // sin animación: es una actualización, no una entrada nueva
