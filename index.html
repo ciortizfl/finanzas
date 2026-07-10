@@ -971,7 +971,7 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
             <option value="CAD">🇨🇦 CAD</option>
             <option value="EUR">🇪🇺 EUR</option>
           </select>
-          <input type="number" id="amount" placeholder="0.00" inputmode="decimal" step="0.01" min="0" oninput="calcPropinaPreview();updateDesgloseRemaining()">
+          <input type="number" id="amount" placeholder="0.00" inputmode="decimal" step="0.01" min="0" oninput="calcPropinaPreview();updateDesgloseRemaining();renderDiferirPreview()">
         </div>
         <div class="rate-note" id="rate-note"><span class="rate-dot"></span><span id="rate-text"></span></div>
       </div>
@@ -2519,7 +2519,8 @@ function onDiferirCustomInput(){
   const v=parseInt(document.getElementById('diferir-custom').value);
   if(v && v>=2){
     diferirMonths=v;
-    diferirCustom=true;
+    // Si el número coincide con un preset, activar ese preset (no marcar como custom)
+    diferirCustom = !DIFERIR_PRESETS.includes(v);
   } else {
     diferirMonths=0;
     diferirCustom=false;
