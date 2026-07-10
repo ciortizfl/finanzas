@@ -1524,7 +1524,7 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
         </div>
 
         <!-- Botones toggle Nota / Desglose (mismo estilo que Propina/Beneficio) -->
-        <div class="inline-row" style="margin-bottom:0">
+        <div class="inline-row" id="e-note-desglose-row" style="margin-bottom:0">
           <button type="button" id="e-note-toggle-btn" class="inline-tgl" onclick="toggleENoteField()">
             <span>📝</span><span>Nota</span>
           </button>
@@ -1533,7 +1533,7 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
           </button>
         </div>
         <div id="e-note-field-wrap" style="display:none;margin-top:10px">
-          <textarea id="e-note" placeholder="Detalles adicionales..." oninput="updateEditNoteDesgloseIndicators()" style="width:100%;padding:11px 13px;border:none;border-radius:var(--radius-sm);background:var(--surface2);color:var(--text);font-family:inherit;font-size:15px;outline:none;resize:none;height:64px;"></textarea>
+          <textarea id="e-note" placeholder="Nota opcional" oninput="updateEditNoteDesgloseIndicators()" style="width:100%;padding:11px 13px;border:none;border-radius:var(--radius-sm);background:var(--surface2);color:var(--text);font-family:inherit;font-size:15px;outline:none;resize:none;height:64px;"></textarea>
         </div>
         <!-- Desgloses -->
         <div id="e-desglose-section" style="display:none;margin-top:10px;">
@@ -3720,6 +3720,7 @@ function updateEditDesgloseVisibility(){
   _eDesgloseVisible = hasDesg;
   sec.style.display = hasDesg ? 'block' : 'none';
   updateEditNoteDesgloseIndicators();
+  updateEditNoteMode();
 }
 
 
@@ -3945,7 +3946,7 @@ function submitDeferredEntry({amount, desc, cur, date, note, subcat}){
     const d=diferirMonthlyDate(base,i);
     const dateStr=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
     const entry={
-      id: genId()+i, type:'egreso',
+      id: genId(), type:'egreso',
       amount:monthAmt, amountMXN:toMXN(monthAmt,cur), currency:cur,
       desc, category:curCat, subcategory:subcat,
       method:selMethod, date:dateStr, note,
@@ -4270,7 +4271,7 @@ async function loadFromSheets(silent) {
       } else {
         dateVal = String(dateVal).slice(0,10);
       }
-      return {
+      const obj = {
         id:         Number(r[0]),
         date:       dateVal,
         type:       r[2],
@@ -4287,6 +4288,14 @@ async function loadFromSheets(silent) {
         benDesc:    r[13]||'',
         linkedTo:   r[14]?Number(r[14]):null,
       };
+      // Campos de gasto diferido (columnas 15-18), solo si vienen con datos
+      if(r[15]){
+        obj.deferGroup   = Number(r[15]);
+        obj.deferIndex   = r[16]?Number(r[16]):1;
+        obj.deferTotal   = r[17]?Number(r[17]):1;
+        obj.deferOriginal= r[18]?Number(r[18]):obj.amount;
+      }
+      return obj;
     }).sort((a,b)=>b.id-a.id);
 
     // Detectar si los datos realmente cambiaron respecto a lo que ya se muestra.
@@ -4304,7 +4313,11 @@ async function loadFromSheets(silent) {
       amountMXN:Number(e.amountMXN)||0,
       method:e.method||null,
       note:e.note||'',
-      linkedTo:e.linkedTo?Number(e.linkedTo):null
+      linkedTo:e.linkedTo?Number(e.linkedTo):null,
+      deferGroup:e.deferGroup?Number(e.deferGroup):null,
+      deferIndex:e.deferIndex?Number(e.deferIndex):null,
+      deferTotal:e.deferTotal?Number(e.deferTotal):null,
+      deferOriginal:e.deferOriginal?Number(e.deferOriginal):null
     })).sort((a,b)=>b.id-a.id));
     const changed = norm(newData) !== norm(data);
     data = newData;
@@ -5436,6 +5449,31 @@ function updateEditNoteDesgloseIndicators(){
   updateInlineBtn('e-desglose-toggle-btn', _eDesgloseVisible, eDesgloseHasData());
 }
 
+// Modo de la nota en EDICIÓN (análogo al registro):
+//  - DIRECTO: nota sola (ingreso, beneficio o egreso diferido) → textarea directo.
+//  - TOGGLE: egreso normal (Nota + Desglose) → botones.
+function updateEditNoteMode(){
+  const row=document.getElementById('e-note-desglose-row');
+  const noteBtn=document.getElementById('e-note-toggle-btn');
+  const wrap=document.getElementById('e-note-field-wrap');
+  if(!row || !noteBtn || !wrap) return;
+  const ta=document.getElementById('e-note');
+  const hasData = ta && ta.value.trim().length>0;
+  const noteDirecto = (editType!=='egreso') || !!editDeferGroup;
+  if(noteDirecto){
+    noteBtn.style.display='none';
+    wrap.style.display='block';
+    wrap.style.marginTop='0';
+    _eNoteVisible=true;
+  } else {
+    noteBtn.style.display='';
+    wrap.style.marginTop='10px';
+    if(!_eNoteVisible && !hasData){
+      wrap.style.display='none';
+    }
+  }
+}
+
 function toggleENoteField(open){
   const wrap=document.getElementById('e-note-field-wrap');
   if(!wrap) return;
@@ -5572,6 +5610,7 @@ function openEdit(id) {
   } else {
     toggleENoteField(false);
   }
+  updateEditNoteMode();
 
   // --- Método de pago ---
   document.getElementById('e-method-field').style.display = e.type==='ahorro-pasivo'?'none':'block';
@@ -5818,7 +5857,7 @@ function saveEditDeferred({amount, desc, cur, note, subcat}){
     const d=diferirMonthlyDate(startDate,i);
     const dateStr=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
     newEntries.push({
-      id: genId()+i, type:'egreso',
+      id: genId(), type:'egreso',
       amount:monthAmt, amountMXN:toMXN(monthAmt,cur), currency:cur,
       desc, category:editCat, subcategory:subcat,
       method, date:dateStr, note,
