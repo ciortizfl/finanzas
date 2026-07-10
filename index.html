@@ -1314,7 +1314,7 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
   <div id="hist-search-wrap" style="padding:0 16px;margin-bottom:10px;">
     <div style="display:flex;align-items:center;gap:8px;background:var(--surface);border-radius:var(--radius-sm);box-shadow:var(--shadow);padding:10px 14px;">
       <span style="color:var(--text3);font-size:15px;">🔍</span>
-      <input type="text" id="hist-search" placeholder="Buscar descripción, notas..." oninput="updateResetButton();renderHistorial()" style="flex:1;border:none;background:none;font-family:inherit;font-size:14px;color:var(--text);outline:none;">
+      <input type="text" id="hist-search" placeholder="Buscar descripción, notas..." oninput="onHistSearchInput()" style="flex:1;border:none;background:none;font-family:inherit;font-size:14px;color:var(--text);outline:none;">
       <button onclick="clearSearch()" id="hist-search-clear" style="display:none;background:none;border:none;cursor:pointer;color:var(--text3);font-size:16px;padding:0;line-height:1;">✕</button>
     </div>
   </div>
@@ -4888,21 +4888,46 @@ function entriesInCurrentDateScope(type){
   const ySel=document.getElementById('hist-year-sel');
   const selMonth=mSel?parseInt(mSel.value):new Date().getMonth();
   const selYear=ySel?parseInt(ySel.value):new Date().getFullYear();
+  const rangeActive = histRangeMode && histRangeApplied;
+  // En modo rango, la búsqueda también acota el universo de categorías preseleccionadas
+  const searchEl=document.getElementById('hist-search');
+  const sq=(searchEl?.value||'').trim().toLowerCase();
   return data.filter(e=>{
     if(isFutureEntry(e)) return false;
     if(type && e.type!==type) return false;
     const d=parseDate(e.date);
-    if(histRangeMode && histRangeApplied){
+    if(rangeActive){
       const fromEl=document.getElementById('hist-range-from');
       const toEl=document.getElementById('hist-range-to');
       const from=fromEl&&fromEl.value?parseDate(fromEl.value):null;
       const to=toEl&&toEl.value?parseDate(toEl.value):null;
       if(from && d<from) return false;
       if(to && d>to) return false;
+      // Aplicar búsqueda dentro del rango si hay texto
+      if(sq){
+        const hay=[e.desc||'',e.note||'',e.category||'',e.subcategory||'',e.method||''].join(' ').toLowerCase();
+        if(!hay.includes(sq)) return false;
+      }
       return true;
     }
     return d.getMonth()===selMonth&&d.getFullYear()===selYear;
   });
+}
+
+// Manejo del input de búsqueda. En modo rango, cambiar la búsqueda resetea la vista
+// a "Todos" para que el nuevo universo de resultados se muestre completo y los chips
+// de tipo se recalculen sobre él.
+function onHistSearchInput(){
+  if(histRangeMode && histRangeApplied){
+    histFilter='todos'; histSelCats=[]; histSelSubcats=[];
+    document.querySelectorAll('.filter-bar .f-chip').forEach(c=>c.classList.remove('active'));
+    const todosChip=document.getElementById('fchip-todos');
+    if(todosChip) todosChip.classList.add('active');
+    const subPanel=document.getElementById('sub-filter-panel');
+    if(subPanel) subPanel.classList.remove('vis');
+  }
+  updateResetButton();
+  renderHistorial();
 }
 
 function setFilter(f,el){
@@ -4911,11 +4936,18 @@ function setFilter(f,el){
   document.querySelectorAll('.f-chip').forEach(c=>c.classList.remove('active'));
   el.classList.add('active');
 
-  // Auto-seleccionar categorías con registros para tipos no-egreso
-  // (ingresos y beneficios: todas activas por defecto), respetando el rango.
-  if(f!=='todos'&&f!=='egreso'){
+  const rangeActive = histRangeMode && histRangeApplied;
+  // Auto-seleccionar categorías con registros:
+  //  - Ingresos y beneficios: siempre (todas activas por defecto).
+  //  - Egresos: normalmente empieza vacío, PERO en modo rango también preselecciona
+  //    (todas las categorías con datos activas, para el flujo de búsqueda por rango).
+  if(f!=='todos' && (f!=='egreso' || rangeActive)){
     const typed=entriesInCurrentDateScope(f);
     histSelCats=[...new Set(typed.map(e=>e.category))];
+    // En egresos, además preseleccionar las subcategorías con datos
+    if(f==='egreso'){
+      histSelSubcats=[...new Set(typed.map(e=>e.subcategory).filter(Boolean))];
+    }
   }
 
   buildSubFilterPanel();
@@ -4985,26 +5017,8 @@ function buildSubFilterPanel(){
     ? Object.keys(CATS.ingreso)
     : Object.keys(CATS[histFilter]||{});
 
-  // Conjunto base según el filtro de fecha activo (rango aplicado o mes/año)
-  const mSel=document.getElementById('hist-month-sel');
-  const ySel=document.getElementById('hist-year-sel');
-  const selMonth=mSel?parseInt(mSel.value):new Date().getMonth();
-  const selYear=ySel?parseInt(ySel.value):new Date().getFullYear();
-  const typed=data.filter(e=>{
-    if(isFutureEntry(e)) return false;
-    if(e.type!==histFilter) return false;
-    const d=parseDate(e.date);
-    if(histRangeMode && histRangeApplied){
-      const fromEl=document.getElementById('hist-range-from');
-      const toEl=document.getElementById('hist-range-to');
-      const from=fromEl&&fromEl.value?parseDate(fromEl.value):null;
-      const to=toEl&&toEl.value?parseDate(toEl.value):null;
-      if(from && d<from) return false;
-      if(to && d>to) return false;
-      return true;
-    }
-    return d.getMonth()===selMonth&&d.getFullYear()===selYear;
-  });
+  // Conjunto base según fecha (rango/mes) Y búsqueda (en modo rango): usa el helper
+  const typed=entriesInCurrentDateScope(histFilter);
   const catsWithRec=new Set(typed.map(e=>e.category));
 
   // Solo mostrar categorías CON registros en el periodo (las vacías se ocultan,
@@ -5068,25 +5082,9 @@ function buildSubcatFilter(){
   });
   const catsToShow=histSelCats;
 
-  const mSel=document.getElementById('hist-month-sel');
-  const ySel=document.getElementById('hist-year-sel');
-  const selMonth=mSel?parseInt(mSel.value):new Date().getMonth();
-  const selYear=ySel?parseInt(ySel.value):new Date().getFullYear();
-  const baseFiltered=data.filter(e=>{
-    if(isFutureEntry(e)) return false;
-    if(e.type!=='egreso' || !histSelCats.includes(e.category)) return false;
-    const d=parseDate(e.date);
-    if(histRangeMode && histRangeApplied){
-      const fromEl=document.getElementById('hist-range-from');
-      const toEl=document.getElementById('hist-range-to');
-      const from=fromEl&&fromEl.value?parseDate(fromEl.value):null;
-      const to=toEl&&toEl.value?parseDate(toEl.value):null;
-      if(from && d<from) return false;
-      if(to && d>to) return false;
-      return true;
-    }
-    return d.getMonth()===selMonth&&d.getFullYear()===selYear;
-  });
+  // Base: egresos en el alcance de fecha Y búsqueda (helper), dentro de las cats elegidas
+  const baseFiltered=entriesInCurrentDateScope('egreso')
+    .filter(e=>histSelCats.includes(e.category));
   const hasRecords=new Set(baseFiltered.map(e=>e.subcategory).filter(Boolean));
 
   if(allPossible.length===0){ wrap.style.display='none'; renderHistorial(); return; }
@@ -5218,18 +5216,25 @@ function appendSubChip(sub, hasRecords, container){
 // Activa/desactiva los chips de tipo (Egresos, Ingresos, Beneficios) según si
 // hay registros de ese tipo en el mes. "Todos" se desactiva solo si el mes está vacío.
 function updateTypeChips(selMonth, selYear, isSearchMode){
+  const rangeActive = histRangeMode && histRangeApplied;
+  const searchEl=document.getElementById('hist-search');
+  const sq=(searchEl?.value||'').trim().toLowerCase();
   // El conjunto base respeta el filtro de fecha activo: rango (si aplicado) o mes/año.
-  // Así los chips de tipo reflejan lo que realmente hay en el periodo filtrado.
+  // En modo rango, la búsqueda también acota qué tipos existen.
   const baseEntries = data.filter(e=>{
     if(isFutureEntry(e)) return false;
     const d=parseDate(e.date);
-    if(histRangeMode && histRangeApplied){
+    if(rangeActive){
       const fromEl=document.getElementById('hist-range-from');
       const toEl=document.getElementById('hist-range-to');
       const from=fromEl&&fromEl.value?parseDate(fromEl.value):null;
       const to=toEl&&toEl.value?parseDate(toEl.value):null;
       if(from && d<from) return false;
       if(to && d>to) return false;
+      if(sq){
+        const hay=[e.desc||'',e.note||'',e.category||'',e.subcategory||'',e.method||''].join(' ').toLowerCase();
+        if(!hay.includes(sq)) return false;
+      }
       return true;
     }
     return d.getMonth()===selMonth&&d.getFullYear()===selYear;
@@ -5244,8 +5249,9 @@ function updateTypeChips(selMonth, selYear, isSearchMode){
   const setChip=(id, enabled)=>{
     const chip=document.getElementById(id);
     if(!chip) return;
-    // En modo búsqueda todos quedan habilitados (la búsqueda es global)
-    const on = isSearchMode ? true : enabled;
+    // En búsqueda NORMAL (fuera de rango) todos quedan habilitados (búsqueda global).
+    // En modo rango, los chips reflejan qué tipos existen entre los resultados.
+    const on = (isSearchMode && !rangeActive) ? true : enabled;
     chip.disabled = !on;
     chip.style.opacity = on ? '1' : '0.38';
     chip.style.pointerEvents = on ? '' : 'none';
@@ -5256,8 +5262,8 @@ function updateTypeChips(selMonth, selYear, isSearchMode){
   setChip('fchip-ingreso', counts.ingreso);
   setChip('fchip-ahorro-pasivo', counts['ahorro-pasivo']);
 
-  // Si el filtro activo quedó sin registros en este mes, volver a "Todos"
-  if(!isSearchMode && histFilter!=='todos'){
+  // Si el filtro activo quedó sin registros, volver a "Todos"
+  if(!(isSearchMode && !rangeActive) && histFilter!=='todos'){
     const stillHasData = histFilter==='egreso' ? counts.egreso
       : histFilter==='ingreso' ? counts.ingreso
       : histFilter==='ahorro-pasivo' ? counts['ahorro-pasivo']
@@ -5316,22 +5322,25 @@ function renderHistorial(animate){
   const selMonth=mSel?parseInt(mSel.value):new Date().getMonth();
   const selYear=ySel?parseInt(ySel.value):new Date().getFullYear();
 
-  // Desactivar chips de tipo que no tienen registros en el mes seleccionado
-  updateTypeChips(selMonth, selYear, isSearchMode);
+  // ¿Estamos en modo rango aplicado? Entonces búsqueda + rango son el filtro BASE,
+  // y los chips de tipo/categoría refinan encima (comportamiento combinado).
+  const rangeActive = histRangeMode && histRangeApplied;
+
+  // Desactivar chips de tipo que no tienen registros en el alcance actual
+  updateTypeChips(selMonth, selYear, isSearchMode && !rangeActive);
 
   let filtered;
-  if(isSearchMode){
-    // Búsqueda amplia: descripción, nota, categoría y subcategoría
+  if(isSearchMode && !rangeActive){
+    // Búsqueda NORMAL (fuera de rango): filtro amplio, ignora tipo/mes
     filtered=data.filter(e=>{
-      if(isFutureEntry(e)) return false; // no mostrar mensualidades futuras
+      if(isFutureEntry(e)) return false;
       const haystack=[
         e.desc||'', e.note||'', e.category||'', e.subcategory||'', e.method||''
       ].join(' ').toLowerCase();
       return haystack.includes(searchQuery);
     });
   } else {
-    // Modo rango activado pero AÚN NO aplicado: no mostrar nada, para no dar la
-    // falsa impresión de que los registros del mes son el resultado del rango.
+    // Modo rango activado pero AÚN NO aplicado: no mostrar nada.
     if(histRangeMode && !histRangeApplied){
       hl.innerHTML='<div class="empty"><div class="e-ico">📅</div>Elige un rango y toca "Aplicar rango"</div>';
       hlReal.replaceChildren(...hl.childNodes);
@@ -5340,9 +5349,9 @@ function renderHistorial(animate){
     }
     // 1) FILTRO BASE POR FECHA (rango aplicado o mes/año)
     filtered=data.filter(e=>{
-      if(isFutureEntry(e)) return false; // no mostrar mensualidades futuras
+      if(isFutureEntry(e)) return false;
       const d=parseDate(e.date);
-      if(histRangeMode && histRangeApplied){
+      if(rangeActive){
         const fromEl=document.getElementById('hist-range-from');
         const toEl=document.getElementById('hist-range-to');
         const from=fromEl&&fromEl.value?parseDate(fromEl.value):null;
@@ -5353,7 +5362,16 @@ function renderHistorial(animate){
       }
       return d.getMonth()===selMonth&&d.getFullYear()===selYear;
     });
-    // 2) FILTRO POR TIPO (sobre los ya filtrados por fecha)
+    // 1b) FILTRO POR BÚSQUEDA (si hay texto, dentro del rango)
+    if(rangeActive && isSearchMode){
+      filtered=filtered.filter(e=>{
+        const haystack=[
+          e.desc||'', e.note||'', e.category||'', e.subcategory||'', e.method||''
+        ].join(' ').toLowerCase();
+        return haystack.includes(searchQuery);
+      });
+    }
+    // 2) FILTRO POR TIPO (sobre los ya filtrados por fecha/búsqueda)
     if(histFilter!=='todos') filtered=filtered.filter(e=>e.type===histFilter);
     if(histFilter!=='todos' && histFilter!=='egreso' && histSelCats.length===0){
       hl.innerHTML='<div class="empty"><div class="e-ico">🔍</div>Sin categorías seleccionadas</div>';
@@ -5378,7 +5396,12 @@ function renderHistorial(animate){
     return;
   }
 
-  renderPie(filtered);
+  // En modo rango no se muestran las gráficas de dona (solo la lista)
+  if(histRangeMode && histRangeApplied){
+    renderPie([]);
+  } else {
+    renderPie(filtered);
+  }
 
   const groups={};
   filtered.forEach(e=>{
@@ -5693,6 +5716,11 @@ function toggleDateRange(){
     if(rangeRow) rangeRow.style.display='none';
     histRangeApplied=false;
     stopRangeBreathe();
+    // Limpiar el campo de búsqueda para empezar de cero en la vista por meses
+    const search=document.getElementById('hist-search');
+    if(search) search.value='';
+    const searchClear=document.getElementById('hist-search-clear');
+    if(searchClear) searchClear.style.display='none';
     // Restaurar el buscador a su posición original (arriba)
     restoreSearchPosition();
     // Volver a meses también resetea a "Todos" para no arrastrar filtros del rango
