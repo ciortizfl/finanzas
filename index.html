@@ -4301,6 +4301,19 @@ async function loadFromSheets(silent) {
     const r = await fetch(SHEETS_URL);
     const json = await r.json();
     hideSyncing();
+    // ── DIAGNÓSTICO TEMPORAL 2 ──
+    try {
+      const diag = {
+        ok: json.ok,
+        numFilas: json.rows ? json.rows.length : 'sin rows',
+        numColumnasPrimeraFila: (json.rows && json.rows[1]) ? json.rows[1].length : '?',
+        fechaPrimeraFila: (json.rows && json.rows[1]) ? json.rows[1][1] : '?',
+        primeraFilaCompleta: (json.rows && json.rows[1]) ? json.rows[1] : 'no hay',
+        error: json.error || 'ninguno'
+      };
+      alert('DIAGNÓSTICO 2:\n\n' + JSON.stringify(diag, null, 2));
+    } catch(de){ alert('Error diag: ' + de.message); }
+    // ── FIN ──
     if (!json.ok || !json.rows || json.rows.length < 2) return;
     const rows = json.rows.slice(1); // skip header
     const newData = rows.map(r => {
