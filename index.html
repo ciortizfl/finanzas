@@ -352,6 +352,17 @@ nav {
 
 /* Stack para el crossfade de Diferir (renglón de 3 botones + botón completo encima) */
 .stack{ position:relative; }
+.emoji-group-lbl{font-size:12px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.04em;margin:14px 0 8px;}
+.emoji-group-lbl:first-child{margin-top:0;}
+.emoji-grid{display:grid;grid-template-columns:repeat(8,1fr);gap:4px;}
+@media(max-width:420px){ .emoji-grid{grid-template-columns:repeat(7,1fr);} }
+.emoji-cell{
+  aspect-ratio:1;display:flex;align-items:center;justify-content:center;
+  font-size:22px;border:none;background:none;cursor:pointer;border-radius:10px;
+  transition:background 0.12s;padding:0;
+}
+.emoji-cell:active{background:var(--surface2);}
+.emoji-cell.current{background:var(--accent);box-shadow:0 0 0 2px var(--accent);}
 .diferir-full{
   position:absolute; inset:0; display:flex; align-items:center; justify-content:center; gap:6px;
   padding:7px 14px; border-radius:100px; border:1.5px solid var(--accent);
@@ -1342,7 +1353,10 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
         <!-- Descripción primero, igual que en registro -->
         <div class="field">
           <label>Descripción</label>
-          <input type="text" id="e-desc" placeholder="¿En qué fue?">
+          <div style="display:flex;gap:8px;align-items:stretch;">
+            <input type="text" id="e-desc" placeholder="¿En qué fue?" oninput="refreshEditEmojiBtn()" style="flex:1;">
+            <button type="button" id="e-emoji-btn" onclick="openEmojiPicker()" title="Personalizar emoji" style="flex:0 0 auto;width:46px;border:none;border-radius:var(--radius-sm);background:var(--surface2);font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center;">📌</button>
+          </div>
         </div>
 
         <div class="field">
@@ -1493,6 +1507,18 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
     </div>
   </div>
 </div>
+
+<!-- SELECTOR DE EMOJIS -->
+<div class="modal-overlay" id="emoji-modal" onclick="closeEmojiPicker(event)">
+  <div class="modal-sheet" id="emoji-sheet" onclick="event.stopPropagation()" style="max-height:70vh;display:flex;flex-direction:column;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex:0 0 auto;">
+      <div style="font-size:17px;font-weight:700;">Elegir emoji</div>
+      <button type="button" onclick="closeEmojiPicker()" style="background:none;border:none;font-size:22px;color:var(--text3);cursor:pointer;line-height:1;padding:2px;">✕</button>
+    </div>
+    <div id="emoji-picker-body" style="overflow-y:auto;flex:1 1 auto;-webkit-overflow-scrolling:touch;"></div>
+  </div>
+</div>
+
 
 <!-- NAV -->
 <nav>
@@ -1653,6 +1679,163 @@ const ICONS = {
   'Otros (Ocio)':'📌','Otros (Transporte)':'📌','Otros (Mascotas)':'📌',
   'Otros (Generosidad)':'📌','Otros (Ingresos)':'📌','Otros (Ahorro)':'📌'
 };
+
+// ── CATÁLOGO DE EMOJIS (curado, ~150) organizado por grupos temáticos ──
+const EMOJI_GROUPS = {
+  'Comida y bebida': ['🍽️','🍔','🍕','🌮','🌯','🥙','🥗','🍜','🍣','🍱','🍛','🍝','🥘','🍲','🥪','🌭','🍟','🍗','🍖','🥩','🍤','🧀','🥐','🥖','🍞','🥞','🧇','🥓','🥚','🍳','🥣','🍚','🍙','🍘','🍥','🥟','🍩','🍪','🎂','🍰','🧁','🥧','🍫','🍬','🍭','🍮','🍯','🍦','🍨','🍧','☕','🍵','🧃','🥤','🧋','🍺','🍻','🍷','🍸','🍹','🥂','🍾','🥛','🫖','🧉'],
+  'Compras': ['🛒','🛍️','🏷️','💳','🧾','🎁','👕','👗','👖','👟','👞','👜','🎒','👓','🕶️','⌚','💄','💍','🧴','🧷','🪒','🧻','🧼','🧽','🛁','🪥'],
+  'Hogar y servicios': ['🏠','🔑','🛋️','🛏️','🚿','🪑','🧹','🧺','🔧','🔨','🪛','⚡','💡','🔌','🚰','🔥','❄️','🌡️','📦','🪴','🕯️','🧯','🔒','🛡️','📺','🖥️','💻','📱','☎️','🖨️'],
+  'Transporte': ['🚗','🚕','🚙','🚌','🚐','🚚','🏍️','🛵','🚲','🛴','⛽','🅿️','🚿','🛣️','🚦','🚧','🅰️','✈️','🚆','🚄','🚈','🚊','🚢','⛵','🛥️','🚁','🎫'],
+  'Salud': ['🏥','💊','💉','🩺','🩹','🦷','🧠','❤️','🫀','👁️','🦴','🧬','🩻','🧪','🌡️','♿','🧘','🏃','💪','🥦'],
+  'Ocio y entretenimiento': ['🎭','🎬','🎤','🎸','🎹','🥁','🎧','🎮','🕹️','🎰','🎲','🎳','🎯','🎨','🖼️','📷','🎥','🎞️','🎟️','🎫','🏛️','🎪','🎡','🎢','🎠','🕺','💃','🎉','🎊','📚','📖','🎧'],
+  'Deporte y aire libre': ['⚽','🏀','🏈','⚾','🎾','🏐','🏉','🎱','🏓','🏸','🥅','⛳','🏊','🚴','🧗','⛺','🏕️','🎿','🏂','🛹','🏋️','🤸','🧘'],
+  'Viajes': ['✈️','🏨','🏖️','🏝️','🗺️','🧳','🎒','🛂','🛃','🏞️','⛰️','🗽','🗼','🏯','🏰','⛩️','🕌','⛪','🎡','📸'],
+  'Mascotas': ['🐾','🐶','🐱','🐕','🐈','🦴','🐟','🐠','🐹','🐰','🐦','🦜','🐢','🦎','🐍','🐕‍🦺','💉','✂️'],
+  'Trabajo y finanzas': ['💼','💰','💵','💴','💶','💷','💸','🏦','🏧','💳','📊','📈','📉','💹','🧮','🖊️','📝','📋','📁','🗂️','📌','📎','✂️','🖇️','💎','🪙','🧾'],
+  'Personal y educación': ['👤','📚','📖','✏️','🖊️','🎓','🏫','🔬','🔭','🧪','🎨','🎼','🧵','🪡','💇','💅','✂️','🧴','👔','🕰️'],
+  'Símbolos': ['⭐','🌟','✨','💫','🔥','💧','🌈','☀️','🌙','⚡','❤️','🧡','💛','💚','💙','💜','🖤','✅','❌','❗','❓','🔔','🎵','📌','🏷️','🔗','♻️','🆕','🆗','🔝']
+};
+
+// Mapeo de CATEGORÍA → grupo de emojis a mostrar PRIMERO en el selector.
+const CAT_EMOJI_GROUP = {
+  'Alimentos':'Comida y bebida',
+  'Casa':'Hogar y servicios',
+  'Transporte':'Transporte',
+  'Ocio':'Ocio y entretenimiento',
+  'Mascotas':'Mascotas',
+  'Personal':'Personal y educación',
+  'Generosidad':'Trabajo y finanzas',
+  'Sueldo':'Trabajo y finanzas',
+  'Ventas':'Compras',
+  'Inversiones':'Trabajo y finanzas',
+  'Rendimientos':'Trabajo y finanzas',
+  'Renta de propiedad':'Hogar y servicios'
+};
+
+// Emojis personalizados por comercio+subcategoría: { "costco|comida rápida": "🍕" }
+let merchantEmojis = {};
+try { merchantEmojis = JSON.parse(localStorage.getItem('merchantEmojis')||'{}'); } catch(e){ merchantEmojis={}; }
+
+// Normaliza la descripción para usar como parte de la llave (minúsculas, sin espacios extra)
+function normDesc(s){ return String(s||'').trim().toLowerCase().replace(/\s+/g,' '); }
+
+// Llave del emoji personalizado: comercio + subcategoría (o categoría si no hay subcat)
+function merchantEmojiKey(desc, subcatOrCat){
+  return `${normDesc(desc)}|${normDesc(subcatOrCat)}`;
+}
+function getMerchantEmoji(desc, subcatOrCat){
+  if(!desc) return null;
+  return merchantEmojis[merchantEmojiKey(desc, subcatOrCat)] || null;
+}
+function setMerchantEmoji(desc, subcatOrCat, emoji){
+  const key=merchantEmojiKey(desc, subcatOrCat);
+  if(emoji){ merchantEmojis[key]=emoji; }
+  else { delete merchantEmojis[key]; }
+  try { localStorage.setItem('merchantEmojis', JSON.stringify(merchantEmojis)); } catch(e){}
+}
+
+// Emoji default DINÁMICO de una subcategoría: el más usado (personalizado por comercio)
+// en el último año, con peso por cuartos de antigüedad (como la predicción de categorías).
+function dynamicSubcatEmoji(subcat){
+  if(!subcat) return null;
+  const now=Date.now();
+  const DAY=86400000;
+  const votes={}; // emoji -> peso acumulado
+  data.forEach(e=>{
+    if((e.subcategory||'')!==subcat) return;
+    const emo=getMerchantEmoji(e.desc, e.subcategory);
+    if(!emo) return; // solo cuentan los que tienen emoji personalizado
+    const d=parseDate(e.date);
+    if(isNaN(d.getTime())) return;
+    const ageDays=(now-d.getTime())/DAY;
+    if(ageDays>365) return;
+    // Peso por cuartos: 0-91→4, 92-182→3, 183-273→2, 274-365→1
+    let w=1;
+    if(ageDays<=91) w=4; else if(ageDays<=182) w=3; else if(ageDays<=273) w=2; else w=1;
+    votes[emo]=(votes[emo]||0)+w;
+  });
+  let best=null, bestW=0;
+  Object.entries(votes).forEach(([emo,w])=>{ if(w>bestW){ best=emo; bestW=w; } });
+  return best;
+}
+
+// Emoji FINAL para mostrar un registro, en orden de prioridad:
+// 1) personalizado por comercio+subcat  2) default dinámico de subcat
+// 3) emoji estático de subcat/categoría
+function emojiForEntry(e){
+  const sc = e.subcategory || e.category;
+  return getMerchantEmoji(e.desc, sc)
+      || dynamicSubcatEmoji(e.subcategory)
+      || ICONS[e.subcategory] || ICONS[e.category] || '📌';
+}
+
+// Emoji elegido en la sesión de edición actual (null = usar el default calculado)
+let editEmojiOverride = null;
+
+// Emoji que debe mostrar el botón del modal de edición según el estado actual
+function currentEditEmoji(){
+  if(editEmojiOverride) return editEmojiOverride;
+  const desc=document.getElementById('e-desc')?.value||'';
+  const sc = editSubcat || editCat;
+  return getMerchantEmoji(desc, sc)
+      || dynamicSubcatEmoji(editSubcat)
+      || ICONS[editSubcat] || ICONS[editCat] || '📌';
+}
+
+// Actualiza el emoji mostrado en el botón del modal de edición
+function refreshEditEmojiBtn(){
+  const btn=document.getElementById('e-emoji-btn');
+  if(btn) btn.textContent=currentEditEmoji();
+}
+
+// Abre el selector de emojis
+function openEmojiPicker(){
+  const body=document.getElementById('emoji-picker-body');
+  if(!body) return;
+  const current=currentEditEmoji();
+  // Grupo relevante según la categoría del registro (se muestra primero)
+  const primaryGroup=CAT_EMOJI_GROUP[editCat]||null;
+  let html='';
+  // 1) Emoji actual, destacado al principio
+  html+=`<div class="emoji-group-lbl">Actual</div><div class="emoji-grid">`;
+  html+=`<button type="button" class="emoji-cell current" onclick="pickEmoji('${current}')">${current}</button>`;
+  html+=`</div>`;
+  // 2) Grupo relevante a la categoría
+  const orderedGroups=Object.keys(EMOJI_GROUPS);
+  if(primaryGroup && EMOJI_GROUPS[primaryGroup]){
+    html+=renderEmojiGroup(primaryGroup, EMOJI_GROUPS[primaryGroup], current);
+  }
+  // 3) El resto de grupos
+  orderedGroups.forEach(g=>{
+    if(g===primaryGroup) return;
+    html+=renderEmojiGroup(g, EMOJI_GROUPS[g], current);
+  });
+  body.innerHTML=html;
+  body.scrollTop=0;
+  document.getElementById('emoji-modal').classList.add('open');
+}
+
+function renderEmojiGroup(name, emojis, current){
+  let h=`<div class="emoji-group-lbl">${name}</div><div class="emoji-grid">`;
+  emojis.forEach(emo=>{
+    const cls='emoji-cell'+(emo===current?' current':'');
+    h+=`<button type="button" class="${cls}" onclick="pickEmoji('${emo}')">${emo}</button>`;
+  });
+  h+=`</div>`;
+  return h;
+}
+
+// Elige un emoji: lo aplica al override, refresca el botón y cierra el selector.
+function pickEmoji(emo){
+  editEmojiOverride=emo;
+  refreshEditEmojiBtn();
+  closeEmojiPicker();
+}
+
+function closeEmojiPicker(ev){
+  if(ev && ev.target!==document.getElementById('emoji-modal')) return;
+  document.getElementById('emoji-modal').classList.remove('open');
+}
 
 // ── CATEGORY COLORS (consistent across all views) ──
 const CAT_COLORS = {
@@ -5002,7 +5185,7 @@ function txEl(e, showDelete){
   const sub=[e.subcategory||e.category,ds,e.method].filter(Boolean).join(' · ');
   const cur=e.currency!=='MXN'?` (${e.currency} ${e.amount.toLocaleString('es-MX',{minimumFractionDigits:2})})`:'';
   const sign={ingreso:'+',egreso:'−',ahorro:'→','ahorro-pasivo':'★'}[e.type]||'';
-  const ico=ICONS[e.subcategory]||ICONS[e.category]||'📌';
+  const ico=emojiForEntry(e);
   // Los hijos vinculados (desglose/propina/beneficio) no se eliminan independientemente
   const isLinkedChild = !!e.linkedTo;
   // Los hijos vinculados no tienen tacha, pero reservamos su espacio para alinear montos
@@ -5224,6 +5407,7 @@ function openEdit(id) {
   if(!e) return;
   editId   = id;
   editDeferGroup = e.deferGroup || null; // grupo diferido (si aplica)
+  editEmojiOverride = null; // sin override hasta que el usuario elija uno
   editType = e.type;
   editCat  = e.category;
   editSubcat = e.subcategory||'';
@@ -5364,6 +5548,7 @@ function openEdit(id) {
   if(_sheet){ _sheet.style.transform=''; _sheet.style.opacity=''; try{ _sheet.getAnimations().forEach(a=>a.cancel()); }catch(e){} }
   document.getElementById('edit-modal').classList.add('open');
   document.body.style.overflow='hidden';
+  refreshEditEmojiBtn();
 }
 
 function closeModal(){
@@ -5462,12 +5647,14 @@ function selectEditCat(cat){
   if(editCat===cat){ editCat=''; editSubcat=''; }
   else { editCat=cat; editSubcat=''; }
   renderEditCatUI();
+  refreshEditEmojiBtn();
 }
 
 function selectEditSubcat(sub){
   if(editSubcat===sub){ editSubcat=''; }
   else { editSubcat=sub; }
   renderEditCatUI();
+  refreshEditEmojiBtn();
 }
 
 function setEditType(t,btn){
@@ -5597,6 +5784,11 @@ function saveEdit(){
   if(!editCat) return toast('Selecciona una categoría');
   if(eHasSubs && !subcat) return toast('Selecciona una subcategoría');
   if(!date) return toast('Selecciona una fecha');
+
+  // Persistir emoji personalizado por comercio+subcategoría (si el usuario eligió uno)
+  if(editEmojiOverride){
+    setMerchantEmoji(desc, subcat || editCat, editEmojiOverride);
+  }
 
   // ── GASTO DIFERIDO: recrear todo el grupo con los nuevos valores ──
   if(editDeferGroup){
