@@ -1311,13 +1311,15 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
   </div>
   <div style="padding: 0 20px; margin-top:-10px; margin-bottom:10px;" class="edit-hint">Toca un registro para editarlo · ✕ para eliminar</div>
   <!-- Search bar -->
-  <div style="padding:0 16px;margin-bottom:10px;">
+  <div id="hist-search-wrap" style="padding:0 16px;margin-bottom:10px;">
     <div style="display:flex;align-items:center;gap:8px;background:var(--surface);border-radius:var(--radius-sm);box-shadow:var(--shadow);padding:10px 14px;">
       <span style="color:var(--text3);font-size:15px;">🔍</span>
       <input type="text" id="hist-search" placeholder="Buscar descripción, notas..." oninput="updateResetButton();renderHistorial()" style="flex:1;border:none;background:none;font-family:inherit;font-size:14px;color:var(--text);outline:none;">
       <button onclick="clearSearch()" id="hist-search-clear" style="display:none;background:none;border:none;cursor:pointer;color:var(--text3);font-size:16px;padding:0;line-height:1;">✕</button>
     </div>
   </div>
+  <!-- Ancla donde se coloca el buscador cuando hay un rango aplicado -->
+  <div id="hist-search-anchor-original"></div>
   <!-- Month/year selectors (hidden in search mode) -->
   <div id="hist-date-row" class="month-sel-row">
     <select id="hist-month-sel" onchange="renderHistorial(true)"></select>
@@ -1333,6 +1335,8 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
     </div>
     <button type="button" id="hist-apply-range-btn" onclick="applyDateRange()" style="width:100%;padding:11px;background:var(--accent);color:#fff;border:none;border-radius:var(--radius-sm);font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;">Aplicar rango</button>
   </div>
+  <!-- Ancla donde reaparece el buscador tras aplicar un rango -->
+  <div id="hist-search-anchor-range"></div>
   <div class="filter-bar" id="hist-filter-bar">
     <button class="f-chip active" id="fchip-todos" onclick="setFilter('todos',this)">Todos</button>
     <button class="f-chip" id="fchip-egreso" onclick="setFilter('egreso',this)">Egresos</button>
@@ -2285,6 +2289,17 @@ function goNav(id, btn) {
     if(grid) revealAnimate(grid, true);
     loadFromSheets(true); // refresco silencioso (sin re-animar)
   } else if(id==='historial'){
+    // Al entrar a historial, partir siempre de la vista por meses (sin rango activo)
+    if(histRangeMode){
+      histRangeMode=false; histRangeApplied=false;
+      stopRangeBreathe();
+      restoreSearchPosition();
+      const rangeRow=document.getElementById('hist-range-row');
+      const monthRow=document.getElementById('hist-date-row');
+      if(rangeRow) rangeRow.style.display='none';
+      if(monthRow) monthRow.style.display='flex';
+      resetHistFiltersToTodos();
+    }
     renderHistorial(true); // render con animación desde cache
     loadFromSheets(true);  // refresco silencioso (sin re-animar)
   } else if(id==='presupuesto'){
@@ -5276,13 +5291,17 @@ function renderHistorial(animate){
   if(clearBtn) clearBtn.style.display=isSearchMode?'inline':'none';
   const dateRow=document.getElementById('hist-date-row');
   const rangeRow=document.getElementById('hist-range-row');
-  if(isSearchMode){
-    // En búsqueda se ocultan ambos selectores de fecha
+  if(histRangeMode){
+    // En modo rango, el selector de meses queda oculto y el de rango visible,
+    // aunque el usuario esté escribiendo en el buscador (que vive junto al rango).
+    if(dateRow) dateRow.style.display='none';
+    if(rangeRow) rangeRow.style.display='flex';
+  } else if(isSearchMode){
     if(dateRow) dateRow.style.display='none';
     if(rangeRow) rangeRow.style.display='none';
   } else {
-    if(dateRow) dateRow.style.display=histRangeMode?'none':'flex';
-    if(rangeRow) rangeRow.style.display=histRangeMode?'flex':'none';
+    if(dateRow) dateRow.style.display='flex';
+    if(rangeRow) rangeRow.style.display='none';
   }
   // La barra de tipos (Todos/Egresos/Ingresos/Beneficios/Método) se oculta cuando
   // se está eligiendo un rango pero aún no se aplica.
@@ -5597,6 +5616,45 @@ let histRangeMode=false;
 let histRangeApplied=false; // si el rango ya fue confirmado con "Aplicar"
 let _rangeBreatheTimer=null;
 
+// Mueve el buscador a su posición ORIGINAL (arriba, bajo el encabezado).
+function restoreSearchPosition(){
+  const searchWrap=document.getElementById('hist-search-wrap');
+  const anchorOrig=document.getElementById('hist-search-anchor-original');
+  if(searchWrap && anchorOrig && searchWrap.previousElementSibling!==anchorOrig.previousElementSibling){
+    anchorOrig.parentNode.insertBefore(searchWrap, anchorOrig);
+  }
+  if(searchWrap){ searchWrap.style.display=''; searchWrap.style.animation=''; }
+}
+
+// Oculta el buscador (mientras se elige el rango, antes de aplicar).
+function hideSearchForRange(){
+  const searchWrap=document.getElementById('hist-search-wrap');
+  if(searchWrap) searchWrap.style.display='none';
+}
+
+// Coloca el buscador DEBAJO del botón Aplicar (antes de la lista) y lo anima
+// con fade+slide, encadenado DESPUÉS de que aparecen los resultados.
+function showSearchInRangePosition(){
+  const searchWrap=document.getElementById('hist-search-wrap');
+  const anchorRange=document.getElementById('hist-search-anchor-range');
+  if(!searchWrap || !anchorRange) return;
+  // Mover el buscador justo después del ancla de rango (bajo el botón Aplicar)
+  anchorRange.parentNode.insertBefore(searchWrap, anchorRange.nextSibling);
+  searchWrap.style.display='';
+  // Aparición encadenada: espera a que la lista haga su cascada, luego fade+slide
+  searchWrap.style.opacity='0';
+  searchWrap.style.animation='';
+  setTimeout(()=>{
+    try{
+      searchWrap.animate(
+        [{opacity:0,transform:'translateY(-8px)'},{opacity:1,transform:'translateY(0)'}],
+        {duration:500,easing:'cubic-bezier(0.22,0.61,0.36,1)',fill:'backwards'}
+      );
+    }catch(e){}
+    searchWrap.style.opacity='';
+  }, 450); // tras la animación de la lista
+}
+
 function toggleDateRange(){
   histRangeMode=!histRangeMode;
   const monthRow=document.getElementById('hist-date-row');
@@ -5617,6 +5675,11 @@ function toggleDateRange(){
     if(toEl && !toEl.value) toEl.value=last;
     if(monthRow) monthRow.style.display='none';
     if(rangeRow) rangeRow.style.display='flex';
+    // Ocultar el buscador mientras se elige el rango (reaparece al aplicar)
+    hideSearchForRange();
+    // Animación escalonada de entrada (campos de fecha primero, luego el botón),
+    // con los mismos tiempos que las demás animaciones de aparición de la app.
+    revealAnimate(rangeRow, true);
     // El filtro se aplica al confirmar. Mientras tanto, vaciar la lista para no
     // dar la falsa impresión de que los registros del mes son el resultado del rango.
     histRangeApplied=false;
@@ -5630,6 +5693,8 @@ function toggleDateRange(){
     if(rangeRow) rangeRow.style.display='none';
     histRangeApplied=false;
     stopRangeBreathe();
+    // Restaurar el buscador a su posición original (arriba)
+    restoreSearchPosition();
     // Volver a meses también resetea a "Todos" para no arrastrar filtros del rango
     resetHistFiltersToTodos();
     renderHistorial(true); // volver a la vista por meses
@@ -5699,6 +5764,8 @@ function applyDateRange(){
   // La vista siempre arranca en "Todos" al aplicar, con todos los filtros reseteados
   resetHistFiltersToTodos();
   renderHistorial(true);
+  // El buscador reaparece debajo del botón Aplicar, encadenado tras los resultados
+  showSearchInRangePosition();
 }
 
 function fmt(n){return '$'+Math.abs(n).toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2});}
