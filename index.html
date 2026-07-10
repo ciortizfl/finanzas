@@ -5607,8 +5607,8 @@ function toggleDateRange(){
     // El filtro se aplica al confirmar. Mientras tanto, vaciar la lista para no
     // dar la falsa impresión de que los registros del mes son el resultado del rango.
     histRangeApplied=false;
-    // Al aplicar, la vista siempre arranca en "Todos"
-    histFilter='todos'; histSelCats=[]; histSelSubcats=[];
+    // Resetear TODOS los filtros previos (tipo, categorías, subcategorías, método)
+    resetHistFiltersToTodos();
     renderHistorial(); // renderHistorial ve histRangeMode && !applied → muestra vacío
     // NOTA: no arrancamos el recordatorio aquí. Solo cuenta los 2s cuando el
     // usuario efectivamente modifica una fecha (para no apresurarlo sin motivo).
@@ -5617,6 +5617,8 @@ function toggleDateRange(){
     if(rangeRow) rangeRow.style.display='none';
     histRangeApplied=false;
     stopRangeBreathe();
+    // Volver a meses también resetea a "Todos" para no arrastrar filtros del rango
+    resetHistFiltersToTodos();
     renderHistorial(true); // volver a la vista por meses
   }
 }
@@ -5646,6 +5648,28 @@ function stopRangeBreathe(){
   if(btn) btn.classList.remove('breathe');
 }
 
+// Resetea por completo los filtros del historial a "Todos": estado interno,
+// selección visual de chips, y oculta el panel de categorías/subcategorías.
+function resetHistFiltersToTodos(){
+  histFilter='todos';
+  histSelCats=[];
+  histSelSubcats=[];
+  histMethodFilter=null;
+  document.querySelectorAll('.filter-bar .f-chip').forEach(c=>c.classList.remove('active'));
+  const todosChip=document.getElementById('fchip-todos');
+  if(todosChip) todosChip.classList.add('active');
+  const subPanel=document.getElementById('sub-filter-panel');
+  if(subPanel) subPanel.classList.remove('vis');
+  // Restablecer indicador del filtro de método si existe
+  const methodPanel=document.getElementById('method-filter-panel');
+  if(methodPanel) methodPanel.classList.remove('vis');
+  const methodArrow=document.getElementById('method-filter-arrow');
+  if(methodArrow) methodArrow.style.transform='';
+  const methodInd=document.getElementById('method-filter-indicator');
+  if(methodInd) methodInd.style.background='var(--border2)';
+  if(typeof updateResetButton==='function') updateResetButton();
+}
+
 // Aplica el rango elegido y renderiza con animación (solo al confirmar)
 function applyDateRange(){
   const fromEl=document.getElementById('hist-range-from');
@@ -5659,13 +5683,8 @@ function applyDateRange(){
   }
   histRangeApplied=true;
   stopRangeBreathe(); // al aplicar, detener el recordatorio
-  // La vista siempre arranca en "Todos" al aplicar un rango
-  histFilter='todos'; histSelCats=[]; histSelSubcats=[];
-  document.querySelectorAll('.filter-bar .f-chip').forEach(c=>c.classList.remove('active'));
-  const todosChip=document.getElementById('fchip-todos');
-  if(todosChip) todosChip.classList.add('active');
-  const subPanel=document.getElementById('sub-filter-panel');
-  if(subPanel) subPanel.classList.remove('vis');
+  // La vista siempre arranca en "Todos" al aplicar, con todos los filtros reseteados
+  resetHistFiltersToTodos();
   renderHistorial(true);
 }
 
