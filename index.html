@@ -1316,11 +1316,16 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
     <select id="hist-year-sel" onchange="renderHistorial(true)"></select>
     <button type="button" id="hist-range-toggle" onclick="toggleDateRange()" title="Filtrar por rango de fechas" style="flex:0 0 auto;width:38px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface);color:var(--text3);font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;">📅</button>
   </div>
-  <div id="hist-range-row" style="display:none;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap;">
-    <input type="date" id="hist-range-from" onchange="renderHistorial(true)" style="flex:1 1 40%;min-width:130px;padding:9px 11px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
-    <span style="font-size:13px;color:var(--text3);">a</span>
-    <input type="date" id="hist-range-to" onchange="renderHistorial(true)" style="flex:1 1 40%;min-width:130px;padding:9px 11px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
-    <button type="button" onclick="toggleDateRange()" style="flex:0 0 auto;background:none;border:none;color:var(--accent);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;">Volver a meses</button>
+  <div id="hist-range-row" style="display:none;flex-direction:column;gap:10px;margin-bottom:12px;">
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+      <input type="date" id="hist-range-from" style="flex:1 1 40%;min-width:130px;padding:9px 11px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
+      <span style="font-size:13px;color:var(--text3);">a</span>
+      <input type="date" id="hist-range-to" style="flex:1 1 40%;min-width:130px;padding:9px 11px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <button type="button" onclick="applyDateRange()" style="flex:1;padding:10px;background:var(--accent);color:#fff;border:none;border-radius:var(--radius-sm);font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;">Aplicar rango</button>
+      <button type="button" onclick="toggleDateRange()" style="flex:0 0 auto;padding:10px 14px;background:var(--surface2);color:var(--text2);border:none;border-radius:var(--radius-sm);font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;">Meses</button>
+    </div>
   </div>
   <div class="filter-bar">
     <button class="f-chip active" id="fchip-todos" onclick="setFilter('todos',this)">Todos</button>
@@ -2017,7 +2022,11 @@ function trackUsage(type, cat, subcat) {
 function yearsInData() {
   const now = new Date().getFullYear();
   const years = new Set([now]);
-  data.forEach(e=>{ const d=parseDate(e.date); if(!isNaN(d)) years.add(d.getFullYear()); });
+  data.forEach(e=>{
+    if(isFutureEntry(e)) return; // no incluir años de mensualidades futuras aún ocultas
+    const d=parseDate(e.date);
+    if(!isNaN(d)) years.add(d.getFullYear());
+  });
   return [...years].sort((a,b)=>b-a);
 }
 
@@ -5204,8 +5213,8 @@ function renderHistorial(animate){
     filtered=data.filter(e=>{
       if(isFutureEntry(e)) return false; // no mostrar mensualidades futuras
       const d=parseDate(e.date);
-      if(histRangeMode){
-        // Filtrar por rango de fechas (desde/hasta inclusive)
+      if(histRangeMode && histRangeApplied){
+        // Filtrar por rango de fechas (desde/hasta inclusive), solo si fue aplicado
         const fromEl=document.getElementById('hist-range-from');
         const toEl=document.getElementById('hist-range-to');
         const from=fromEl&&fromEl.value?parseDate(fromEl.value):null;
@@ -5474,6 +5483,7 @@ function txEl(e, showDelete){
 
 // ── Filtro por rango de fechas en el historial (modo alternativo al mes/año) ──
 let histRangeMode=false;
+let histRangeApplied=false; // si el rango ya fue confirmado con "Aplicar"
 function toggleDateRange(){
   histRangeMode=!histRangeMode;
   const monthRow=document.getElementById('hist-date-row');
@@ -5493,10 +5503,28 @@ function toggleDateRange(){
     if(toEl && !toEl.value) toEl.value=last;
     if(monthRow) monthRow.style.display='none';
     if(rangeRow) rangeRow.style.display='flex';
+    // No renderizar aún: el filtro se aplica al confirmar con "Aplicar rango"
+    histRangeApplied=false;
   } else {
     if(monthRow) monthRow.style.display='flex';
     if(rangeRow) rangeRow.style.display='none';
+    histRangeApplied=false;
+    renderHistorial(true); // volver a la vista por meses
   }
+}
+
+// Aplica el rango elegido y renderiza con animación (solo al confirmar)
+function applyDateRange(){
+  const fromEl=document.getElementById('hist-range-from');
+  const toEl=document.getElementById('hist-range-to');
+  if(fromEl && toEl && fromEl.value && toEl.value){
+    // Validar que "desde" no sea posterior a "hasta"
+    if(parseDate(fromEl.value) > parseDate(toEl.value)){
+      toast('La fecha inicial no puede ser posterior a la final');
+      return;
+    }
+  }
+  histRangeApplied=true;
   renderHistorial(true);
 }
 
@@ -5529,12 +5557,15 @@ function formatAmountString(str){
 function handleAmountInput(el){
   const before=el.value;
   const selStart=el.selectionStart;
-  const digitsBefore=(before.slice(0,selStart).match(/\d/g)||[]).length;
+  // Contar "caracteres significativos" antes del cursor: dígitos Y el punto decimal
+  // (así el cursor no se queda atascado antes del punto al escribir centavos).
+  const sigBefore=(before.slice(0,selStart).match(/[\d.]/g)||[]).length;
   const formatted=formatAmountString(before);
   el.value=formatted;
+  // Reubicar el cursor tras la misma cantidad de caracteres significativos
   let pos=0, seen=0;
-  while(pos<formatted.length && seen<digitsBefore){
-    if(/\d/.test(formatted[pos])) seen++;
+  while(pos<formatted.length && seen<sigBefore){
+    if(/[\d.]/.test(formatted[pos])) seen++;
     pos++;
   }
   try{ el.setSelectionRange(pos,pos); }catch(e){}
