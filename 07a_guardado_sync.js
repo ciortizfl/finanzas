@@ -67,6 +67,22 @@ function restoreRegisterForm(){
   const btnTxt=document.getElementById('submit-btn-txt');
   const check=document.getElementById('submit-check');
 
+  // Regresar suavemente hacia arriba: tras enviar (sobre todo en móvil, donde se
+  // hizo scroll hacia abajo), subir a la parte superior de forma elegante mientras
+  // el formulario reaparece en cascada. Respeta reduce-motion.
+  const reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  try {
+    const scroller = document.scrollingElement || document.documentElement;
+    if(scroller && scroller.scrollTop > 0){
+      window.scrollTo({ top:0, behavior: reduced ? 'auto' : 'smooth' });
+    }
+    // Por si el scroll vive en el contenedor de la página (no en window)
+    const page = document.getElementById('page-registro');
+    if(page && page.scrollTop > 0){
+      page.scrollTo({ top:0, behavior: reduced ? 'auto' : 'smooth' });
+    }
+  } catch(e){}
+
   // 1) Ocultar palomita y restaurar el botón a su forma normal instantáneamente.
   //    NO tocamos display (lo controla updateFinalizeVisibility tras el reset).
   if(check){ check.style.opacity='0'; const p=check.querySelector('path'); if(p) p.style.strokeDashoffset='30'; }
