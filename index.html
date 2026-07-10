@@ -4301,17 +4301,6 @@ async function loadFromSheets(silent) {
     const r = await fetch(SHEETS_URL);
     const json = await r.json();
     hideSyncing();
-    // ── DIAGNÓSTICO TEMPORAL ──
-    try {
-      const diag = {
-        ok: json.ok,
-        numFilas: json.rows ? json.rows.length : 'sin rows',
-        primeraFilaDatos: (json.rows && json.rows[1]) ? json.rows[1] : 'no hay fila 1',
-        error: json.error || 'ninguno'
-      };
-      alert('DIAGNÓSTICO SHEETS:\n\n' + JSON.stringify(diag, null, 2));
-    } catch(de){ alert('Error en diagnóstico: ' + de.message); }
-    // ── FIN DIAGNÓSTICO ──
     if (!json.ok || !json.rows || json.rows.length < 2) return;
     const rows = json.rows.slice(1); // skip header
     const newData = rows.map(r => {
@@ -4332,7 +4321,23 @@ async function loadFromSheets(silent) {
         const da=String(d.getUTCDate()).padStart(2,'0');
         dateVal = `${y}-${mo}-${da}`;
       } else {
-        dateVal = String(dateVal).slice(0,10);
+        let ds = String(dateVal);
+        // Manejar formato con año presente (ej. "Fri Apr 03 2026" o ISO).
+        if(/^\d{4}-\d{2}-\d{2}/.test(ds)){
+          dateVal = ds.slice(0,10);
+        } else {
+          const parsed = new Date(ds);
+          // Solo aceptar si el año parseado es razonable (>=2020); si no, dejar
+          // el valor crudo para que el diagnóstico lo revele en vez de inventar 2001.
+          if(!isNaN(parsed.getTime()) && parsed.getFullYear()>=2020){
+            const y=parsed.getFullYear();
+            const mo=String(parsed.getMonth()+1).padStart(2,'0');
+            const da=String(parsed.getDate()).padStart(2,'0');
+            dateVal = `${y}-${mo}-${da}`;
+          } else {
+            dateVal = ds.slice(0,10);
+          }
+        }
       }
       const cleanNum = v => {
         if(v==null || v==='') return null;
