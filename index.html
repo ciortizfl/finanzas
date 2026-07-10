@@ -1411,7 +1411,7 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
               <option value="CAD">🇨🇦 CAD</option>
               <option value="EUR">🇪🇺 EUR</option>
             </select>
-            <input type="number" id="e-amount" placeholder="0.00" inputmode="decimal" step="0.01" min="0" oninput="calcEditBenPreview();updateEditDesgloseRemaining();calcEditPropinaPreview()">
+            <input type="number" id="e-amount" placeholder="0.00" inputmode="decimal" step="0.01" min="0" oninput="calcEditBenPreview();updateEditDesgloseRemaining();calcEditPropinaPreview();renderEditDiferirPreview()">
           </div>
           <div class="rate-note" id="e-rate-note"><span class="rate-dot"></span><span id="e-rate-text"></span></div>
         </div>
@@ -1521,6 +1521,19 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
             <div class="subcat-lbl" id="e-subcat-lbl">Subcategoría</div>
             <div class="cat-grid-ui" id="e-subcat-blocks"></div>
           </div>
+        </div>
+
+        <!-- Panel de Diferir en edición (solo visible para gastos diferidos) -->
+        <div id="e-diferir-section" style="display:none;margin-bottom:14px;padding:12px;background:var(--surface2);border-radius:var(--radius-sm);">
+          <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:3px;">Gasto diferido en mensualidades</div>
+          <div style="font-size:12px;color:var(--text3);margin-bottom:12px;line-height:1.4;">Cambia el número de meses; el monto total se reparte de nuevo.</div>
+          <div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:10px;" id="e-diferir-presets"></div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+            <span style="font-size:13px;color:var(--text2);">Personalizado:</span>
+            <input type="number" id="e-diferir-custom" min="2" max="120" placeholder="Ej. 18" inputmode="numeric" oninput="onEditDiferirCustomInput()" style="width:78px;padding:8px 10px;border:1.5px solid var(--border2);border-radius:10px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;-webkit-appearance:none;appearance:none;">
+            <span style="font-size:13px;color:var(--text2);">meses</span>
+          </div>
+          <div id="e-diferir-preview" style="background:var(--surface);border-radius:10px;padding:12px 14px;border:1px solid var(--border2);"></div>
         </div>
 
         <!-- Botones toggle Nota / Desglose (mismo estilo que Propina/Beneficio) -->
@@ -5122,9 +5135,12 @@ function updateTypeChips(selMonth, selYear, isSearchMode){
 }
 
 function renderHistorial(animate){
-  const hl=document.getElementById('hist-list');
-  if(!hl) return;
-  hl.innerHTML='';
+  const hlReal=document.getElementById('hist-list');
+  if(!hlReal) return;
+  // Construir en un contenedor DESACOPLADO (en memoria) y hacer swap al final,
+  // para evitar el parpadeo de vaciar y reconstruir la lista visible.
+  const hl=document.createElement('div');
+  hl.id='hist-list';
 
   const searchEl=document.getElementById('hist-search');
   const searchQuery=(searchEl?.value||'').trim().toLowerCase();
@@ -5163,6 +5179,7 @@ function renderHistorial(animate){
     if(histFilter!=='todos') filtered=filtered.filter(e=>e.type===histFilter);
     if(histFilter!=='todos' && histFilter!=='egreso' && histSelCats.length===0){
       hl.innerHTML='<div class="empty"><div class="e-ico">🔍</div>Sin categorías seleccionadas</div>';
+      hlReal.replaceChildren(...hl.childNodes);
       renderPie([]);
       return;
     }
@@ -5177,6 +5194,7 @@ function renderHistorial(animate){
 
   if(!filtered.length){
     hl.innerHTML='<div class="empty"><div class="e-ico">🔍</div>Sin movimientos</div>';
+    hlReal.replaceChildren(...hl.childNodes);
     renderPie([]);
     return;
   }
@@ -5237,6 +5255,10 @@ function renderHistorial(animate){
   });
 
   hl.appendChild(container);
+
+  // SWAP: reemplazar el contenido real de una sola vez (sin vaciarlo antes),
+  // para que no haya un instante en blanco → sin parpadeo.
+  hlReal.replaceChildren(...hl.childNodes);
 
   // Animación del listado
   if(animate===true){
@@ -5428,6 +5450,8 @@ function toast(msg){
 // ══════════════════════════════════════
 let editId = null;
 let editDeferGroup = null;
+let editDiferirMonths = 0;    // meses elegidos en edición de diferido
+let editDiferirCustom = false;
 let editType = 'egreso';
 let editCat = '';
 let editSubcat = '';
@@ -5585,6 +5609,7 @@ function openEdit(id) {
   }));
   renderEditDesgloses();
   updateEditDesgloseVisibility();
+  setupEditDiferirPanel();
 
   // --- Nota: mostrar colapsada, pero con contenido si existe ---
   // Filtrar TODAS las etiquetas del sistema (se generan/muestran dinámicamente),
@@ -5838,10 +5863,92 @@ function onECurChange(){
 
 // Recrea un grupo de gasto diferido con nuevos valores (monto total, desc, categoría,
 // método, nota). Mantiene el número de meses y la fecha de inicio del grupo original.
+// ── Panel de Diferir en EDICIÓN ──
+// Renderiza el panel con los meses actuales del grupo diferido.
+function setupEditDiferirPanel(){
+  const sec=document.getElementById('e-diferir-section');
+  if(!sec) return;
+  if(!editDeferGroup){ sec.style.display='none'; return; }
+  sec.style.display='block';
+  // Meses actuales del grupo
+  const grp=data.filter(x=>x.deferGroup===editDeferGroup);
+  editDiferirMonths = grp.length>0 ? grp[0].deferTotal : 0;
+  editDiferirCustom = !DIFERIR_PRESETS.includes(editDiferirMonths);
+  const ci=document.getElementById('e-diferir-custom');
+  if(ci) ci.value = editDiferirCustom ? editDiferirMonths : '';
+  renderEditDiferirPresets();
+  renderEditDiferirPreview();
+}
+
+function renderEditDiferirPresets(){
+  const cont=document.getElementById('e-diferir-presets');
+  if(!cont) return;
+  cont.innerHTML='';
+  DIFERIR_PRESETS.forEach(p=>{
+    const b=document.createElement('button');
+    b.type='button';
+    b.className='month-preset'+(!editDiferirCustom && editDiferirMonths===p?' on':'');
+    b.textContent=p+'m';
+    b.onclick=()=>toggleEditDiferirPreset(p);
+    cont.appendChild(b);
+  });
+}
+
+function toggleEditDiferirPreset(p){
+  // En edición no permitimos "sin meses" (siempre debe haber al menos los presets);
+  // elegir un preset lo activa. Volver a picarlo lo mantiene (un diferido siempre tiene meses).
+  editDiferirMonths=p;
+  editDiferirCustom=false;
+  const ci=document.getElementById('e-diferir-custom');
+  if(ci) ci.value='';
+  renderEditDiferirPresets();
+  renderEditDiferirPreview();
+}
+
+function onEditDiferirCustomInput(){
+  const v=parseInt(document.getElementById('e-diferir-custom').value);
+  if(v && v>=2){
+    editDiferirMonths=v;
+    editDiferirCustom=!DIFERIR_PRESETS.includes(v);
+  } else {
+    // vacío: no cambiar el valor efectivo, pero marcar custom en 0 temporalmente
+    editDiferirMonths=0;
+    editDiferirCustom=false;
+  }
+  renderEditDiferirPresets();
+  renderEditDiferirPreview();
+}
+
+function renderEditDiferirPreview(){
+  if(!editDeferGroup) return;
+  const prev=document.getElementById('e-diferir-preview');
+  if(!prev) return;
+  const amount=parseFloat(document.getElementById('e-amount').value)||0;
+  const n=editDiferirMonths;
+  if(!n || n<2){
+    prev.innerHTML=`<div style="font-size:12.5px;color:var(--danger);">Elige al menos 2 meses</div>`;
+    return;
+  }
+  const perMonth=Math.floor((amount/n)*100)/100;
+  // Fecha de inicio = fecha del mes 1 del grupo original
+  const grp=data.filter(x=>x.deferGroup===editDeferGroup).sort((a,b)=>a.deferIndex-b.deferIndex);
+  const base=grp.length>0 ? parseDate(grp[0].date) : (parseDate(document.getElementById('e-date').value)||new Date());
+  const start=diferirMonthlyDate(base,0);
+  const end=diferirMonthlyDate(base,n-1);
+  const startLbl=`${MONTHS_ES[start.getMonth()].slice(0,3)} ${start.getFullYear()}`;
+  const endLbl=`${MONTHS_ES[end.getMonth()].slice(0,3)} ${end.getFullYear()}`;
+  prev.innerHTML=`
+    <div style="font-size:20px;font-weight:700;letter-spacing:-0.02em;color:var(--accent);margin-bottom:3px;">${fmt(perMonth)} <span style="font-size:13px;font-weight:500;color:var(--text3);">/ mes</span></div>
+    <div style="font-size:12.5px;color:var(--text2);margin-bottom:2px;">Durante <b>${n} meses</b> · ${startLbl} – ${endLbl}</div>
+    <div style="font-size:11.5px;color:var(--text3);">Cada día ${base.getDate()} de cada mes</div>
+  `;
+}
+
 function saveEditDeferred({amount, desc, cur, note, subcat}){
   const group=data.filter(x=>x.deferGroup===editDeferGroup).sort((a,b)=>a.deferIndex-b.deferIndex);
   if(group.length===0){ closeModal(); return; }
-  const n=group[0].deferTotal;
+  // Nuevo número de meses (editable); si no es válido, conservar el original
+  let n = (editDiferirMonths && editDiferirMonths>=2) ? editDiferirMonths : group[0].deferTotal;
   const startDate=parseDate(group[0].date); // fecha del mes 1 (inicio)
   const method=group[0].method;
   const oldIds=group.map(x=>x.id);
