@@ -4865,22 +4865,41 @@ function renderPie(filtered) {
   });
 }
 
+// Devuelve las entradas de un tipo dentro del ALCANCE DE FECHA activo
+// (rango aplicado o mes/año), excluyendo futuras. Se usa para preseleccionar
+// categorías, de forma consistente entre vista mensual y por rango.
+function entriesInCurrentDateScope(type){
+  const mSel=document.getElementById('hist-month-sel');
+  const ySel=document.getElementById('hist-year-sel');
+  const selMonth=mSel?parseInt(mSel.value):new Date().getMonth();
+  const selYear=ySel?parseInt(ySel.value):new Date().getFullYear();
+  return data.filter(e=>{
+    if(isFutureEntry(e)) return false;
+    if(type && e.type!==type) return false;
+    const d=parseDate(e.date);
+    if(histRangeMode && histRangeApplied){
+      const fromEl=document.getElementById('hist-range-from');
+      const toEl=document.getElementById('hist-range-to');
+      const from=fromEl&&fromEl.value?parseDate(fromEl.value):null;
+      const to=toEl&&toEl.value?parseDate(toEl.value):null;
+      if(from && d<from) return false;
+      if(to && d>to) return false;
+      return true;
+    }
+    return d.getMonth()===selMonth&&d.getFullYear()===selYear;
+  });
+}
+
 function setFilter(f,el){
   histFilter=f;
   histSelCats=[]; histSelSubcats=[];
   document.querySelectorAll('.f-chip').forEach(c=>c.classList.remove('active'));
   el.classList.add('active');
 
-  // Auto-select cats with records for non-egreso types
+  // Auto-seleccionar categorías con registros para tipos no-egreso
+  // (ingresos y beneficios: todas activas por defecto), respetando el rango.
   if(f!=='todos'&&f!=='egreso'){
-    const mSel=document.getElementById('hist-month-sel');
-    const ySel=document.getElementById('hist-year-sel');
-    const selMonth=mSel?parseInt(mSel.value):new Date().getMonth();
-    const selYear=ySel?parseInt(ySel.value):new Date().getFullYear();
-    const typed=data.filter(e=>{
-      const d=parseDate(e.date);
-      return d.getMonth()===selMonth&&d.getFullYear()===selYear&&e.type===f;
-    });
+    const typed=entriesInCurrentDateScope(f);
     histSelCats=[...new Set(typed.map(e=>e.category))];
   }
 
@@ -4924,16 +4943,9 @@ function resetAllFilters(){
   const searchClear=document.getElementById('hist-search-clear');
   if(searchClear) searchClear.style.display='none';
   // Si hay un tipo activo (no "todos"), re-seleccionar sus categorías con registros
-  // (mismo comportamiento que al entrar a ese tipo desde cero)
+  // (mismo comportamiento que al entrar a ese tipo desde cero), respetando el rango
   if(histFilter!=='todos'&&histFilter!=='egreso'){
-    const mSel=document.getElementById('hist-month-sel');
-    const ySel=document.getElementById('hist-year-sel');
-    const selMonth=mSel?parseInt(mSel.value):new Date().getMonth();
-    const selYear=ySel?parseInt(ySel.value):new Date().getFullYear();
-    const typed=data.filter(e=>{
-      const d=parseDate(e.date);
-      return d.getMonth()===selMonth&&d.getFullYear()===selYear&&e.type===histFilter;
-    });
+    const typed=entriesInCurrentDateScope(histFilter);
     histSelCats=[...new Set(typed.map(e=>e.category))];
   }
   // Reconstruir y re-renderizar
@@ -5596,8 +5608,9 @@ function toggleDateRange(){
     const y=ySel?parseInt(ySel.value):new Date().getFullYear();
     const mo=mSel?parseInt(mSel.value):new Date().getMonth();
     const first=`${y}-${String(mo+1).padStart(2,'0')}-01`;
-    const lastDay=new Date(y,mo+1,0).getDate();
-    const last=`${y}-${String(mo+1).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`;
+    // La fecha final preseleccionada es HOY (no el último día del mes)
+    const todayD=new Date();
+    const last=`${todayD.getFullYear()}-${String(todayD.getMonth()+1).padStart(2,'0')}-${String(todayD.getDate()).padStart(2,'0')}`;
     const fromEl=document.getElementById('hist-range-from');
     const toEl=document.getElementById('hist-range-to');
     if(fromEl && !fromEl.value) fromEl.value=first;
