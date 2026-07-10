@@ -3999,9 +3999,10 @@ function submitDeferredEntry({amount, desc, cur, date, note, subcat}){
   trackUsage(curType, curCat, subcat);
   save();
   showSyncing('⟳ Guardando...');
-  // Guardar todas las mensualidades en Sheets
-  const saves=data.filter(x=>sameGroup(x.deferGroup,groupId)).map(e=>saveEntryToSheets(e));
-  Promise.all(saves).then(()=>{ hideSyncing(); });
+  // Guardar todas las mensualidades en UNA sola petición (evita colisiones de
+  // escrituras concurrentes en Apps Script, que hacían que se perdieran registros).
+  const groupEntries=data.filter(x=>sameGroup(x.deferGroup,groupId));
+  saveBatchToSheets(groupEntries).then(()=>{ hideSyncing(); });
 
   playRegisterSaveAnimation(()=>{
     try { resetForm(); } catch(e){ console.error('resetForm error:', e); }
@@ -4274,6 +4275,17 @@ async function saveEntryToSheets(entry) {
       body: JSON.stringify({ action: 'save', entry })
     });
   } catch(e) { console.warn('Sheets save failed', e); }
+}
+
+// Guarda varias entradas en UNA sola petición (para gastos diferidos).
+// Evita disparar N fetch simultáneos que Apps Script no procesa bien.
+async function saveBatchToSheets(entries) {
+  try {
+    await fetch(SHEETS_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'saveBatch', entries })
+    });
+  } catch(e) { console.warn('Sheets batch save failed', e); }
 }
 
 async function updateEntryInSheets(entry) {
@@ -6261,11 +6273,12 @@ function saveEditDeferred({amount, desc, cur, note, subcat}){
   newEntries.forEach(e=>data.unshift(e));
   save();
   showSyncing('⟳ Guardando...');
-  const saves=[
-    ...oldIds.map(oid=>deleteEntryInSheets(oid)),
-    ...newEntries.map(e=>saveEntryToSheets(e))
-  ];
-  Promise.all(saves).then(()=>{ hideSyncing(); toast('✓ Gasto diferido actualizado'); });
+  // Primero borrar los viejos (secuencial), luego guardar los nuevos en un batch
+  (async()=>{
+    for(const oid of oldIds){ await deleteEntryInSheets(oid); }
+    await saveBatchToSheets(newEntries);
+    hideSyncing(); toast('✓ Gasto diferido actualizado');
+  })();
   closeModalWithSlide();
   renderHistorial(); renderBalance();
 }
@@ -6300,12 +6313,12 @@ function saveEditConvertToDefer({amount, desc, cur, note, subcat}){
   newEntries.forEach(e=>data.unshift(e));
   save();
   showSyncing('⟳ Guardando...');
-  const saves=[
-    deleteEntryInSheets(editId),
-    ...oldChildIds.map(cid=>deleteEntryInSheets(cid)),
-    ...newEntries.map(e=>saveEntryToSheets(e))
-  ];
-  Promise.all(saves).then(()=>{ hideSyncing(); toast(`✓ Gasto diferido en ${n} meses`); });
+  (async()=>{
+    await deleteEntryInSheets(editId);
+    for(const cid of oldChildIds){ await deleteEntryInSheets(cid); }
+    await saveBatchToSheets(newEntries);
+    hideSyncing(); toast(`✓ Gasto diferido en ${n} meses`);
+  })();
   closeModalWithSlide();
   renderHistorial(); renderBalance();
 }
