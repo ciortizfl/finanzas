@@ -4305,6 +4305,8 @@ async function loadFromSheets(silent) {
     const rows = json.rows.slice(1); // skip header
     const newData = rows.map(r => {
       let dateVal = r[1];
+      // Limpiar apóstrofo inicial que Sheets puede dejar al forzar texto
+      if(typeof dateVal==='string') dateVal=dateVal.replace(/^'/,'');
       if (dateVal instanceof Date) {
         // Usar componentes LOCALES (no toISOString, que usa UTC y puede correr el día)
         const y=dateVal.getFullYear();
@@ -4321,8 +4323,14 @@ async function loadFromSheets(silent) {
       } else {
         dateVal = String(dateVal).slice(0,10);
       }
+      const cleanNum = v => {
+        if(v==null || v==='') return null;
+        const s=String(v).replace(/^'/,'');
+        const n=Number(s);
+        return isNaN(n)?null:n;
+      };
       const obj = {
-        id:         Number(r[0]),
+        id:         cleanNum(r[0]),
         date:       dateVal,
         type:       r[2],
         category:   r[3],
@@ -4336,11 +4344,11 @@ async function loadFromSheets(silent) {
         benType:    r[11]||'',
         benAmount:  r[12]?Number(r[12]):0,
         benDesc:    r[13]||'',
-        linkedTo:   r[14]?Number(r[14]):null,
+        linkedTo:   r[14]?cleanNum(r[14]):null,
       };
       // Campos de gasto diferido (columnas 15-18), solo si vienen con datos
       if(r[15]){
-        obj.deferGroup   = Number(r[15]);
+        obj.deferGroup   = cleanNum(r[15]);
         obj.deferIndex   = r[16]?Number(r[16]):1;
         obj.deferTotal   = r[17]?Number(r[17]):1;
         obj.deferOriginal= r[18]?Number(r[18]):obj.amount;
