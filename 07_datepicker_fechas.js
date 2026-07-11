@@ -360,6 +360,9 @@ function formatAmountString(str){
 }
 // Handler del evento input: reformatea preservando la posición del cursor.
 function handleAmountInput(el){
+  // Si el usuario teclea el monto a mano en el registro, la predicción de monto
+  // deja de tener permiso para sobreescribirlo.
+  if(el && el.id==='amount' && typeof _amountPredicted!=='undefined') _amountPredicted=false;
   const before=el.value;
   const selStart=el.selectionStart;
   // Contar "caracteres significativos" antes del cursor: dígitos Y el punto decimal
