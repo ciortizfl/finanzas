@@ -68,21 +68,21 @@ function restoreRegisterForm(){
   const check=document.getElementById('submit-check');
 
   // 1) Ocultar palomita y restaurar el botón a su forma normal instantáneamente.
+  //    NO tocamos display (lo controla updateFinalizeVisibility tras el reset).
   if(check){ check.style.opacity='0'; const p=check.querySelector('path'); if(p) p.style.strokeDashoffset='30'; }
   if(btn){
     btn.style.transition='none';
     btn.style.width=''; btn.style.height=''; btn.style.padding='';
     btn.style.margin=''; btn.style.borderRadius=''; btn.style.background='';
+    // Tras el reset no hay categoría seleccionada → el botón se oculta
     btn.style.display='none';
     void btn.offsetWidth;
     btn.style.transition='';
   }
   if(btnTxt){ btnTxt.style.transition='none'; btnTxt.style.opacity='1'; }
 
+  // 2) Limpiar transforms/opacidad residuales de campos + inline-toggles + note-section
   if(card){
-    // 2) Reunir los elementos a re-animar y OCULTARLOS de inmediato (síncrono),
-    //    ANTES de saltar arriba. Así el salto no muestra el formulario ya visible:
-    //    primero desaparecen, subimos, y luego reaparecen en cascada = un solo gesto.
     const clearEls=[...card.querySelectorAll('.field')];
     const it=document.getElementById('inline-toggles');
     if(it) clearEls.push(it);
@@ -91,51 +91,25 @@ function restoreRegisterForm(){
     clearEls.forEach(f=>{
       try{ f.getAnimations().forEach(a=>a.cancel()); }catch(e){}
       f.style.transform='';
-      f.style.opacity='0'; // ocultar YA, antes del salto
+      f.style.opacity='';
     });
-
-    // 3) Subir suavemente al inicio (con los campos ya invisibles, se ve como un
-    //    deslizamiento limpio). iOS en modo standalone NO soporta bien
-    //    scrollTo({behavior:'smooth'}), así que animamos el scroll a mano con rAF.
-    (function smoothScrollTop(){
-      const reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      const startY = window.pageYOffset || document.documentElement.scrollTop || document.body.scrollTop || 0;
-      if(startY<=0) return;
-      if(reduced){ window.scrollTo(0,0); return; }
-      const duration=420;
-      const startT=performance.now();
-      const easeOut=t=>1-Math.pow(1-t,3);
-      function step(now){
-        const p=Math.min(1,(now-startT)/duration);
-        const y=Math.round(startY*(1-easeOut(p)));
-        window.scrollTo(0,y);
-        if(p<1) requestAnimationFrame(step);
-      }
-      requestAnimationFrame(step);
-    })();
-
-    // 4) Reaparición en cascada de arriba hacia abajo (~1s). Se espera un poco para
-    //    que el scroll suave avance antes de que empiecen a aparecer los campos.
-    setTimeout(()=>{
+    // 3) Reaparición en cascada más lenta (~1s en total), de arriba hacia abajo.
+    //    Se hace en el siguiente frame para no chocar con la reconstrucción de setType.
+    requestAnimationFrame(()=>{
       const visibleFields=Array.from(card.querySelectorAll('.field'))
-        .filter(f=>f.offsetParent!==null);
-      const extra=[];
-      if(it && it.offsetParent!==null) extra.push(it);
-      if(ns && ns.offsetParent!==null) extra.push(ns);
-      const allEls=[...visibleFields, ...extra]
-        .sort((a,b)=>a.getBoundingClientRect().top-b.getBoundingClientRect().top);
-      const n=allEls.length;
-      const stepDelay = n>1 ? Math.floor(600/(n-1)) : 0;
-      allEls.forEach((f,i)=>{
+        .filter(f=>f.offsetParent!==null); // solo los visibles
+      const n=visibleFields.length;
+      // Repartir la cascada para que dure casi 1s en total
+      const stepDelay = n>1 ? Math.floor(600/(n-1)) : 0; // hasta ~600ms de escalonado
+      visibleFields.forEach((f,i)=>{
         try{
-          const anim=f.animate([
+          f.animate([
             {opacity:0,transform:'translateY(-16px)'},
             {opacity:1,transform:'translateY(0)'}
           ],{duration:520,delay:i*stepDelay,easing:'cubic-bezier(0.22,0.61,0.36,1)',fill:'backwards'});
-          anim.onfinish=()=>{ f.style.opacity=''; f.style.transform=''; };
-        }catch(e){ f.style.opacity=''; f.style.transform=''; }
+        }catch(e){}
       });
-    }, 280); // deja avanzar el scroll suave antes de la cascada
+    });
   }
 }
 
