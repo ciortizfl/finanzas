@@ -67,34 +67,22 @@ function restoreRegisterForm(){
   const btnTxt=document.getElementById('submit-btn-txt');
   const check=document.getElementById('submit-check');
 
-  // Regresar al inicio ANTES de la cascada: saltar arriba de forma directa
-  // (instantáneo, sin animación tosca) para que el formulario reaparezca desde
-  // arriba en cascada. Se ve intencional y elegante en móvil y web.
-  try {
-    const scroller = document.scrollingElement || document.documentElement;
-    if(scroller) scroller.scrollTop = 0;
-    if(document.body) document.body.scrollTop = 0;
-    const page = document.getElementById('page-registro');
-    if(page) page.scrollTop = 0;
-    window.scrollTo(0, 0);
-  } catch(e){}
-
   // 1) Ocultar palomita y restaurar el botón a su forma normal instantáneamente.
-  //    NO tocamos display (lo controla updateFinalizeVisibility tras el reset).
   if(check){ check.style.opacity='0'; const p=check.querySelector('path'); if(p) p.style.strokeDashoffset='30'; }
   if(btn){
     btn.style.transition='none';
     btn.style.width=''; btn.style.height=''; btn.style.padding='';
     btn.style.margin=''; btn.style.borderRadius=''; btn.style.background='';
-    // Tras el reset no hay categoría seleccionada → el botón se oculta
     btn.style.display='none';
     void btn.offsetWidth;
     btn.style.transition='';
   }
   if(btnTxt){ btnTxt.style.transition='none'; btnTxt.style.opacity='1'; }
 
-  // 2) Limpiar transforms/opacidad residuales de campos + inline-toggles + note-section
   if(card){
+    // 2) Reunir los elementos a re-animar y OCULTARLOS de inmediato (síncrono),
+    //    ANTES de saltar arriba. Así el salto no muestra el formulario ya visible:
+    //    primero desaparecen, subimos, y luego reaparecen en cascada = un solo gesto.
     const clearEls=[...card.querySelectorAll('.field')];
     const it=document.getElementById('inline-toggles');
     if(it) clearEls.push(it);
@@ -103,23 +91,40 @@ function restoreRegisterForm(){
     clearEls.forEach(f=>{
       try{ f.getAnimations().forEach(a=>a.cancel()); }catch(e){}
       f.style.transform='';
-      f.style.opacity='';
+      f.style.opacity='0'; // ocultar YA, antes del salto
     });
-    // 3) Reaparición en cascada más lenta (~1s en total), de arriba hacia abajo.
-    //    Se hace en el siguiente frame para no chocar con la reconstrucción de setType.
+
+    // 3) Saltar arriba de inmediato (con los campos ya invisibles no se nota el brinco)
+    try {
+      const scroller = document.scrollingElement || document.documentElement;
+      if(scroller) scroller.scrollTop = 0;
+      if(document.body) document.body.scrollTop = 0;
+      const page = document.getElementById('page-registro');
+      if(page) page.scrollTop = 0;
+      window.scrollTo(0, 0);
+    } catch(e){}
+
+    // 4) Reaparición en cascada de arriba hacia abajo (~1s), en el siguiente frame.
     requestAnimationFrame(()=>{
       const visibleFields=Array.from(card.querySelectorAll('.field'))
-        .filter(f=>f.offsetParent!==null); // solo los visibles
-      const n=visibleFields.length;
-      // Repartir la cascada para que dure casi 1s en total
-      const stepDelay = n>1 ? Math.floor(600/(n-1)) : 0; // hasta ~600ms de escalonado
-      visibleFields.forEach((f,i)=>{
+        .filter(f=>f.offsetParent!==null);
+      // Incluir inline-toggles y note-section si están visibles, en orden vertical
+      const extra=[];
+      if(it && it.offsetParent!==null) extra.push(it);
+      if(ns && ns.offsetParent!==null) extra.push(ns);
+      const allEls=[...visibleFields, ...extra]
+        .sort((a,b)=>a.getBoundingClientRect().top-b.getBoundingClientRect().top);
+      const n=allEls.length;
+      const stepDelay = n>1 ? Math.floor(600/(n-1)) : 0;
+      allEls.forEach((f,i)=>{
         try{
-          f.animate([
+          const anim=f.animate([
             {opacity:0,transform:'translateY(-16px)'},
             {opacity:1,transform:'translateY(0)'}
           ],{duration:520,delay:i*stepDelay,easing:'cubic-bezier(0.22,0.61,0.36,1)',fill:'backwards'});
-        }catch(e){}
+          // Al terminar, limpiar el opacity inline para dejar el campo normal
+          anim.onfinish=()=>{ f.style.opacity=''; f.style.transform=''; };
+        }catch(e){ f.style.opacity=''; f.style.transform=''; }
       });
     });
   }
