@@ -1,3 +1,8 @@
+// Lo que el historial está mostrando AHORA MISMO (tras todos los filtros:
+// fecha/rango, búsqueda, tipo, categorías, subcategorías y método).
+// La exportación a CSV usa exactamente esta lista.
+let lastFilteredEntries=[];
+
 function entriesInCurrentDateScope(type){
   const mSel=document.getElementById('hist-month-sel');
   const ySel=document.getElementById('hist-year-sel');
@@ -468,6 +473,7 @@ function renderHistorial(animate){
   } else {
     // Modo rango activado pero AÚN NO aplicado: no mostrar nada.
     if(histRangeMode && !histRangeApplied){
+      lastFilteredEntries=[];
       hl.innerHTML='<div class="empty"><div class="e-ico">📅</div>Elige un rango y toca "Aplicar rango"</div>';
       hlReal.replaceChildren(...hl.childNodes);
       renderPie([]);
@@ -500,6 +506,7 @@ function renderHistorial(animate){
     // 2) FILTRO POR TIPO (sobre los ya filtrados por fecha/búsqueda)
     if(histFilter!=='todos') filtered=filtered.filter(e=>e.type===histFilter);
     if(histFilter!=='todos' && histFilter!=='egreso' && histSelCats.length===0){
+      lastFilteredEntries=[];
       hl.innerHTML='<div class="empty"><div class="e-ico">🔍</div>Sin categorías seleccionadas</div>';
       hlReal.replaceChildren(...hl.childNodes);
       renderPie([]);
@@ -518,6 +525,9 @@ function renderHistorial(animate){
   if(histMethodFilter) filtered=filtered.filter(e=>e.method===histMethodFilter);
 
   filtered.sort((a,b)=>parseDate(b.date)-parseDate(a.date)||b.id-a.id);
+
+  // Recordar exactamente lo que se está mostrando (lo usa la exportación a CSV)
+  lastFilteredEntries=filtered;
 
   if(!filtered.length){
     hl.innerHTML='<div class="empty"><div class="e-ico">🔍</div>Sin movimientos</div>';
