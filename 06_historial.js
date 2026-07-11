@@ -104,22 +104,26 @@ function entriesInCurrentDateScope(type){
       }
       return true;
     }
+    // Vista mensual: si hay búsqueda, el universo son las coincidencias en TODO
+    // el tiempo (la búsqueda ignora el mes); si no, el mes/año seleccionado.
+    if(sq){
+      const hay=[e.desc||'',e.note||'',e.category||'',e.subcategory||'',e.method||''].join(' ').toLowerCase();
+      return hay.includes(sq);
+    }
     return d.getMonth()===selMonth&&d.getFullYear()===selYear;
   });
 }
 
-// Manejo del input de búsqueda. En modo rango, cambiar la búsqueda resetea la vista
-// a "Todos" para que el nuevo universo de resultados se muestre completo y los chips
-// de tipo se recalculen sobre él.
+// Manejo del input de búsqueda. Cambiar la búsqueda (en mes o en rango) resetea la
+// vista a "Todos" para que el nuevo universo de resultados se muestre completo y
+// los chips de tipo se recalculen sobre él.
 function onHistSearchInput(){
-  if(histRangeMode && histRangeApplied){
-    histFilter='todos'; histSelCats=[]; histSelSubcats=[];
-    document.querySelectorAll('.filter-bar .f-chip').forEach(c=>c.classList.remove('active'));
-    const todosChip=document.getElementById('fchip-todos');
-    if(todosChip) todosChip.classList.add('active');
-    const subPanel=document.getElementById('sub-filter-panel');
-    if(subPanel) subPanel.classList.remove('vis');
-  }
+  histFilter='todos'; histSelCats=[]; histSelSubcats=[];
+  document.querySelectorAll('.filter-bar .f-chip').forEach(c=>c.classList.remove('active'));
+  const todosChip=document.getElementById('fchip-todos');
+  if(todosChip) todosChip.classList.add('active');
+  const subPanel=document.getElementById('sub-filter-panel');
+  if(subPanel) subPanel.classList.remove('vis');
   updateResetButton();
   renderHistorial();
 }
@@ -424,8 +428,8 @@ function updateTypeChips(selMonth, selYear, isSearchMode){
   const rangeActive = histRangeMode && histRangeApplied;
   const searchEl=document.getElementById('hist-search');
   const sq=(searchEl?.value||'').trim().toLowerCase();
-  // El conjunto base respeta el filtro de fecha activo: rango (si aplicado) o mes/año.
-  // En modo rango, la búsqueda también acota qué tipos existen.
+  // El conjunto base respeta el filtro activo: rango (si aplicado) o mes/año.
+  // Si hay búsqueda, acota qué tipos existen — en rango Y en vista mensual.
   const baseEntries = data.filter(e=>{
     if(isFutureEntry(e)) return false;
     const d=parseDate(e.date);
@@ -442,6 +446,12 @@ function updateTypeChips(selMonth, selYear, isSearchMode){
       }
       return true;
     }
+    // Vista mensual: si hay búsqueda, el universo son las coincidencias en TODO
+    // el tiempo (la búsqueda ignora el mes); si no, el mes/año seleccionado.
+    if(sq){
+      const hay=[e.desc||'',e.note||'',e.category||'',e.subcategory||'',e.method||''].join(' ').toLowerCase();
+      return hay.includes(sq);
+    }
     return d.getMonth()===selMonth&&d.getFullYear()===selYear;
   });
   const counts = {
@@ -454,9 +464,9 @@ function updateTypeChips(selMonth, selYear, isSearchMode){
   const setChip=(id, enabled)=>{
     const chip=document.getElementById(id);
     if(!chip) return;
-    // En búsqueda NORMAL (fuera de rango) todos quedan habilitados (búsqueda global).
-    // En modo rango, los chips reflejan qué tipos existen entre los resultados.
-    const on = (isSearchMode && !rangeActive) ? true : enabled;
+    // Los chips siempre reflejan qué tipos existen en el universo actual
+    // (mes, rango o resultados de búsqueda).
+    const on = enabled;
     chip.disabled = !on;
     chip.style.opacity = on ? '1' : '0.38';
     chip.style.pointerEvents = on ? '' : 'none';
@@ -538,7 +548,9 @@ function renderHistorial(animate){
 
   let filtered;
   if(isSearchMode && !rangeActive){
-    // Búsqueda NORMAL (fuera de rango): filtro amplio, ignora tipo/mes
+    // Búsqueda NORMAL (fuera de rango): la base son las coincidencias en TODO
+    // el tiempo. El tipo, categorías, subcategorías y método se aplican DESPUÉS
+    // sobre esta base, exactamente igual que en modo rango.
     filtered=data.filter(e=>{
       if(isFutureEntry(e)) return false;
       const haystack=[
@@ -579,19 +591,20 @@ function renderHistorial(animate){
         return haystack.includes(searchQuery);
       });
     }
-    // 2) FILTRO POR TIPO (sobre los ya filtrados por fecha/búsqueda)
-    if(histFilter!=='todos') filtered=filtered.filter(e=>e.type===histFilter);
-    if(histFilter!=='todos' && histFilter!=='egreso' && histSelCats.length===0){
-      lastFilteredEntries=[];
-      hl.innerHTML='<div class="empty"><div class="e-ico">🔍</div>Sin categorías seleccionadas</div>';
-      hlReal.replaceChildren(...hl.childNodes);
-      renderPie([]);
-      return;
-    }
-    // 3) FILTRO POR CATEGORÍA/SUBCATEGORÍA
-    if(histSelCats.length>0) filtered=filtered.filter(e=>histSelCats.includes(e.category));
-    if(histSelSubcats.length>0) filtered=filtered.filter(e=>histSelSubcats.includes(e.subcategory));
   }
+
+  // 2) FILTRO POR TIPO (aplica igual en vista mensual, rango y búsqueda)
+  if(histFilter!=='todos') filtered=filtered.filter(e=>e.type===histFilter);
+  if(histFilter!=='todos' && histFilter!=='egreso' && histSelCats.length===0){
+    lastFilteredEntries=[];
+    hl.innerHTML='<div class="empty"><div class="e-ico">🔍</div>Sin categorías seleccionadas</div>';
+    hlReal.replaceChildren(...hl.childNodes);
+    renderPie([]);
+    return;
+  }
+  // 3) FILTRO POR CATEGORÍA/SUBCATEGORÍA
+  if(histSelCats.length>0) filtered=filtered.filter(e=>histSelCats.includes(e.category));
+  if(histSelSubcats.length>0) filtered=filtered.filter(e=>histSelSubcats.includes(e.subcategory));
 
   // Antes de aplicar el filtro de método, calcular qué métodos existen en el
   // conjunto visible (para mostrar solo esos, u ocultar el filtro si hay ≤1).
