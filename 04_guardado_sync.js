@@ -346,6 +346,7 @@ function _submitEntry(){
 
 function resetForm(){
   ['amount','desc','note','ben-amount','ben-pct'].forEach(id=>{const el=document.getElementById(id); if(el) el.value='';});
+  if(typeof _amountPredicted!=='undefined') _amountPredicted=false;
   document.getElementById('currency').value='MXN';
   const _today = localToday();
   document.getElementById('tx-date').value = _today;
