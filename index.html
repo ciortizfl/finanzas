@@ -26,6 +26,19 @@
     <h1>Nuevo registro</h1>
     <p id="hdr-date"></p>
   </div>
+  <!-- Tarjeta de recordatorio inteligente (cola: uno a la vez) -->
+  <div class="rem-card" id="rem-card" style="display:none">
+    <div class="rem-ico" id="rem-ico">🔔</div>
+    <div class="rem-body">
+      <div class="rem-title" id="rem-title"></div>
+      <div class="rem-sub" id="rem-sub"></div>
+      <div class="rem-actions">
+        <button type="button" class="rem-btn rem-btn-apply" onclick="remApply()">Aplicar</button>
+        <button type="button" class="rem-btn" id="rem-skip-btn" onclick="remSkip()">Este mes no</button>
+        <button type="button" class="rem-btn rem-btn-mute" onclick="remMute()">No recordar más</button>
+      </div>
+    </div>
+  </div>
   <div class="form-wrap">
     <!-- Segmented control deslizante estilo iOS -->
     <div class="seg-control" id="type-seg" data-active="egreso">
@@ -195,6 +208,23 @@
           <button type="button" id="desglose-toggle-btn" class="inline-tgl" onclick="toggleDesgloseSection()">
             <span>🧾</span><span>Desglose</span>
           </button>
+          <button type="button" id="rem-toggle-btn" class="inline-tgl" onclick="toggleRemPanel()">
+            <span>🔔</span><span>Recordar</span>
+          </button>
+        </div>
+        <!-- Configuración del recordatorio manual (frecuencia y duración) -->
+        <div id="rem-config" style="display:none;margin-top:10px">
+          <div class="rem-cfg-row">
+            <button type="button" class="chip" id="rem-freq-monthly" onclick="setRemFreq('monthly')">Cada mes</button>
+            <button type="button" class="chip" id="rem-freq-weekly" onclick="setRemFreq('weekly')">Cada semana</button>
+          </div>
+          <div class="rem-cfg-hint" id="rem-freq-hint"></div>
+          <div class="rem-cfg-row" style="margin-top:8px">
+            <button type="button" class="chip" id="rem-until-inf" onclick="setRemUntil('inf')">Indefinido</button>
+            <button type="button" class="chip" id="rem-until-date" onclick="setRemUntil('date')">Hasta fecha…</button>
+          </div>
+          <div class="rem-cfg-hint" id="rem-until-hint"></div>
+          <input type="hidden" id="rem-until-value">
         </div>
         <div id="note-field-wrap" style="display:none;margin-top:10px">
           <textarea id="note" placeholder="Nota opcional" oninput="updateNoteDesgloseIndicators()" style="width:100%;padding:11px 13px;border:none;border-radius:var(--radius-sm);background:var(--surface2);color:var(--text);font-family:inherit;font-size:15px;outline:none;resize:none;height:64px;"></textarea>
@@ -340,6 +370,7 @@
       <input type="text" id="hist-search" placeholder="Buscar descripción, notas..." oninput="onHistSearchInput()" style="flex:1;border:none;background:none;font-family:inherit;font-size:14px;color:var(--text);outline:none;">
       <button onclick="clearSearch()" id="hist-search-clear" style="display:none;background:none;border:none;cursor:pointer;color:var(--text3);font-size:16px;padding:0;line-height:1;">✕</button>
     </div>
+    <div class="hist-presets" id="hist-presets"></div>
   </div>
   <!-- Ancla donde se coloca el buscador cuando hay un rango aplicado -->
   <div id="hist-search-anchor-original"></div>
@@ -701,6 +732,7 @@
 <script src="07_datepicker_fechas.js"></script>
 <script src="08_edicion.js"></script>
 <script src="09_edicion_diferir.js"></script>
+<script src="09b_recordatorios.js"></script>
 <script src="10_presupuesto_csv_init.js"></script>
 </body>
 </html>
