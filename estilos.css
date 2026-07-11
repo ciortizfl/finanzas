@@ -102,9 +102,12 @@ nav {
 .page { display: none; min-height: 100vh; padding-bottom: 90px; }
 .page.active { display: block; }
 
-/* HEADER */
+/* HEADER — pegado arriba (sticky) para que SIEMPRE cubra la zona de la isla
+   dinámica / reloj / batería, incluso al hacer scroll. El contenido pasa por
+   debajo limpiamente. El padding-top respeta la safe area del iPhone. */
 .page-header {
-  padding: calc(56px + env(safe-area-inset-top, 0px)) 20px 16px; background: var(--surface);
+  position: sticky; top: 0; z-index: 50;
+  padding: calc(20px + env(safe-area-inset-top, 0px)) 20px 16px; background: var(--surface);
   border-bottom: 0.5px solid var(--border2); margin-bottom: 20px;
 }
 .page-header h1 {
