@@ -907,9 +907,22 @@ function selectSubcat(sub) {
   }
 }
 
+// El monto autopredicho se marca para poder actualizarlo/limpiarlo sin pisar
+// lo que el usuario haya tecleado a mano.
+let _amountPredicted=false;
+
 function predictCategory(){
   const desc = document.getElementById('desc').value.trim().toLowerCase();
-  if(desc.length < 3) return;
+  if(desc.length < 3){
+    // Si se borró la descripción y el monto era autopredicho, limpiarlo
+    if(_amountPredicted){
+      const amtEl=document.getElementById('amount');
+      if(amtEl){ amtEl.value=''; }
+      _amountPredicted=false;
+      try{ calcPropinaPreview(); updateDesgloseRemaining(); renderDiferirPreview(); }catch(e){}
+    }
+    return;
+  }
   // Funciona para egreso, ingreso y beneficio (ahorro-pasivo)
   if(curType !== 'egreso' && curType !== 'ingreso' && curType !== 'ahorro-pasivo') return;
 
@@ -929,10 +942,12 @@ function predictCategory(){
     return 0; // más de 365 días → no cuenta
   }
 
-  // Contar frecuencia PONDERADA de cat+subcat Y de método en registros del MISMO tipo
-  // con descripción similar, dando más peso a los registros recientes.
+  // Contar frecuencia PONDERADA de cat+subcat, método Y moneda en registros del
+  // MISMO tipo con descripción similar. También juntar candidatos para el monto.
   const freq = {};
   const methodFreq = {};
+  const curFreq = {};
+  const matches = []; // para la predicción de monto
   data.forEach(e => {
     if(e.type !== curType) return;
     // Ignorar hijos vinculados (desgloses/propina/beneficio) para no sesgar
@@ -949,6 +964,10 @@ function predictCategory(){
       if(e.method){
         methodFreq[e.method] = (methodFreq[e.method] || 0) + w;
       }
+      // Frecuencia ponderada de moneda (Starbucks MX vs Panda Express USA)
+      const c = e.currency || 'MXN';
+      curFreq[c] = (curFreq[c] || 0) + w;
+      matches.push(e);
     }
   });
 
@@ -966,6 +985,64 @@ function predictCategory(){
         const chipMethod = c.getAttribute('data-method');
         if(chipMethod === bestMethod) c.classList.add('active');
       });
+    }
+  }
+
+  // ── Predecir moneda (misma ponderación por cuartos) ──
+  let predictedCur = null;
+  const curEntries = Object.entries(curFreq);
+  if(curEntries.length > 0){
+    const [bestCur] = curEntries.sort((a,b)=>b[1]-a[1])[0];
+    predictedCur = bestCur;
+    const curSel = document.getElementById('currency');
+    if(curSel && bestCur && curSel.value !== bestCur){
+      curSel.value = bestCur;
+      onCurChange(); // refrescar la etiqueta de tipo de cambio
+    }
+  }
+
+  // ── Predecir monto (solo para pagos recurrentes de monto EXACTO) ──
+  // Regla: entre los últimos 4 registros del comercio (≤365 días, misma moneda
+  // predicha, sin mensualidades de diferidos), si un monto exacto aparece al
+  // menos 2 veces Y en al menos la mitad de ellos, se predice. En empate gana
+  // el más reciente. Así "Limpieza $500" mensual se predice, el súper (montos
+  // variables) no, y si el pago sube a $600, a la 2a vez ya predice $600.
+  const amtEl = document.getElementById('amount');
+  if(amtEl){
+    let predAmt = null;
+    const pool = matches
+      .filter(e => !e.deferGroup) // las mensualidades de un diferido no son "pagos" reales
+      .filter(e => (e.currency || 'MXN') === (predictedCur || 'MXN'))
+      .sort((a,b) => parseDate(b.date) - parseDate(a.date))
+      .slice(0, 4);
+    if(pool.length >= 2){
+      const counts = {};
+      pool.forEach(e => {
+        const k = String(Number(e.amount));
+        counts[k] = (counts[k] || 0) + 1;
+      });
+      let best = null, bestCount = 0;
+      // Recorrer del más reciente al más viejo: en empate gana el más reciente
+      pool.forEach(e => {
+        const k = String(Number(e.amount));
+        if(counts[k] > bestCount){ best = k; bestCount = counts[k]; }
+      });
+      if(best !== null && bestCount >= 2 && bestCount >= Math.ceil(pool.length / 2)){
+        predAmt = Number(best);
+      }
+    }
+    const userTyped = amtEl.value.trim() !== '' && !_amountPredicted;
+    if(!userTyped){
+      if(predAmt !== null){
+        amtEl.value = formatAmountString(String(predAmt));
+        _amountPredicted = true;
+        try{ calcPropinaPreview(); updateDesgloseRemaining(); renderDiferirPreview(); }catch(e){}
+      } else if(_amountPredicted){
+        // La predicción dejó de aplicar (cambió la descripción): limpiar
+        amtEl.value = '';
+        _amountPredicted = false;
+        try{ calcPropinaPreview(); updateDesgloseRemaining(); renderDiferirPreview(); }catch(e){}
+      }
     }
   }
 
