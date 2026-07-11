@@ -605,6 +605,15 @@ nav {
 .toast-title { font-size: 14px; font-weight: 700; letter-spacing: -0.01em; line-height: 1.25; }
 .toast-sub { font-size: 13px; color: var(--text2); margin-top: 1px; line-height: 1.25; }
 .toast-sub:empty { display: none; }
+/* Circulito girando dentro del ícono del banner mientras se guarda/sincroniza */
+.toast-spinner {
+  display: block; width: 17px; height: 17px;
+  border: 2.5px solid rgba(255,255,255,0.35);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: toastSpin 0.8s linear infinite;
+}
+@keyframes toastSpin { to { transform: rotate(360deg); } }
 @media (prefers-color-scheme: dark) {
   .toast { background: rgba(40,40,42,0.82); color: #fff; }
 }
