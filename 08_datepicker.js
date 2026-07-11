@@ -378,8 +378,52 @@ function fmtCur(n, cur){
   return cur==='MXN' || !cur ? `$${num}` : `${cur} ${num}`;
 }
 
+let _toastTimer=null;
 function toast(msg){
   const t=document.getElementById('toast');
-  t.textContent=msg; t.classList.add('show');
-  setTimeout(()=>t.classList.remove('show'),2400);
+  if(!t) return;
+  const icoEl=document.getElementById('toast-ico');
+  const titleEl=document.getElementById('toast-title');
+  const subEl=document.getElementById('toast-sub');
+  if(!icoEl||!titleEl||!subEl){ // respaldo por si el HTML no tiene la estructura
+    t.textContent=msg; t.classList.add('show');
+    clearTimeout(_toastTimer); _toastTimer=setTimeout(()=>t.classList.remove('show'),2600);
+    return;
+  }
+
+  // Detectar el tipo de notificación a partir del mensaje
+  let raw=String(msg).trim();
+  let type='info';
+  // Quitar símbolos iniciales que ya traen algunos mensajes (✓, ✕, ⚠️)
+  const clean=raw.replace(/^([✓✔✕✗⚠️!]+)\s*/,'').trim();
+  if(/^[✓✔]/.test(raw) || /guardad|actualizad|eliminad|descargad|convertid|sincroniz/i.test(clean)){
+    type='ok';
+  }
+  if(/^[⚠️!]/.test(raw) || /^error|no se pudo|no puede|excede|inválid|revisa/i.test(clean)){
+    type='warn';
+  }
+  if(/^error|falló|no se pudo/i.test(clean)){
+    type='err';
+  }
+  // Los mensajes de validación (guías para completar el formulario) van como aviso
+  if(/^(selecciona|ingresa|agrega|elige|cada desglose|ningún desglose|beneficio,)/i.test(clean)){
+    type='warn';
+  }
+
+  // Título + subtítulo: si el mensaje trae dos frases separadas por " — " o ". ",
+  // la primera es título y el resto subtítulo. Si no, todo va como título.
+  let title=clean, sub='';
+  const dash=clean.split(' — ');
+  if(dash.length>1){ title=dash[0]; sub=dash.slice(1).join(' — '); }
+
+  const icons={ ok:'✓', err:'✕', warn:'!', info:'↻' };
+  icoEl.textContent = icons[type] || '✓';
+  icoEl.className = 'toast-ico' + (type==='ok'?' ok':type==='err'?' err':type==='warn'?' warn':'');
+  titleEl.textContent = title;
+  subEl.textContent = sub;
+
+  clearTimeout(_toastTimer);
+  t.classList.remove('show'); void t.offsetWidth;
+  t.classList.add('show');
+  _toastTimer=setTimeout(()=>t.classList.remove('show'), 2600);
 }
