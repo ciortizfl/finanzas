@@ -1,0 +1,603 @@
+// ══════════════════════════════════════
+// DIFERIR en EDICIÓN — paridad total con el registro
+// ══════════════════════════════════════
+let _eDiferirVisible=false;
+
+function editDiferirHasData(){ return editDiferirMonths>0; }
+
+// Al abrir edición: si el registro ya es diferido, mostrar el panel desplegado
+// con los meses actuales. Si no, dejar el botón Diferir disponible como en registro.
+function setupEditDiferirPanel(){
+  const panel=document.getElementById('e-diferir-panel');
+  if(!panel) return;
+  if(editDeferGroup){
+    // Es un diferido existente: cargar meses y desplegar el panel
+    const grp=data.filter(x=>sameGroup(x.deferGroup,editDeferGroup));
+    editDiferirMonths = grp.length>0 ? grp[0].deferTotal : 0;
+    editDiferirCustom = !DIFERIR_PRESETS.includes(editDiferirMonths);
+    _eDiferirVisible=true;
+    const ci=document.getElementById('e-diferir-custom');
+    if(ci) ci.value = editDiferirCustom ? editDiferirMonths : '';
+    panel.style.display='block';
+    // Estado final del crossfade SIN animación (el modal recién abre)
+    const row=document.getElementById('e-inline-row-main');
+    const full=document.getElementById('e-inline-diferir-full');
+    if(row){ row.getAnimations().forEach(a=>a.cancel()); row.style.opacity='0'; row.style.pointerEvents='none'; }
+    if(full){ full.getAnimations().forEach(a=>a.cancel()); full.style.opacity='1'; full.style.transform='none'; full.style.pointerEvents='auto'; }
+    updateInlineBtn('e-inline-diferir-btn', true, true);
+    renderEditDiferirPresets();
+    renderEditDiferirPreview();
+    editUpdateDesgloseForDiferir();
+  } else {
+    // No diferido: panel oculto, botón normal, crossfade en estado inicial
+    editDiferirMonths=0; editDiferirCustom=false; _eDiferirVisible=false;
+    panel.style.display='none';
+    const ci=document.getElementById('e-diferir-custom');
+    if(ci) ci.value='';
+    updateInlineBtn('e-inline-diferir-btn', false, false);
+    // Restaurar crossfade: fila de 3 botones visible, botón completo oculto
+    const row=document.getElementById('e-inline-row-main');
+    const full=document.getElementById('e-inline-diferir-full');
+    if(row){ row.getAnimations().forEach(a=>a.cancel()); row.style.opacity=''; row.style.pointerEvents=''; }
+    if(full){ full.getAnimations().forEach(a=>a.cancel()); full.style.opacity='0'; full.style.transform=''; full.style.pointerEvents='none'; }
+  }
+}
+
+// Toggle del botón Diferir en edición (crossfade igual que registro)
+function editInlineToggleDiferir(){
+  if(_eDiferirVisible){
+    _eDiferirVisible=false;
+    document.getElementById('e-diferir-panel').style.display='none';
+    updateInlineBtn('e-inline-diferir-btn', editDiferirHasData(), editDiferirHasData());
+    if(!editDiferirHasData()){
+      editShowPropinaBenButtons();
+    }
+  } else {
+    _eDiferirVisible=true;
+    editPropinaOn=false; editBenOn=false;
+    const pp=document.getElementById('e-propina-panel'); if(pp) pp.style.display='none';
+    const bp=document.getElementById('e-ben-panel'); if(bp) bp.style.display='none';
+    const panel=document.getElementById('e-diferir-panel');
+    panel.style.display='block';
+    revealAnimate(panel);
+    updateInlineBtn('e-inline-diferir-btn', true, editDiferirHasData());
+    editHidePropinaBenButtons();
+    renderEditDiferirPresets();
+    renderEditDiferirPreview();
+    editUpdateDesgloseForDiferir();
+  }
+}
+
+// Crossfade: ocultar propina/beneficio, mostrar botón Diferir completo
+function editHidePropinaBenButtons(){
+  const row=document.getElementById('e-inline-row-main');
+  const full=document.getElementById('e-inline-diferir-full');
+  if(!row || !full) return;
+  row.getAnimations().forEach(a=>a.cancel());
+  full.getAnimations().forEach(a=>a.cancel());
+  row.animate([{opacity:1},{opacity:0}],{duration:220,easing:'cubic-bezier(0.4,0,0.2,1)',fill:'forwards'});
+  row.style.pointerEvents='none';
+  full.style.pointerEvents='auto';
+  full.animate([{opacity:0,transform:'scale(0.98)'},{opacity:1,transform:'scale(1)'}],{duration:220,easing:'cubic-bezier(0.22,0.61,0.36,1)',fill:'forwards'});
+}
+function editShowPropinaBenButtons(){
+  const row=document.getElementById('e-inline-row-main');
+  const full=document.getElementById('e-inline-diferir-full');
+  if(row && full){
+    row.getAnimations().forEach(a=>a.cancel());
+    full.getAnimations().forEach(a=>a.cancel());
+    full.animate([{opacity:1,transform:'scale(1)'},{opacity:0,transform:'scale(0.98)'}],{duration:220,easing:'cubic-bezier(0.4,0,0.2,1)',fill:'forwards'});
+    full.style.pointerEvents='none';
+    row.style.pointerEvents='auto';
+    row.animate([{opacity:0},{opacity:1}],{duration:220,easing:'cubic-bezier(0.22,0.61,0.36,1)',fill:'forwards'});
+  }
+  editUpdateDesgloseForDiferir();
+}
+
+// Ocultar Desglose abajo cuando Diferir está activo en edición
+function editUpdateDesgloseForDiferir(){
+  const desgBtn=document.getElementById('e-desglose-toggle-btn');
+  const noteBtn=document.getElementById('e-note-toggle-btn');
+  if(!desgBtn || !noteBtn) return;
+  if(_eDiferirVisible || editDiferirHasData()){
+    if(_eDesgloseVisible){
+      _eDesgloseVisible=false;
+      const sec=document.getElementById('e-desglose-section');
+      if(sec) sec.style.display='none';
+    }
+    editDesgloses=[];
+    desgBtn.style.display='none';
+    noteBtn.style.flex='1 1 100%';
+  } else if(editType==='egreso'){
+    desgBtn.style.display='';
+    noteBtn.style.flex='';
+  }
+  updateEditNoteMode();
+}
+
+function renderEditDiferirPresets(){
+  const cont=document.getElementById('e-diferir-presets');
+  if(!cont) return;
+  cont.innerHTML='';
+  DIFERIR_PRESETS.forEach(p=>{
+    const b=document.createElement('button');
+    b.type='button';
+    b.className='month-preset'+(!editDiferirCustom && editDiferirMonths===p?' on':'');
+    b.textContent=p+'m';
+    b.onclick=()=>toggleEditDiferirPreset(p);
+    cont.appendChild(b);
+  });
+}
+
+function toggleEditDiferirPreset(p){
+  if(!editDiferirCustom && editDiferirMonths===p){
+    editDiferirMonths=0; // desactivar
+  } else {
+    editDiferirMonths=p;
+    editDiferirCustom=false;
+    const ci=document.getElementById('e-diferir-custom');
+    if(ci) ci.value='';
+  }
+  renderEditDiferirPresets();
+  renderEditDiferirPreview();
+  updateInlineBtn('e-inline-diferir-btn', true, editDiferirHasData());
+  editUpdateDesgloseForDiferir();
+}
+
+function onEditDiferirCustomInput(){
+  const v=parseInt(document.getElementById('e-diferir-custom').value);
+  if(v && v>=2){
+    editDiferirMonths=v;
+    editDiferirCustom=!DIFERIR_PRESETS.includes(v);
+  } else {
+    editDiferirMonths=0;
+    editDiferirCustom=false;
+  }
+  renderEditDiferirPresets();
+  renderEditDiferirPreview();
+  updateInlineBtn('e-inline-diferir-btn', true, editDiferirHasData());
+  editUpdateDesgloseForDiferir();
+}
+
+// Quitar diferido: vuelve el gasto a ser único (de una vez)
+function editClearDiferir(){
+  editDiferirMonths=0;
+  editDiferirCustom=false;
+  const ci=document.getElementById('e-diferir-custom');
+  if(ci) ci.value='';
+  _eDiferirVisible=false;
+  document.getElementById('e-diferir-panel').style.display='none';
+  updateInlineBtn('e-inline-diferir-btn', false, false);
+  editShowPropinaBenButtons();
+}
+
+function renderEditDiferirPreview(){
+  const prev=document.getElementById('e-diferir-preview');
+  const clearBtn=document.getElementById('e-diferir-clear-btn');
+  if(!prev) return;
+  if(!editDiferirHasData()){
+    prev.style.display='none';
+    if(clearBtn) clearBtn.style.display='none';
+    return;
+  }
+  const amount=parseFloat(rawAmount(document.getElementById('e-amount').value))||0;
+  const n=editDiferirMonths;
+  const perMonth=Math.floor((amount/n)*100)/100;
+  // Fecha de inicio: si ya era diferido, la del mes 1; si es nuevo, la fecha del registro
+  const grp=data.filter(x=>sameGroup(x.deferGroup,editDeferGroup)).sort((a,b)=>a.deferIndex-b.deferIndex);
+  const base=(editDeferGroup && grp.length>0) ? parseDate(grp[0].date) : (parseDate(document.getElementById('e-date').value)||new Date());
+  const start=diferirMonthlyDate(base,0);
+  const end=diferirMonthlyDate(base,n-1);
+  const startLbl=`${MONTHS_ES[start.getMonth()].slice(0,3)} ${start.getFullYear()}`;
+  const endLbl=`${MONTHS_ES[end.getMonth()].slice(0,3)} ${end.getFullYear()}`;
+  prev.style.display='block';
+  prev.innerHTML=`
+    <div style="font-size:20px;font-weight:700;letter-spacing:-0.02em;color:var(--accent);margin-bottom:3px;">${fmt(perMonth)} <span style="font-size:13px;font-weight:500;color:var(--text3);">/ mes</span></div>
+    <div style="font-size:12.5px;color:var(--text2);margin-bottom:2px;">Durante <b>${n} meses</b> · ${startLbl} – ${endLbl}</div>
+    <div style="font-size:11.5px;color:var(--text3);">Cada día ${base.getDate()} de cada mes</div>
+  `;
+  if(clearBtn) clearBtn.style.display='block';
+}
+
+function saveEditDeferred({amount, desc, cur, note, subcat}){
+  const group=data.filter(x=>sameGroup(x.deferGroup,editDeferGroup)).sort((a,b)=>a.deferIndex-b.deferIndex);
+  if(group.length===0){ closeModal(); return; }
+  // Nuevo número de meses (editable); si no es válido, conservar el original
+  let n = (editDiferirMonths && editDiferirMonths>=2) ? editDiferirMonths : group[0].deferTotal;
+  const startDate=parseDate(group[0].date); // fecha del mes 1 (inicio)
+  const method=group[0].method;
+  const oldIds=group.map(x=>x.id);
+  const groupId=editDeferGroup;
+
+  const perMonth=Math.floor((amount/n)*100)/100;
+  let acc=0;
+  const newEntries=[];
+  for(let i=0;i<n;i++){
+    let monthAmt=perMonth;
+    if(i===n-1) monthAmt=+(amount-acc).toFixed(2);
+    acc+=perMonth;
+    const d=diferirMonthlyDate(startDate,i);
+    const dateStr=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    newEntries.push({
+      id: genId(), type:'egreso',
+      amount:monthAmt, amountMXN:toMXN(monthAmt,cur), currency:cur,
+      desc, category:editCat, subcategory:subcat,
+      method, date:dateStr, note,
+      deferGroup:groupId, deferIndex:i+1, deferTotal:n, deferOriginal:amount
+    });
+  }
+  data=data.filter(x=>!sameGroup(x.deferGroup,groupId));
+  newEntries.forEach(e=>data.unshift(e));
+  save();
+  showSyncing('⟳ Guardando...');
+  // Primero borrar los viejos (secuencial), luego guardar los nuevos en un batch
+  (async()=>{
+    for(const oid of oldIds){ await deleteEntryInSheets(oid); }
+    await saveBatchToSheets(newEntries);
+    hideSyncing(); toast('✓ Gasto diferido actualizado');
+  })();
+  closeModalWithSlide();
+  renderHistorial(); renderBalance();
+}
+
+// Convierte un gasto único (no diferido) en un grupo diferido de N mensualidades.
+function saveEditConvertToDefer({amount, desc, cur, note, subcat}){
+  const orig=data.find(x=>x.id===editId);
+  const method=orig?orig.method:selMethod;
+  const startDate=parseDate(document.getElementById('e-date').value)||new Date();
+  const n=editDiferirMonths;
+  const groupId=genId();
+  // Borrar el registro original y sus hijos (propina/beneficio/desglose no aplican)
+  const oldChildIds=data.filter(x=>x.linkedTo===editId).map(x=>x.id);
+  data=data.filter(x=>x.id!==editId && x.linkedTo!==editId);
+  const perMonth=Math.floor((amount/n)*100)/100;
+  let acc=0;
+  const newEntries=[];
+  for(let i=0;i<n;i++){
+    let monthAmt=perMonth;
+    if(i===n-1) monthAmt=+(amount-acc).toFixed(2);
+    acc+=perMonth;
+    const d=diferirMonthlyDate(startDate,i);
+    const dateStr=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    newEntries.push({
+      id: genId(), type:'egreso',
+      amount:monthAmt, amountMXN:toMXN(monthAmt,cur), currency:cur,
+      desc, category:editCat, subcategory:subcat,
+      method, date:dateStr, note,
+      deferGroup:groupId, deferIndex:i+1, deferTotal:n, deferOriginal:amount
+    });
+  }
+  newEntries.forEach(e=>data.unshift(e));
+  save();
+  showSyncing('⟳ Guardando...');
+  (async()=>{
+    await deleteEntryInSheets(editId);
+    for(const cid of oldChildIds){ await deleteEntryInSheets(cid); }
+    await saveBatchToSheets(newEntries);
+    hideSyncing(); toast(`✓ Gasto diferido en ${n} meses`);
+  })();
+  closeModalWithSlide();
+  renderHistorial(); renderBalance();
+}
+
+// Quita el diferido: colapsa el grupo a un solo gasto único (de una vez).
+function saveEditRemoveDefer({amount, desc, cur, note, subcat}){
+  const group=data.filter(x=>sameGroup(x.deferGroup,editDeferGroup)).sort((a,b)=>a.deferIndex-b.deferIndex);
+  if(group.length===0){ closeModal(); return; }
+  const startDate=parseDate(group[0].date); // conservar la fecha del mes 1
+  const method=group[0].method;
+  const oldIds=group.map(x=>x.id);
+  const dateStr=`${startDate.getFullYear()}-${String(startDate.getMonth()+1).padStart(2,'0')}-${String(startDate.getDate()).padStart(2,'0')}`;
+  // Borrar todo el grupo
+  data=data.filter(x=>!sameGroup(x.deferGroup,editDeferGroup));
+  // Crear un único gasto con el monto total
+  const single={
+    id: genId(), type:'egreso',
+    amount:amount, amountMXN:toMXN(amount,cur), currency:cur,
+    desc, category:editCat, subcategory:subcat,
+    method, date:dateStr, note, linkedTo:null
+  };
+  data.unshift(single);
+  save();
+  showSyncing('⟳ Guardando...');
+  const saves=[
+    ...oldIds.map(oid=>deleteEntryInSheets(oid)),
+    saveEntryToSheets(single)
+  ];
+  Promise.all(saves).then(()=>{ hideSyncing(); toast('✓ Diferido convertido en gasto único'); });
+  closeModalWithSlide();
+  renderHistorial(); renderBalance();
+}
+
+function saveEdit(){
+  const amount=parseFloat(rawAmount(document.getElementById('e-amount').value));
+  const desc=document.getElementById('e-desc').value.trim();
+  const cur=document.getElementById('e-currency').value;
+  const date=document.getElementById('e-date').value;
+  const note=document.getElementById('e-note').value.trim();
+
+  // Validar subcategoría según si la categoría la requiere
+  const eSubs=editCat?sortedSubcats(editType, editCat):[];
+  const eHasSubs=eSubs && !(eSubs.length===1 && eSubs[0]==='—');
+  const subcat = eHasSubs ? editSubcat : '';
+
+  if(!amount||amount<=0) return toast('Ingresa un monto válido');
+  if(!desc) return toast('Agrega una descripción');
+  if(!editCat) return toast('Selecciona una categoría');
+  if(eHasSubs && !subcat) return toast('Selecciona una subcategoría');
+  if(!date) return toast('Selecciona una fecha');
+
+  // Persistir emoji personalizado por comercio+subcategoría (si el usuario eligió uno)
+  if(editEmojiOverride){
+    setMerchantEmoji(desc, subcat || editCat, editEmojiOverride);
+  }
+
+  // ── GASTO DIFERIDO: manejar conversiones ──
+  const wasDeferred = !!editDeferGroup;
+  const nowDeferred = editType==='egreso' && editDiferirHasData();
+  if(wasDeferred && nowDeferred){
+    // Sigue diferido: recrear el grupo con nuevos valores/meses
+    return saveEditDeferred({amount, desc, cur, note, subcat});
+  } else if(wasDeferred && !nowDeferred){
+    // Quitó el diferido: colapsar el grupo a un solo gasto único
+    return saveEditRemoveDefer({amount, desc, cur, note, subcat});
+  } else if(!wasDeferred && nowDeferred){
+    // Se volvió diferido: convertir el gasto único en grupo diferido
+    return saveEditConvertToDefer({amount, desc, cur, note, subcat});
+  }
+  // else: no diferido ni antes ni ahora → flujo normal
+
+  // ── Validar desgloses (egreso, ingreso y beneficio) ──
+  const activeEditDesgloses = editDesgloses.filter(d=>d.amount>0);
+  if(activeEditDesgloses.length>0){
+    for(const d of activeEditDesgloses){
+      if(!d.category) return toast('Cada desglose necesita una categoría');
+      const dsubs=sortedSubcats(editType, d.category);
+      const dHasSubs=dsubs && !(dsubs.length===1 && dsubs[0]==='—');
+      if(dHasSubs && !d.subcategory) return toast('Cada desglose necesita una subcategoría');
+    }
+  }
+
+  // Beneficio
+  let benAmt = 0;
+  if(editType==='egreso' && editBenOn) benAmt = getEditBenAmount();
+  // Si hay monto de beneficio pero no se eligió tipo, pedirlo
+  if(benAmt > 0 && !editBenType) return toast('Elige el tipo de beneficio');
+
+  // Total de desgloses
+  const totalDesg = activeEditDesgloses.reduce((s,d)=>s+d.amount,0);
+
+  // Propina: si es "incluida", se resta del monto madre (formaba parte del cobro).
+  // Si es "adicional", NO reduce el monto madre (es un gasto extra aparte).
+  let propinaIncludedAmt = 0;
+  if(editType==='egreso' && editPropinaOn && editPropinaIncluida){
+    propinaIncludedAmt = getEditPropinaAmount();
+  }
+
+  // Validar que reducciones no excedan el monto
+  if(benAmt + totalDesg + propinaIncludedAmt > amount) return toast('Beneficio, desgloses y propina exceden el monto');
+
+  let mainAmount = +(amount - benAmt - totalDesg - propinaIncludedAmt).toFixed(2);
+  if(mainAmount < 0) mainAmount = 0;
+
+  // Regla: ningún desglose individual puede superar el remanente del gasto principal
+  if(activeEditDesgloses.length>0){
+    const maxDesg=activeEditDesgloses.reduce((mx,d)=>Math.max(mx,d.amount),0);
+    if(mainAmount < maxDesg) return toast('Ningún desglose puede superar el gasto principal');
+  }
+  const amountMXN=toMXN(mainAmount,cur);
+
+  // Nota principal: SOLO la nota del usuario (sin "Monto original", que se
+  // muestra dinámicamente en el listado). Se conserva el TC si aplica.
+  let mainNote=note;
+  const noteWithRate=[mainNote,rateNote(cur)].filter(Boolean).join(' | ');
+
+  const idx=data.findIndex(x=>x.id===editId);
+  if(idx===-1) return;
+
+  // Capturar IDs de TODOS los hijos viejos (incluida la propina) para borrarlos de Sheets
+  const oldChildIds = data
+    .filter(x=>x.linkedTo===editId)
+    .map(x=>x.id);
+
+  // Eliminar TODOS los hijos vinculados viejos (se recrean desde el estado del modal)
+  data=data.filter(x=>x.linkedTo!==editId);
+
+  // Actualizar el registro madre
+  const newIdx=data.findIndex(x=>x.id===editId);
+  data[newIdx]={
+    ...data[newIdx],
+    type:editType, amount:mainAmount, amountMXN, currency:cur,
+    desc, category:editCat, subcategory:subcat,
+    method:editType!=='ahorro-pasivo'?editMethod:null,
+    date, note:noteWithRate
+  };
+
+  const newChildren=[];
+
+  // Recrear propina (desde el estado del modal)
+  if(editType==='egreso' && editPropinaOn){
+    const propinaAmt=getEditPropinaAmount();
+    if(propinaAmt>0){
+      const propinaAmtMXN=toMXN(propinaAmt,cur);
+      const sym=cur==='MXN'?'$':`${cur} `;
+      const propinaNoteparts=[`Propina de: ${desc}`];
+      if(editPropinaType==='pct'){
+        const pct=parseFloat(document.getElementById('e-propina-pct').value)||0;
+        const label=editPropinaIncluida?`incluida en ${sym}${amount.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})}`:`adicional a ${sym}${amount.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})}`;
+        propinaNoteparts.push(`${pct}% ${label}`);
+      } else {
+        propinaNoteparts.push(editPropinaIncluida?'incluida':'adicional');
+      }
+      const propinaEntry={
+        id:genId(), type:'egreso',
+        amount:propinaAmt, amountMXN:propinaAmtMXN, currency:cur,
+        desc:desc, category:'Generosidad', subcategory:'Propinas',
+        method:editPropinaMethod||editMethod, date,
+        note:propinaNoteparts.join(' | '), linkedTo:editId
+      };
+      data.unshift(propinaEntry);
+      newChildren.push(propinaEntry);
+    }
+  }
+
+  // Recrear beneficio
+  if(editType==='egreso'&&editBenOn&&benAmt>0){
+    const bt=editBenType;
+    const baMXN=toMXN(benAmt,cur);
+    let benNote=`Beneficio de: ${desc}`;
+    if(editBenType_mode==='pct'){
+      const pct=parseFloat(document.getElementById('e-ben-pct').value)||0;
+      const sym=cur==='MXN'?'$':`${cur} `;
+      benNote += ` | ${pct}% de ${sym}${amount.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})}`;
+    }
+    const benEntry={
+      id:genId(), type:'ahorro-pasivo',
+      amount:benAmt, amountMXN:baMXN, currency:cur,
+      desc:desc, category:bt, subcategory:'',
+      method:null, date,
+      note:benNote, linkedTo:editId
+    };
+    data.unshift(benEntry);
+    newChildren.push(benEntry);
+  }
+
+  // Recrear desgloses (heredan tipo, moneda, fecha y método del padre)
+  if(activeEditDesgloses.length>0){
+    activeEditDesgloses.forEach(d=>{
+      const dMXN=toMXN(d.amount, cur);
+      const dsubs=sortedSubcats(editType, d.category);
+      const dHasSubs=dsubs && !(dsubs.length===1 && dsubs[0]==='—');
+      // El desglose solo lleva "Desglose de: X" (sin monto original)
+      let dNote=`Desglose de: ${desc}`;
+      if(d.note) dNote=`${d.note} | ${dNote}`;
+      const dEntry={
+        id: genId(), type:editType,
+        amount:d.amount, amountMXN:dMXN, currency:cur,
+        desc:desc, category:d.category, subcategory: dHasSubs?d.subcategory:'',
+        method:editType!=='ahorro-pasivo'?editMethod:null, date,
+        note:dNote, linkedTo:editId
+      };
+      data.unshift(dEntry);
+      newChildren.push(dEntry);
+    });
+  }
+
+  save();
+  showSyncing('⟳ Actualizando...');
+  const updatedEntry = data.find(x=>x.id===editId);
+  const saves = [updateEntryInSheets({...updatedEntry, benType:'', benAmount:0, benDesc:''})];
+  // Eliminar de Sheets los hijos viejos (beneficio/desgloses anteriores) para evitar duplicados
+  oldChildIds.forEach(oid=>saves.push(deleteEntryInSheets(oid)));
+  // Crear los nuevos hijos
+  newChildren.forEach(c=>saves.push(saveEntryToSheets({...c, benType:'', benAmount:0, benDesc:''})));
+  Promise.all(saves).then(()=>{ hideSyncing(); toast('✓ Registro actualizado'); });
+
+  const _editedId = editId;
+  closeModalWithSlide();
+  renderHistorial(); renderBalance();
+  // Resaltar el registro actualizado en el listado (pulso + destello de color)
+  highlightUpdatedRecord(_editedId);
+}
+
+// Cierra el modal deslizándolo hacia abajo
+function closeModalWithSlide(){
+  const modal=document.getElementById('edit-modal');
+  const sheet=document.getElementById('modal-sheet');
+  const reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if(sheet && !reduced){
+    let anim;
+    try{
+      anim=sheet.animate([
+        {transform:'translateY(0)',opacity:1},
+        {transform:'translateY(100%)',opacity:0.5}
+      ],{duration:520,easing:'cubic-bezier(0.4,0,0.6,1)'}); // más lento, sale por abajo
+    }catch(e){}
+    setTimeout(()=>{
+      // Cancelar animación y limpiar CUALQUIER estilo residual antes de cerrar
+      if(anim) try{ anim.cancel(); }catch(e){}
+      sheet.style.transform='';
+      sheet.style.opacity='';
+      closeModal();
+    }, 500);
+  } else {
+    closeModal();
+  }
+}
+
+// Pulso (crece hacia afuera) + destello de color en el registro actualizado
+function highlightUpdatedRecord(id){
+  const reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if(reduced) return;
+  // Esperar a que la ventana termine de bajar (~500ms) + 1/3 de segundo (333ms)
+  setTimeout(()=>{
+    const rows=document.querySelectorAll('#hist-list .tx-item');
+    let targetEl=null;
+    rows.forEach(el=>{ if(el._entryId===id || el._parentId===id) targetEl=el; });
+    if(!targetEl) return;
+    const e=data.find(x=>x.id===id);
+    // Color sólido del tipo para el destello (visible en claro y oscuro)
+    const flash = e ? (e.type==='ingreso'?'52,199,89' : e.type==='ahorro-pasivo'?'175,82,222' : e.type==='egreso'?'255,59,48' : '0,113,227') : '0,113,227';
+    const prevZ=targetEl.style.zIndex, prevPos=targetEl.style.position;
+    targetEl.style.position='relative';
+    targetEl.style.zIndex='5';
+    try{
+      targetEl.animate([
+        { transform:'scale(1)',   boxShadow:`0 0 0 0 rgba(${flash},0)` },
+        { transform:'scale(1.045)', boxShadow:`0 0 0 3px rgba(${flash},0.6), 0 6px 22px rgba(${flash},0.28)`, offset:0.42 },
+        { transform:'scale(1)',   boxShadow:`0 0 0 0 rgba(${flash},0)` }
+      ],{ duration:950, easing:'cubic-bezier(0.34,1.4,0.64,1)' });
+    }catch(err){}
+    setTimeout(()=>{ targetEl.style.zIndex=prevZ; targetEl.style.position=prevPos; }, 1000);
+  }, 833);
+}
+
+function deleteEntry(){
+  if(!editId) return;
+  // Gasto diferido: alerta especial y borrado de todo el grupo
+  if(editDeferGroup){
+    const grp=data.filter(x=>sameGroup(x.deferGroup,editDeferGroup));
+    const anyE=grp[0];
+    if(!confirm(`Este es un gasto diferido (mes ${anyE?anyE.deferIndex:'?'} de ${anyE?anyE.deferTotal:'?'}).\n\nBorrarlo eliminará las ${grp.length} mensualidades ligadas, incluyendo las anteriores y futuras. ¿Continuar?`)) return;
+    const groupId=editDeferGroup;
+    const groupIds=grp.map(x=>x.id);
+    closeModalWithSlide();
+    setTimeout(()=>{
+      data=data.filter(x=>!sameGroup(x.deferGroup,groupId));
+      save();
+      showSyncing('⟳ Eliminando...');
+      Promise.all(groupIds.map(gid=>deleteEntryInSheets(gid))).then(()=>{ hideSyncing(); toast('Gasto diferido eliminado'); });
+      renderHistorial(); renderBalance();
+    }, 520);
+    return;
+  }
+  if(!confirm('¿Eliminar este registro?')) return;
+  const _delId=editId;
+  closeModalWithSlide();
+  // Tras cerrar el modal, calcular índice y animar la eliminación en el listado
+  setTimeout(()=>{
+    const list=document.getElementById('hist-list');
+    let cascadeFrom=0;
+    if(list){
+      const allItems=Array.from(list.querySelectorAll('.day-group-hdr, .tx-item'));
+      let targetEl=null;
+      allItems.forEach(el=>{ if(el._entryId===_delId) targetEl=el; });
+      if(targetEl){
+        cascadeFrom=allItems.indexOf(targetEl);
+        const listWrap=targetEl.closest('.tx-list');
+        const siblings=listWrap?listWrap.querySelectorAll('.tx-item').length:1;
+        if(siblings<=1 && listWrap){
+          const hdr=listWrap.previousElementSibling;
+          if(hdr && hdr.classList.contains('day-group-hdr')){ const hi=allItems.indexOf(hdr); if(hi>=0) cascadeFrom=hi; }
+        }
+      }
+    }
+    playDeleteAnimation(_delId, ()=>{
+      data=data.filter(x=>x.id!==_delId&&x.linkedTo!==_delId);
+      save();
+      showSyncing('⟳ Eliminando...');
+      deleteEntryInSheets(_delId).then(()=>{ hideSyncing(); toast('Registro eliminado'); });
+      renderHistorial({cascadeFromIndex:cascadeFrom}); renderBalance();
+    });
+  }, 520); // esperar a que el modal termine de bajar
+}
