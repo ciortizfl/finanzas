@@ -233,20 +233,42 @@ function saveBudget(){
 // CSV EXPORT
 // ══════════════════════════════════════
 function exportCSV(){
-  const mSel=document.getElementById('hist-month-sel');
-  const ySel=document.getElementById('hist-year-sel');
-  const selMonth=mSel?parseInt(mSel.value):new Date().getMonth();
-  const selYear=ySel?parseInt(ySel.value):new Date().getFullYear();
-  const rows=data.filter(e=>{const d=parseDate(e.date);return d.getMonth()===selMonth&&d.getFullYear()===selYear;});
+  // Exporta EXACTAMENTE lo que el historial está mostrando (con todos los
+  // filtros aplicados: fecha/rango, búsqueda, tipo, categorías, método).
+  const rows=(typeof lastFilteredEntries!=='undefined' && Array.isArray(lastFilteredEntries))
+    ? lastFilteredEntries : [];
+  if(rows.length===0){
+    toast('No hay registros que exportar');
+    return;
+  }
   const headers=['ID','Fecha','Tipo','Categoría','Subcategoría','Descripción','Monto original','Moneda','Monto MXN','Método de pago','Nota'];
   const escape=v=>`"${String(v||'').replace(/"/g,'""')}"`;
   const csv=[headers.join(','),...rows.map(e=>[e.id,e.date,e.type,e.category,e.subcategory||'',escape(e.desc),e.amount,e.currency,e.amountMXN,e.method||'',escape(e.note)].join(','))].join('\n');
   const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8;'});
   const url=URL.createObjectURL(blob);
   const a=document.createElement('a'); a.href=url;
-  a.download=`finanzas_${MONTHS_ES[selMonth]}_${selYear}.csv`;
+
+  // Nombre del archivo según el modo activo
+  let fname;
+  const searchEl=document.getElementById('hist-search');
+  const sq=(searchEl?.value||'').trim();
+  if(histRangeMode && histRangeApplied){
+    const from=document.getElementById('hist-range-from')?.value||'';
+    const to=document.getElementById('hist-range-to')?.value||'';
+    fname=`tomin_${from}_a_${to}.csv`;
+  } else if(sq){
+    const slug=sq.toLowerCase().replace(/[^a-z0-9áéíóúñü]+/gi,'-').replace(/^-+|-+$/g,'').slice(0,30);
+    fname=`tomin_busqueda_${slug||'resultados'}.csv`;
+  } else {
+    const mSel=document.getElementById('hist-month-sel');
+    const ySel=document.getElementById('hist-year-sel');
+    const selMonth=mSel?parseInt(mSel.value):new Date().getMonth();
+    const selYear=ySel?parseInt(ySel.value):new Date().getFullYear();
+    fname=`tomin_${MONTHS_ES[selMonth]}_${selYear}.csv`;
+  }
+  a.download=fname;
   a.click(); URL.revokeObjectURL(url);
-  toast('✓ CSV descargado');
+  toast(`✓ CSV descargado (${rows.length} registros)`);
 }
 
 init();
