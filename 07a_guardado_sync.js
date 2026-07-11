@@ -410,10 +410,11 @@ function hideSyncing() {
 }
 
 // ── REGISTRO DE ESCRITURAS PENDIENTES ──
-// Cuando guardamos algo en Sheets, la escritura tarda 1-2s. Si durante ese lapso
-// se recarga desde Sheets (por ejemplo al ir al historial), la respuesta aún NO
-// incluye el registro nuevo y, al reemplazar los datos, el registro "desaparecía".
-// Estos conjuntos recuerdan qué IDs están en vuelo para conservarlos en la recarga.
+// Cuando guardamos algo en Sheets, la escritura tarda en reflejarse. Si durante
+// ese lapso se recarga desde Sheets, la respuesta aún NO incluye el registro
+// nuevo y, al reemplazar los datos, el registro "desaparecía". Estos conjuntos
+// recuerdan qué IDs están en vuelo. La protección dura hasta que Sheets CONFIRMA
+// (el ID aparece en una recarga), no un tiempo arbitrario.
 const _pendingSaves = new Set();   // IDs guardados/actualizados aún no confirmados
 const _pendingDeletes = new Set(); // IDs borrados aún no confirmados
 
@@ -426,12 +427,6 @@ async function saveEntryToSheets(entry) {
       body: JSON.stringify({ action: 'save', entry })
     });
   } catch(e) { console.warn('Sheets save failed', e); }
-  finally {
-    // Dar margen a que Sheets refleje la escritura antes de dejar de protegerlo
-    if(entry && entry.id!=null){
-      setTimeout(()=>_pendingSaves.delete(String(entry.id)), 4000);
-    }
-  }
 }
 
 // Guarda varias entradas en UNA sola petición (para gastos diferidos).
@@ -445,9 +440,6 @@ async function saveBatchToSheets(entries) {
       body: JSON.stringify({ action: 'saveBatch', entries })
     });
   } catch(e) { console.warn('Sheets batch save failed', e); }
-  finally {
-    setTimeout(()=>ids.forEach(id=>_pendingSaves.delete(id)), 4000);
-  }
 }
 
 async function updateEntryInSheets(entry) {
@@ -458,11 +450,6 @@ async function updateEntryInSheets(entry) {
       body: JSON.stringify({ action: 'update', entry })
     });
   } catch(e) { console.warn('Sheets update failed', e); }
-  finally {
-    if(entry && entry.id!=null){
-      setTimeout(()=>_pendingSaves.delete(String(entry.id)), 4000);
-    }
-  }
 }
 
 async function deleteEntryInSheets(id) {
@@ -473,11 +460,6 @@ async function deleteEntryInSheets(id) {
       body: JSON.stringify({ action: 'delete', id })
     });
   } catch(e) { console.warn('Sheets delete failed', e); }
-  finally {
-    if(id!=null){
-      setTimeout(()=>_pendingDeletes.delete(String(id)), 4000);
-    }
-  }
 }
 
 // ── LOAD FROM SHEETS ──
