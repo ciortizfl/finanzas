@@ -937,15 +937,25 @@ nav {
 
 /* ── DATE STRIP PICKER ── */
 .date-field-label {
-  display: flex; align-items: center; gap: 8px; margin-bottom: 8px;
+  display: flex; align-items: center; gap: 6px; margin-bottom: 8px;
 }
 .date-field-label label { margin-bottom: 0; }
+/* Botón del calendario junto a "Fecha" (registro y edición): mismo recuadro
+   que el botón 📅 del filtro por rango en el historial. */
 .date-cal-btn {
-  background: none; border: none; cursor: pointer;
-  font-size: 16px; padding: 0; line-height: 1; color: var(--text3);
-  transition: color 0.15s;
+  flex: 0 0 auto;
+  width: 34px; height: 30px;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 15px; padding: 0; line-height: 1;
+  color: var(--text3);
+  transition: border-color 0.15s, color 0.15s;
 }
-.date-cal-btn:active { color: var(--accent); }
+.date-cal-btn:hover { border-color: var(--accent); }
+.date-cal-btn:active { color: var(--accent); border-color: var(--accent); }
 .date-strip-wrap {
   display: flex; align-items: center; gap: 0;
 }
