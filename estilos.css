@@ -62,14 +62,16 @@ html, body {
 
 /* Franja superior que cubre la "safe area" del iPhone (isla dinámica, reloj,
    batería). Evita que el contenido, al hacer scroll, se encime con esos elementos.
-   Del color del encabezado para que se vea continuo y limpio. */
+   Del color del encabezado para que se vea continuo y limpio.
+   Usa constant() (iOS 11) y env() (iOS 11.2+) para máxima compatibilidad. */
 body::before {
   content: '';
   position: fixed;
   top: 0; left: 0; right: 0;
-  height: env(safe-area-inset-top, 0px);
+  height: constant(safe-area-inset-top);
+  height: env(safe-area-inset-top);
   background: var(--surface);
-  z-index: 90;
+  z-index: 95;
   pointer-events: none;
 }
 
