@@ -94,21 +94,31 @@ function restoreRegisterForm(){
       f.style.opacity='0'; // ocultar YA, antes del salto
     });
 
-    // 3) Saltar arriba de inmediato (con los campos ya invisibles no se nota el brinco)
-    try {
-      const scroller = document.scrollingElement || document.documentElement;
-      if(scroller) scroller.scrollTop = 0;
-      if(document.body) document.body.scrollTop = 0;
-      const page = document.getElementById('page-registro');
-      if(page) page.scrollTop = 0;
-      window.scrollTo(0, 0);
-    } catch(e){}
+    // 3) Subir suavemente al inicio (con los campos ya invisibles, se ve como un
+    //    deslizamiento limpio). iOS en modo standalone NO soporta bien
+    //    scrollTo({behavior:'smooth'}), así que animamos el scroll a mano con rAF.
+    (function smoothScrollTop(){
+      const reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const startY = window.pageYOffset || document.documentElement.scrollTop || document.body.scrollTop || 0;
+      if(startY<=0) return;
+      if(reduced){ window.scrollTo(0,0); return; }
+      const duration=420;
+      const startT=performance.now();
+      const easeOut=t=>1-Math.pow(1-t,3);
+      function step(now){
+        const p=Math.min(1,(now-startT)/duration);
+        const y=Math.round(startY*(1-easeOut(p)));
+        window.scrollTo(0,y);
+        if(p<1) requestAnimationFrame(step);
+      }
+      requestAnimationFrame(step);
+    })();
 
-    // 4) Reaparición en cascada de arriba hacia abajo (~1s), en el siguiente frame.
-    requestAnimationFrame(()=>{
+    // 4) Reaparición en cascada de arriba hacia abajo (~1s). Se espera un poco para
+    //    que el scroll suave avance antes de que empiecen a aparecer los campos.
+    setTimeout(()=>{
       const visibleFields=Array.from(card.querySelectorAll('.field'))
         .filter(f=>f.offsetParent!==null);
-      // Incluir inline-toggles y note-section si están visibles, en orden vertical
       const extra=[];
       if(it && it.offsetParent!==null) extra.push(it);
       if(ns && ns.offsetParent!==null) extra.push(ns);
@@ -122,11 +132,10 @@ function restoreRegisterForm(){
             {opacity:0,transform:'translateY(-16px)'},
             {opacity:1,transform:'translateY(0)'}
           ],{duration:520,delay:i*stepDelay,easing:'cubic-bezier(0.22,0.61,0.36,1)',fill:'backwards'});
-          // Al terminar, limpiar el opacity inline para dejar el campo normal
           anim.onfinish=()=>{ f.style.opacity=''; f.style.transform=''; };
         }catch(e){ f.style.opacity=''; f.style.transform=''; }
       });
-    });
+    }, 280); // deja avanzar el scroll suave antes de la cascada
   }
 }
 
