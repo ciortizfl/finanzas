@@ -11,7 +11,13 @@
 </head>
 <body>
 
-<div class="toast" id="toast"></div>
+<div class="toast" id="toast" role="status" aria-live="polite">
+  <div class="toast-ico" id="toast-ico">✓</div>
+  <div class="toast-body">
+    <div class="toast-title" id="toast-title"></div>
+    <div class="toast-sub" id="toast-sub"></div>
+  </div>
+</div>
 <button class="reload-btn" id="reload-btn" onclick="forceReload()" title="Recargar datos">↻</button>
 
 <!-- ══ REGISTRO ══ -->
