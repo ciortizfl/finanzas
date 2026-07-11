@@ -3,6 +3,80 @@
 // La exportación a CSV usa exactamente esta lista.
 let lastFilteredEntries=[];
 
+// ── PRESETS DE BÚSQUEDA ──
+// Los comercios más comunes del último año, ponderados por cuartos de
+// antigüedad (0-91d→4, 92-182d→3, 183-273d→2, 274-365d→1), con dos ajustes
+// de justicia acordados: cada comercio suma máximo 1 vez por semana (así el
+// sueldo o bono semanal siguen apareciendo sin acaparar los lugares) y un
+// gasto diferido cuenta 1 sola vez, no una por mensualidad.
+function computeSearchPresets(){
+  const DAY=86400000, now=Date.now();
+  const seenWeek=new Set();   // "comercio||semana" ya contados
+  const seenDefer=new Set();  // grupos de diferido ya contados
+  const score={}, display={}, lastT={};
+  data.forEach(e=>{
+    if(e.linkedTo) return;                 // propinas/beneficios/desgloses no votan
+    const desc=(e.desc||'').trim();
+    if(desc.length<2) return;
+    const d=parseDate(e.date);
+    if(isNaN(d.getTime())) return;
+    const t=d.getTime();
+    const age=(now-t)/DAY;
+    if(age<0 || age>365) return;           // solo último año; sin fechas futuras
+    const key=desc.toLowerCase();
+    if(e.deferGroup){
+      const g=String(e.deferGroup);        // un diferido = 1 sola ocurrencia
+      if(seenDefer.has(g)) return;
+      seenDefer.add(g);
+    } else {
+      const wk=key+'||'+Math.floor(t/(7*DAY)); // tope: 1 por comercio por semana
+      if(seenWeek.has(wk)) return;
+      seenWeek.add(wk);
+    }
+    let w=1;
+    if(age<=91) w=4; else if(age<=182) w=3; else if(age<=273) w=2;
+    score[key]=(score[key]||0)+w;
+    if(!display[key]) display[key]=desc;   // data va reciente→viejo: casing más reciente
+    if(!lastT[key] || t>lastT[key]) lastT[key]=t;
+  });
+  return Object.keys(score)
+    .sort((a,b)=> score[b]-score[a] || lastT[b]-lastT[a])
+    .slice(0,10)
+    .map(k=>display[k]);
+}
+
+function renderSearchPresets(){
+  const box=document.getElementById('hist-presets');
+  if(!box) return;
+  const names=computeSearchPresets();
+  const cap=(window.innerWidth<=640)?5:10;   // móvil: máx 5 · web: máx 10
+  const current=(document.getElementById('hist-search')?.value||'').trim().toLowerCase();
+  box.innerHTML='';
+  names.slice(0,cap).forEach(name=>{
+    const b=document.createElement('button');
+    b.type='button';
+    b.className='preset-chip'+(name.toLowerCase()===current?' active':'');
+    b.textContent=name;
+    b.onclick=()=>{
+      const s=document.getElementById('hist-search');
+      if(!s) return;
+      const yaActivo=s.value.trim().toLowerCase()===name.toLowerCase();
+      s.value=yaActivo?'':name;            // tocar el activo lo desactiva
+      onHistSearchInput();                 // misma ruta que teclear en el buscador
+    };
+    box.appendChild(b);
+  });
+  // Recorte a UN renglón: quitar los menos comunes hasta que quepan completos.
+  // (Si el contenedor está oculto en este momento, no se puede medir: se omite.)
+  if(box.clientWidth>0){
+    let guard=15;
+    while(box.lastElementChild && guard-->0 &&
+          (box.lastElementChild.offsetLeft + box.lastElementChild.offsetWidth) > box.clientWidth){
+      box.removeChild(box.lastElementChild);
+    }
+  }
+}
+
 function entriesInCurrentDateScope(type){
   const mSel=document.getElementById('hist-month-sel');
   const ySel=document.getElementById('hist-year-sel');
@@ -414,6 +488,8 @@ function updateTypeChips(selMonth, selYear, isSearchMode){
 function renderHistorial(animate){
   const hlReal=document.getElementById('hist-list');
   if(!hlReal) return;
+  // Refrescar los presets de búsqueda (chips de comercios más comunes)
+  try{ renderSearchPresets(); }catch(e){}
   // Construir en un contenedor DESACOPLADO (en memoria) y hacer swap al final,
   // para evitar el parpadeo de vaciar y reconstruir la lista visible.
   const hl=document.createElement('div');
