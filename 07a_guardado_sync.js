@@ -409,43 +409,75 @@ function hideSyncing() {
   t.classList.remove('show');
 }
 
+// ── REGISTRO DE ESCRITURAS PENDIENTES ──
+// Cuando guardamos algo en Sheets, la escritura tarda 1-2s. Si durante ese lapso
+// se recarga desde Sheets (por ejemplo al ir al historial), la respuesta aún NO
+// incluye el registro nuevo y, al reemplazar los datos, el registro "desaparecía".
+// Estos conjuntos recuerdan qué IDs están en vuelo para conservarlos en la recarga.
+const _pendingSaves = new Set();   // IDs guardados/actualizados aún no confirmados
+const _pendingDeletes = new Set(); // IDs borrados aún no confirmados
+
 // ── SAVE TO SHEETS ──
 async function saveEntryToSheets(entry) {
+  if(entry && entry.id!=null) _pendingSaves.add(String(entry.id));
   try {
     await fetch(SHEETS_URL, {
       method: 'POST',
       body: JSON.stringify({ action: 'save', entry })
     });
   } catch(e) { console.warn('Sheets save failed', e); }
+  finally {
+    // Dar margen a que Sheets refleje la escritura antes de dejar de protegerlo
+    if(entry && entry.id!=null){
+      setTimeout(()=>_pendingSaves.delete(String(entry.id)), 4000);
+    }
+  }
 }
 
 // Guarda varias entradas en UNA sola petición (para gastos diferidos).
 // Evita disparar N fetch simultáneos que Apps Script no procesa bien.
 async function saveBatchToSheets(entries) {
+  const ids=(entries||[]).map(e=>e&&e.id!=null?String(e.id):null).filter(Boolean);
+  ids.forEach(id=>_pendingSaves.add(id));
   try {
     await fetch(SHEETS_URL, {
       method: 'POST',
       body: JSON.stringify({ action: 'saveBatch', entries })
     });
   } catch(e) { console.warn('Sheets batch save failed', e); }
+  finally {
+    setTimeout(()=>ids.forEach(id=>_pendingSaves.delete(id)), 4000);
+  }
 }
 
 async function updateEntryInSheets(entry) {
+  if(entry && entry.id!=null) _pendingSaves.add(String(entry.id));
   try {
     await fetch(SHEETS_URL, {
       method: 'POST',
       body: JSON.stringify({ action: 'update', entry })
     });
   } catch(e) { console.warn('Sheets update failed', e); }
+  finally {
+    if(entry && entry.id!=null){
+      setTimeout(()=>_pendingSaves.delete(String(entry.id)), 4000);
+    }
+  }
 }
 
 async function deleteEntryInSheets(id) {
+  if(id!=null) _pendingDeletes.add(String(id));
   try {
     await fetch(SHEETS_URL, {
       method: 'POST',
       body: JSON.stringify({ action: 'delete', id })
     });
   } catch(e) { console.warn('Sheets delete failed', e); }
+  finally {
+    if(id!=null){
+      setTimeout(()=>_pendingDeletes.delete(String(id)), 4000);
+    }
+  }
 }
 
 // ── LOAD FROM SHEETS ──
@@ -526,6 +558,21 @@ async function loadFromSheets(silent) {
       return obj;
     }).sort((a,b)=>b.id-a.id);
 
+    // ── FUSIÓN SEGURA (en vez de reemplazo a ciegas) ──
+    // Si hay registros guardados hace instantes que Sheets todavía no refleja,
+    // conservarlos. De lo contrario "desaparecerían" al recargar (bug reportado:
+    // guardas, vas al historial y no está).
+    const idsFromSheets = new Set(newData.map(e=>String(e.id)));
+    const rescatados = data.filter(e=>{
+      const id=String(e.id);
+      if(idsFromSheets.has(id)) return false;      // ya vino de Sheets, no duplicar
+      if(_pendingDeletes.has(id)) return false;    // se está borrando: no revivirlo
+      return _pendingSaves.has(id);                // en vuelo: conservarlo
+    });
+    // Quitar de lo recibido lo que se está borrando ahora mismo (evita que reaparezca)
+    const depurado = newData.filter(e=>!_pendingDeletes.has(String(e.id)));
+    const merged = [...rescatados, ...depurado].sort((a,b)=>b.id-a.id);
+
     // Detectar si los datos realmente cambiaron respecto a lo que ya se muestra.
     // Comparamos solo los campos relevantes normalizados, para evitar falsos
     // positivos (orden de propiedades, number vs string) que causan parpadeo.
@@ -547,8 +594,8 @@ async function loadFromSheets(silent) {
       deferTotal:e.deferTotal?Number(e.deferTotal):null,
       deferOriginal:e.deferOriginal?Number(e.deferOriginal):null
     })).sort((a,b)=>b.id-a.id));
-    const changed = norm(newData) !== norm(data);
-    data = newData;
+    const changed = norm(merged) !== norm(data);
+    data = merged;
     localStorage.setItem(SK, JSON.stringify(data));
 
     // Sincronizar emojis personalizados desde Sheets (fuente de verdad entre dispositivos)
