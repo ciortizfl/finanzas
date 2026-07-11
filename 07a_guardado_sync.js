@@ -143,15 +143,18 @@ function submitDeferredEntry({amount, desc, cur, date, note, subcat}){
   showSyncing('⟳ Guardando...');
   // Guardar todas las mensualidades en UNA sola petición (evita colisiones de
   // escrituras concurrentes en Apps Script, que hacían que se perdieran registros).
+  // El "✓ guardado" aparece cuando la escritura REALMENTE terminó (no por timer):
+  // así el spinner "Guardando…" indica con honestidad que hay que esperar.
   const groupEntries=data.filter(x=>sameGroup(x.deferGroup,groupId));
-  saveBatchToSheets(groupEntries).then(()=>{ hideSyncing(); });
+  saveBatchToSheets(groupEntries).then(()=>{
+    hideSyncing();
+    toast(`✓ Gasto diferido en ${n} meses`);
+  });
 
   playRegisterSaveAnimation(()=>{
     try { resetForm(); } catch(e){ console.error('resetForm error:', e); }
     restoreRegisterForm();
   });
-  const _fieldCount = document.querySelectorAll('#register-form-card .field').length;
-  setTimeout(()=>toast(`✓ Gasto diferido en ${n} meses`), 260 + _fieldCount*45 + 100);
   return true;
 }
 
@@ -324,7 +327,12 @@ function _submitEntry(){
   }
   if(propinaEntry) saves.push(saveEntryToSheets(propinaEntry));
   desgloseEntries.forEach(de=>saves.push(saveEntryToSheets(de)));
-  Promise.all(saves).then(()=>{ hideSyncing(); });
+  // El "✓ guardado" sale cuando la escritura REALMENTE terminó, no por timer:
+  // el spinner "Guardando…" se queda visible mientras tanto, pidiendo esperar.
+  Promise.all(saves).then(()=>{
+    hideSyncing();
+    toast('✓ Registro guardado');
+  });
 
   // Reproducir animación de guardado: absorción + palomita, luego reset y cascada.
   playRegisterSaveAnimation(()=>{
@@ -333,9 +341,6 @@ function _submitEntry(){
     // Reaparición en cascada en el siguiente frame (tras la reconstrucción)
     restoreRegisterForm();
   });
-  // El toast aparece al terminar la absorción (como la opción 1)
-  const _fieldCount = document.querySelectorAll('#register-form-card .field').length;
-  setTimeout(()=>toast('✓ Registro guardado'), 260 + _fieldCount*45 + 100);
   return true; // señal de guardado exitoso
 }
 
@@ -399,14 +404,33 @@ const SHEETS_URL = 'https://script.google.com/macros/s/AKfycbzxuxCfZkEsuRV7tvRrU
 // ── SYNC STATE ──
 let syncing = false;
 
+// Muestra el banner con un circulito girando (spinner) mientras hay una
+// operación en curso ("Guardando…", "Eliminando…"). Permanece visible hasta
+// hideSyncing(). IMPORTANTE: usa la estructura interna del banner (ícono +
+// título), nunca textContent, que la destruiría.
 function showSyncing(msg) {
   const t = document.getElementById('toast');
-  t.textContent = msg || '⟳ Sincronizando...';
+  if(!t) return;
+  const icoEl=document.getElementById('toast-ico');
+  const titleEl=document.getElementById('toast-title');
+  const subEl=document.getElementById('toast-sub');
+  const clean=String(msg||'Sincronizando…').replace(/^[⟳↻]\s*/,'').trim();
+  if(icoEl && titleEl && subEl){
+    icoEl.className='toast-ico';
+    icoEl.innerHTML='<span class="toast-spinner"></span>';
+    titleEl.textContent=clean;
+    subEl.textContent='';
+  } else {
+    t.textContent=clean;
+  }
+  // Cancelar cualquier auto-ocultado programado por toast(): el spinner debe
+  // quedarse hasta que la operación termine.
+  if(typeof _toastTimer!=='undefined') clearTimeout(_toastTimer);
   t.classList.add('show');
 }
 function hideSyncing() {
   const t = document.getElementById('toast');
-  t.classList.remove('show');
+  if(t) t.classList.remove('show');
 }
 
 // ── REGISTRO DE ESCRITURAS PENDIENTES ──
@@ -541,10 +565,14 @@ async function loadFromSheets(silent) {
     }).sort((a,b)=>b.id-a.id);
 
     // ── FUSIÓN SEGURA (en vez de reemplazo a ciegas) ──
-    // Si hay registros guardados hace instantes que Sheets todavía no refleja,
-    // conservarlos. De lo contrario "desaparecerían" al recargar (bug reportado:
-    // guardas, vas al historial y no está).
+    // Confirmaciones: si un ID guardado ya viene de Sheets, deja de estar "en vuelo".
+    // Si un ID borrado ya NO viene de Sheets, el borrado se confirmó.
     const idsFromSheets = new Set(newData.map(e=>String(e.id)));
+    idsFromSheets.forEach(id=>_pendingSaves.delete(id));
+    [..._pendingDeletes].forEach(id=>{ if(!idsFromSheets.has(id)) _pendingDeletes.delete(id); });
+
+    // Conservar los registros locales guardados hace instantes que Sheets todavía
+    // no refleja. De lo contrario "desaparecerían" al recargar.
     const rescatados = data.filter(e=>{
       const id=String(e.id);
       if(idsFromSheets.has(id)) return false;      // ya vino de Sheets, no duplicar
