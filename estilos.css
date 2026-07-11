@@ -941,3 +941,46 @@ nav {
 input[type=number]::-webkit-inner-spin-button,
 input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 input[type=number] { -moz-appearance: textfield; appearance: textfield; }
+
+/* ── PRESETS DE BÚSQUEDA (comercios más comunes, un solo renglón) ── */
+.hist-presets {
+  display: flex; gap: 6px; margin-top: 8px;
+  flex-wrap: nowrap; overflow: hidden; white-space: nowrap;
+}
+.hist-presets:empty { display: none; }
+.preset-chip {
+  flex: 0 0 auto; padding: 6px 12px; border-radius: 100px;
+  border: 1px solid var(--border2); background: var(--surface);
+  color: var(--text2); font-family: inherit; font-size: 12.5px; font-weight: 600;
+  cursor: pointer; transition: all 0.15s; box-shadow: var(--shadow);
+  -webkit-appearance: none; appearance: none;
+}
+.preset-chip:active { transform: scale(0.96); }
+.preset-chip.active { background: var(--text); color: var(--bg); border-color: var(--text); }
+
+/* ── RECORDATORIOS INTELIGENTES ── */
+.rem-card {
+  display: flex; gap: 12px; align-items: flex-start;
+  margin: 0 16px 14px; padding: 14px 16px;
+  background: var(--surface); border-radius: var(--radius);
+  box-shadow: var(--shadow); border-left: 3px solid var(--accent);
+}
+.rem-ico { font-size: 22px; line-height: 1.2; flex: 0 0 auto; }
+.rem-body { flex: 1; min-width: 0; }
+.rem-title { font-size: 14px; font-weight: 700; letter-spacing: -0.01em; line-height: 1.3; }
+.rem-sub { font-size: 12.5px; color: var(--text2); margin-top: 2px; line-height: 1.35; }
+.rem-actions { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+.rem-btn {
+  padding: 7px 12px; border-radius: 100px; border: 1px solid var(--border2);
+  background: var(--surface); color: var(--text2);
+  font-family: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer;
+  transition: all 0.15s; -webkit-appearance: none; appearance: none;
+}
+.rem-btn:active { transform: scale(0.96); }
+.rem-btn-apply { background: var(--accent); border-color: var(--accent); color: #fff; }
+.rem-btn-mute { color: var(--text3); }
+
+/* Panel de configuración del recordatorio manual */
+.rem-cfg-row { display: flex; gap: 8px; }
+.rem-cfg-hint { font-size: 12px; color: var(--text3); margin-top: 6px; }
+.rem-cfg-hint:empty { display: none; }
