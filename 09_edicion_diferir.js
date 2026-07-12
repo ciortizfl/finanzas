@@ -389,6 +389,10 @@ function saveEdit(){
   }
   // TC histórico del registro que se está editando (respeta el TC del pasado)
   const _origFx=data.find(x=>String(x.id)===String(editId))||null;
+  // ── MODO COPIA: se guarda como registro NUEVO (padre + hijos frescos),
+  //    sin tocar el original ni sus hijos ──
+  const _isCopy = (typeof copyMode!=='undefined' && copyMode);
+  const _parentId = _isCopy ? genId() : editId;
   const amountMXN=toMXNEdit(mainAmount,cur,_origFx);
 
   // Nota principal: SOLO la nota del usuario (sin "Monto original", que se
@@ -396,26 +400,39 @@ function saveEdit(){
   let mainNote=note;
   const noteWithRate=[mainNote,rateNoteEdit(cur,_origFx)].filter(Boolean).join(' | ');
 
-  const idx=data.findIndex(x=>x.id===editId);
-  if(idx===-1) return;
+  let oldChildIds=[];
+  let _copyParent=null;
+  if(_isCopy){
+    // Padre NUEVO con todos los valores del modal (el original queda intacto)
+    _copyParent={
+      id:_parentId, type:editType, amount:mainAmount, amountMXN, currency:cur,
+      desc, category:editCat, subcategory:subcat,
+      method:editType!=='ahorro-pasivo'?editMethod:null,
+      date, note:noteWithRate
+    };
+    data.unshift(_copyParent);
+  } else {
+    const idx=data.findIndex(x=>x.id===editId);
+    if(idx===-1) return;
 
-  // Capturar IDs de TODOS los hijos viejos (incluida la propina) para borrarlos de Sheets
-  const oldChildIds = data
-    .filter(x=>x.linkedTo===editId)
-    .map(x=>x.id);
+    // Capturar IDs de TODOS los hijos viejos (incluida la propina) para borrarlos de Sheets
+    oldChildIds = data
+      .filter(x=>x.linkedTo===editId)
+      .map(x=>x.id);
 
-  // Eliminar TODOS los hijos vinculados viejos (se recrean desde el estado del modal)
-  data=data.filter(x=>x.linkedTo!==editId);
+    // Eliminar TODOS los hijos vinculados viejos (se recrean desde el estado del modal)
+    data=data.filter(x=>x.linkedTo!==editId);
 
-  // Actualizar el registro madre
-  const newIdx=data.findIndex(x=>x.id===editId);
-  data[newIdx]={
-    ...data[newIdx],
-    type:editType, amount:mainAmount, amountMXN, currency:cur,
-    desc, category:editCat, subcategory:subcat,
-    method:editType!=='ahorro-pasivo'?editMethod:null,
-    date, note:noteWithRate
-  };
+    // Actualizar el registro madre
+    const newIdx=data.findIndex(x=>x.id===editId);
+    data[newIdx]={
+      ...data[newIdx],
+      type:editType, amount:mainAmount, amountMXN, currency:cur,
+      desc, category:editCat, subcategory:subcat,
+      method:editType!=='ahorro-pasivo'?editMethod:null,
+      date, note:noteWithRate
+    };
+  }
 
   const newChildren=[];
 
@@ -438,7 +455,7 @@ function saveEdit(){
         amount:propinaAmt, amountMXN:propinaAmtMXN, currency:cur,
         desc:desc, category:'Generosidad', subcategory:'Propinas',
         method:editPropinaMethod||editMethod, date,
-        note:propinaNoteparts.join(' | '), linkedTo:editId
+        note:propinaNoteparts.join(' | '), linkedTo:_parentId
       };
       data.unshift(propinaEntry);
       newChildren.push(propinaEntry);
@@ -460,7 +477,7 @@ function saveEdit(){
       amount:benAmt, amountMXN:baMXN, currency:cur,
       desc:desc, category:bt, subcategory:'',
       method:null, date,
-      note:benNote, linkedTo:editId
+      note:benNote, linkedTo:_parentId
     };
     data.unshift(benEntry);
     newChildren.push(benEntry);
@@ -478,9 +495,10 @@ function saveEdit(){
       const dEntry={
         id: genId(), type:editType,
         amount:d.amount, amountMXN:dMXN, currency:cur,
-        desc:desc, category:d.category, subcategory: dHasSubs?d.subcategory:'',
+        desc:(d.ownDesc && (d.desc||'').trim()) ? d.desc.trim() : desc,
+        category:d.category, subcategory: dHasSubs?d.subcategory:'',
         method:editType!=='ahorro-pasivo'?editMethod:null, date,
-        note:dNote, linkedTo:editId
+        note:dNote, linkedTo:_parentId
       };
       data.unshift(dEntry);
       newChildren.push(dEntry);
@@ -488,20 +506,32 @@ function saveEdit(){
   }
 
   save();
-  showSyncing('⟳ Actualizando...');
-  const updatedEntry = data.find(x=>x.id===editId);
-  const saves = [updateEntryInSheets({...updatedEntry, benType:'', benAmount:0, benDesc:''})];
-  // Eliminar de Sheets los hijos viejos (beneficio/desgloses anteriores) para evitar duplicados
-  oldChildIds.forEach(oid=>saves.push(deleteEntryInSheets(oid)));
+  showSyncing(_isCopy ? '⟳ Guardando copia...' : '⟳ Actualizando...');
+  let saves;
+  if(_isCopy){
+    // La copia es un alta: padre nuevo + hijos nuevos (nada que actualizar/borrar)
+    saves=[saveEntryToSheets({..._copyParent, benType:'', benAmount:0, benDesc:''})];
+  } else {
+    const updatedEntry = data.find(x=>x.id===editId);
+    saves=[updateEntryInSheets({...updatedEntry, benType:'', benAmount:0, benDesc:''})];
+    // Eliminar de Sheets los hijos viejos (beneficio/desgloses anteriores) para evitar duplicados
+    oldChildIds.forEach(oid=>saves.push(deleteEntryInSheets(oid)));
+  }
   // Crear los nuevos hijos
   newChildren.forEach(c=>saves.push(saveEntryToSheets({...c, benType:'', benAmount:0, benDesc:''})));
-  Promise.all(saves).then(()=>{ hideSyncing(); toast('✓ Registro actualizado'); });
+  Promise.all(saves).then(()=>{ hideSyncing(); toast(_isCopy ? '✓ Copia guardada' : '✓ Registro actualizado'); });
 
-  const _editedId = editId;
+  const _finalId = _parentId;
+  if(_isCopy){ try{ resetCopyModeUI(); }catch(_e){} }
   closeModalWithSlide();
   renderHistorial(); renderBalance();
-  // Resaltar el registro actualizado en el listado (pulso + destello de color)
-  highlightUpdatedRecord(_editedId);
+  if(_isCopy){
+    // Aparición en la lista (inverso del borrado), tras el cierre del modal
+    setTimeout(()=>{ try{ playAppearAnimation(_finalId); }catch(_e){} }, 380);
+  } else {
+    // Resaltar el registro actualizado en el listado (pulso + destello de color)
+    highlightUpdatedRecord(_finalId);
+  }
 }
 
 // Cierra el modal deslizándolo hacia abajo
