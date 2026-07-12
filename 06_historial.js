@@ -625,8 +625,9 @@ function renderHistorial(animate){
     return;
   }
 
-  // En modo rango no se muestran las gráficas de dona (solo la lista)
-  if(histRangeMode && histRangeApplied){
+  // La dona no se muestra en modo rango NI durante búsquedas por palabra clave
+  // (en búsqueda importa la lista, no la gráfica, en todas las capas de filtrado)
+  if((histRangeMode && histRangeApplied) || isSearchMode){
     renderPie([]);
   } else {
     renderPie(filtered);
