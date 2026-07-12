@@ -948,32 +948,36 @@ let _applyingPrediction=false; // guard: el cambio viene de la predicción, no d
 function predictCategory(){
   const desc = document.getElementById('desc').value.trim().toLowerCase();
   if(desc.length < 3){
-    // Al borrar la descripción (menos de 3 caracteres), deshacer TODO lo que
-    // haya puesto la predicción — sin tocar lo que el usuario eligió a mano.
-    if(_amountPredicted){
-      const amtEl=document.getElementById('amount');
-      if(amtEl){ amtEl.value=''; }
+    // Dos niveles de reseteo:
+    //  · Menos de 3 caracteres → deshacer solo lo que puso la PREDICCIÓN
+    //    (lo elegido a mano se respeta).
+    //  · Descripción COMPLETAMENTE vacía → resetear TODO, incluidas las
+    //    elecciones manuales: monto, moneda, método y categoría.
+    const vacio = desc.length === 0;
+    const amtEl0=document.getElementById('amount');
+    if(_amountPredicted || (vacio && amtEl0 && amtEl0.value.trim()!=='')){
+      if(amtEl0){ amtEl0.value=''; }
       _amountPredicted=false;
       try{ calcPropinaPreview(); updateDesgloseRemaining(); renderDiferirPreview(); }catch(e){}
     }
-    if(_curPredicted){
-      const curSel=document.getElementById('currency');
-      if(curSel && curSel.value!=='MXN'){
+    const curSel0=document.getElementById('currency');
+    if(_curPredicted || (vacio && curSel0 && curSel0.value!=='MXN')){
+      if(curSel0 && curSel0.value!=='MXN'){
         _applyingPrediction=true;
-        curSel.value='MXN';
+        curSel0.value='MXN';
         try{ onCurChange(); }catch(e){}
         _applyingPrediction=false;
       }
       _curPredicted=false;
     }
-    if(_methodPredicted){
+    if(_methodPredicted || (vacio && selMethod!=='Tarjeta de crédito')){
       selMethod='Tarjeta de crédito';
       document.querySelectorAll('#method-field .chip').forEach(ch=>{
         ch.classList.toggle('active', ch.getAttribute('data-method')===selMethod);
       });
       _methodPredicted=false;
     }
-    if(_catPredicted){
+    if(_catPredicted || (vacio && (curCat || curSubcat))){
       curCat=''; curSubcat='';
       _catPredicted=false;
       renderCatUI();
