@@ -353,6 +353,9 @@ function _submitEntry(){
 function resetForm(){
   ['amount','desc','note','ben-amount','ben-pct'].forEach(id=>{const el=document.getElementById(id); if(el) el.value='';});
   if(typeof _amountPredicted!=='undefined') _amountPredicted=false;
+  if(typeof _catPredicted!=='undefined') _catPredicted=false;
+  if(typeof _methodPredicted!=='undefined') _methodPredicted=false;
+  if(typeof _curPredicted!=='undefined') _curPredicted=false;
   try { if(typeof resetRemToggle==='function') resetRemToggle(); } catch(e){}
   document.getElementById('currency').value='MXN';
   const _today = localToday();
