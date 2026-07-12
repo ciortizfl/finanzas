@@ -368,7 +368,7 @@ function updateRemToggleIndicator(){
   const desc = (document.getElementById('desc')?.value || '').trim();
   const t = (typeof curType !== 'undefined') ? curType : 'egreso';
   let rule = null;
-  if (desc.length >= 2 && (t === 'egreso' || t === 'ingreso')) {
+  if (desc.length >= 2 && t === 'egreso') {
     const r = getManualRule(t, desc);
     if (r && (!r.until || r.until >= localToday())) rule = r;
   }
@@ -472,9 +472,19 @@ function resetRemToggle(){
 function updateRemToggleVisibility(){
   const btn = document.getElementById('rem-toggle-btn');
   if (!btn) return;
-  const hide = (typeof curType !== 'undefined' && curType === 'ahorro-pasivo');
+  // El recordatorio manual del formulario vive SOLO en egresos (para ingresos,
+  // la detección automática de la tarjeta hace su trabajo). Y no coexiste con
+  // Diferir: si el diferido está activo o ya tiene datos, 🔔 se oculta igual
+  // que Desglose.
+  const noEgreso = (typeof curType !== 'undefined' && curType !== 'egreso');
+  const diferido = (typeof _diferirVisible !== 'undefined' && _diferirVisible)
+                || (typeof diferirHasData === 'function' && diferirHasData());
+  const hide = noEgreso || diferido;
   btn.style.display = hide ? 'none' : '';
-  if (hide && _remToggleOn) resetRemToggle();
+  if (hide){
+    if (_remToggleOn) resetRemToggle();
+    _remExistingRule = null;
+  }
 }
 
 // Crear la regla manual a partir del registro recién guardado
