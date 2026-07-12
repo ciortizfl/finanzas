@@ -212,6 +212,7 @@ function saveEditDeferred({amount, desc, cur, note, subcat}){
   const perMonth=Math.floor((amount/n)*100)/100;
   let acc=0;
   const newEntries=[];
+  const _origFx=data.find(x=>String(x.id)===String(editId))||null; // TC histórico
   for(let i=0;i<n;i++){
     let monthAmt=perMonth;
     if(i===n-1) monthAmt=+(amount-acc).toFixed(2);
@@ -220,7 +221,7 @@ function saveEditDeferred({amount, desc, cur, note, subcat}){
     const dateStr=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
     newEntries.push({
       id: genId(), type:'egreso',
-      amount:monthAmt, amountMXN:toMXN(monthAmt,cur), currency:cur,
+      amount:monthAmt, amountMXN:toMXNEdit(monthAmt,cur,_origFx), currency:cur,
       desc, category:editCat, subcategory:subcat,
       method, date:dateStr, note,
       deferGroup:groupId, deferIndex:i+1, deferTotal:n, deferOriginal:amount
@@ -253,6 +254,7 @@ function saveEditConvertToDefer({amount, desc, cur, note, subcat}){
   const perMonth=Math.floor((amount/n)*100)/100;
   let acc=0;
   const newEntries=[];
+  const _origFx=data.find(x=>String(x.id)===String(editId))||null; // TC histórico
   for(let i=0;i<n;i++){
     let monthAmt=perMonth;
     if(i===n-1) monthAmt=+(amount-acc).toFixed(2);
@@ -261,7 +263,7 @@ function saveEditConvertToDefer({amount, desc, cur, note, subcat}){
     const dateStr=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
     newEntries.push({
       id: genId(), type:'egreso',
-      amount:monthAmt, amountMXN:toMXN(monthAmt,cur), currency:cur,
+      amount:monthAmt, amountMXN:toMXNEdit(monthAmt,cur,_origFx), currency:cur,
       desc, category:editCat, subcategory:subcat,
       method, date:dateStr, note,
       deferGroup:groupId, deferIndex:i+1, deferTotal:n, deferOriginal:amount
@@ -293,7 +295,7 @@ function saveEditRemoveDefer({amount, desc, cur, note, subcat}){
   // Crear un único gasto con el monto total
   const single={
     id: genId(), type:'egreso',
-    amount:amount, amountMXN:toMXN(amount,cur), currency:cur,
+    amount:amount, amountMXN:toMXNEdit(amount,cur,group[0]), currency:cur,
     desc, category:editCat, subcategory:subcat,
     method, date:dateStr, note, linkedTo:null
   };
@@ -385,12 +387,14 @@ function saveEdit(){
     const maxDesg=activeEditDesgloses.reduce((mx,d)=>Math.max(mx,d.amount),0);
     if(mainAmount < maxDesg) return toast('Ningún desglose puede superar el gasto principal');
   }
-  const amountMXN=toMXN(mainAmount,cur);
+  // TC histórico del registro que se está editando (respeta el TC del pasado)
+  const _origFx=data.find(x=>String(x.id)===String(editId))||null;
+  const amountMXN=toMXNEdit(mainAmount,cur,_origFx);
 
   // Nota principal: SOLO la nota del usuario (sin "Monto original", que se
   // muestra dinámicamente en el listado). Se conserva el TC si aplica.
   let mainNote=note;
-  const noteWithRate=[mainNote,rateNote(cur)].filter(Boolean).join(' | ');
+  const noteWithRate=[mainNote,rateNoteEdit(cur,_origFx)].filter(Boolean).join(' | ');
 
   const idx=data.findIndex(x=>x.id===editId);
   if(idx===-1) return;
@@ -419,7 +423,7 @@ function saveEdit(){
   if(editType==='egreso' && editPropinaOn){
     const propinaAmt=getEditPropinaAmount();
     if(propinaAmt>0){
-      const propinaAmtMXN=toMXN(propinaAmt,cur);
+      const propinaAmtMXN=toMXNEdit(propinaAmt,cur,_origFx);
       const sym=cur==='MXN'?'$':`${cur} `;
       const propinaNoteparts=[`Propina de: ${desc}`];
       if(editPropinaType==='pct'){
@@ -444,7 +448,7 @@ function saveEdit(){
   // Recrear beneficio
   if(editType==='egreso'&&editBenOn&&benAmt>0){
     const bt=editBenType;
-    const baMXN=toMXN(benAmt,cur);
+    const baMXN=toMXNEdit(benAmt,cur,_origFx);
     let benNote=`Beneficio de: ${desc}`;
     if(editBenType_mode==='pct'){
       const pct=parseFloat(document.getElementById('e-ben-pct').value)||0;
@@ -465,7 +469,7 @@ function saveEdit(){
   // Recrear desgloses (heredan tipo, moneda, fecha y método del padre)
   if(activeEditDesgloses.length>0){
     activeEditDesgloses.forEach(d=>{
-      const dMXN=toMXN(d.amount, cur);
+      const dMXN=toMXNEdit(d.amount, cur, _origFx);
       const dsubs=sortedSubcats(editType, d.category);
       const dHasSubs=dsubs && !(dsubs.length===1 && dsubs[0]==='—');
       // El desglose solo lleva "Desglose de: X" (sin monto original)
