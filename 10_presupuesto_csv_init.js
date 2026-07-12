@@ -275,22 +275,23 @@ init();
 try { updateReminderCard(); } catch(e){}
 
 
-// ── Botón "ir arriba": aparece tras bajar más del 15% del alto scrolleable ──
-// El regreso es INSTANTÁNEO a propósito (el scroll suave ya nos falló en iOS
-// standalone; no reincidir).
+// ── Botón "ir arriba" (SOLO en Historial): aparece tras bajar más del 15%
+// del alto scrolleable, flotando encima de la barra de navegación. El regreso
+// es INSTANTÁNEO a propósito (el scroll suave ya nos falló en iOS standalone;
+// no reincidir).
 function scrollToTopNow(){ window.scrollTo(0,0); }
-(function(){
+function updateScrollTopBtn(){
   const btn=document.getElementById('scrolltop-btn');
   if(!btn) return;
+  const enHistorial=document.getElementById('page-historial')?.classList.contains('active');
+  const max=document.documentElement.scrollHeight - window.innerHeight;
+  const thr=Math.max(max*0.15, 120);
+  btn.classList.toggle('vis', !!enHistorial && max>0 && window.scrollY>thr);
+}
+(function(){
   let ticking=false;
-  function check(){
-    ticking=false;
-    const max=document.documentElement.scrollHeight - window.innerHeight;
-    const thr=Math.max(max*0.15, 120);
-    btn.classList.toggle('vis', max>0 && window.scrollY>thr);
-  }
   window.addEventListener('scroll', ()=>{
-    if(!ticking){ ticking=true; requestAnimationFrame(check); }
+    if(!ticking){ ticking=true; requestAnimationFrame(()=>{ ticking=false; updateScrollTopBtn(); }); }
   }, {passive:true});
-  check();
+  updateScrollTopBtn();
 })();
