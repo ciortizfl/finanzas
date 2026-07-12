@@ -61,7 +61,17 @@ function renderSearchPresets(){
       const s=document.getElementById('hist-search');
       if(!s) return;
       const yaActivo=s.value.trim().toLowerCase()===name.toLowerCase();
-      s.value=yaActivo?'':name;            // tocar el activo lo desactiva
+      if(yaActivo){
+        s.value='';                        // desactivar: solo limpia el texto
+      } else {
+        s.value=name;                      // activar: escribe por ti y arranca en Todos
+        histFilter='todos'; histSelCats=[]; histSelSubcats=[];
+        document.querySelectorAll('.filter-bar .f-chip').forEach(c=>c.classList.remove('active'));
+        const todosChip=document.getElementById('fchip-todos');
+        if(todosChip) todosChip.classList.add('active');
+        const subPanel=document.getElementById('sub-filter-panel');
+        if(subPanel) subPanel.classList.remove('vis');
+      }
       onHistSearchInput();                 // misma ruta que teclear en el buscador
     };
     box.appendChild(b);
@@ -114,16 +124,19 @@ function entriesInCurrentDateScope(type){
   });
 }
 
-// Manejo del input de búsqueda. Cambiar la búsqueda (en mes o en rango) resetea la
-// vista a "Todos" para que el nuevo universo de resultados se muestre completo y
-// los chips de tipo se recalculen sobre él.
+// Manejo del input de búsqueda. Teclear NO toca tus selecciones (como siempre fue);
+// solo en modo rango cambiar la búsqueda resetea a "Todos" (diseño del rango).
+// El reseteo al usar un chip de comercio lo hace el propio chip (es un shortcut
+// que "escribe por ti" y arranca la vista limpia en Todos).
 function onHistSearchInput(){
-  histFilter='todos'; histSelCats=[]; histSelSubcats=[];
-  document.querySelectorAll('.filter-bar .f-chip').forEach(c=>c.classList.remove('active'));
-  const todosChip=document.getElementById('fchip-todos');
-  if(todosChip) todosChip.classList.add('active');
-  const subPanel=document.getElementById('sub-filter-panel');
-  if(subPanel) subPanel.classList.remove('vis');
+  if(histRangeMode && histRangeApplied){
+    histFilter='todos'; histSelCats=[]; histSelSubcats=[];
+    document.querySelectorAll('.filter-bar .f-chip').forEach(c=>c.classList.remove('active'));
+    const todosChip=document.getElementById('fchip-todos');
+    if(todosChip) todosChip.classList.add('active');
+    const subPanel=document.getElementById('sub-filter-panel');
+    if(subPanel) subPanel.classList.remove('vis');
+  }
   updateResetButton();
   renderHistorial();
 }
@@ -477,8 +490,9 @@ function updateTypeChips(selMonth, selYear, isSearchMode){
   setChip('fchip-ingreso', counts.ingreso);
   setChip('fchip-ahorro-pasivo', counts['ahorro-pasivo']);
 
-  // Si el filtro activo quedó sin registros, volver a "Todos"
-  if(!(isSearchMode && !rangeActive) && histFilter!=='todos'){
+  // Si el filtro activo quedó sin registros (por el mes, el rango o la búsqueda),
+  // volver a "Todos" para no dejar la vista atorada en un tipo vacío.
+  if(histFilter!=='todos'){
     const stillHasData = histFilter==='egreso' ? counts.egreso
       : histFilter==='ingreso' ? counts.ingreso
       : histFilter==='ahorro-pasivo' ? counts['ahorro-pasivo']
