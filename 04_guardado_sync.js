@@ -311,7 +311,8 @@ function _submitEntry(){
       const dEntry={
         id: genId(), type:curType,
         amount:d.amount, amountMXN:dMXN, currency:cur,
-        desc:desc, category:d.category, subcategory: dHasSubs?d.subcategory:'',
+        desc:(d.ownDesc && (d.desc||'').trim()) ? d.desc.trim() : desc,
+        category:d.category, subcategory: dHasSubs?d.subcategory:'',
         method:curType!=='ahorro-pasivo'?selMethod:null, date,
         note:dNote, linkedTo:entry.id
       };
