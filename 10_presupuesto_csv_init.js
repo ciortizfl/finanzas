@@ -272,3 +272,4 @@ function exportCSV(){
 }
 
 init();
+try { updateReminderCard(); } catch(e){}
