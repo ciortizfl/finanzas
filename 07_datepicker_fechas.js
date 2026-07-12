@@ -233,8 +233,9 @@ function toggleDateRange(){
     const first=`${py}-${pad(pm+1)}-${pad(Math.min(todayD.getDate(),lastDayPrev))}`;
     const fromEl=document.getElementById('hist-range-from');
     const toEl=document.getElementById('hist-range-to');
-    if(fromEl && !fromEl.value) fromEl.value=first;
-    if(toEl && !toEl.value) toEl.value=last;
+    // Siempre se preseleccionan al abrir el modo rango (comportamiento determinista)
+    if(fromEl) fromEl.value=first;
+    if(toEl) toEl.value=last;
     updateRangeFieldLabels(); // reflejar en los botones visuales
     if(monthRow) monthRow.style.display='none';
     if(rangeRow) rangeRow.style.display='flex';
