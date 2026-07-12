@@ -944,7 +944,7 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
 
 /* ── PRESETS DE BÚSQUEDA (comercios más comunes, un solo renglón) ── */
 .hist-presets {
-  display: flex; gap: 6px; margin-top: 6px;
+  display: flex; gap: 4px; margin-top: 6px;
   flex-wrap: nowrap; overflow: hidden; white-space: nowrap;
   /* Espacio interno para que la sombra de los chips no se recorte */
   padding: 2px 3px 6px;
