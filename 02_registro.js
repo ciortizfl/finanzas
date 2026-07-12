@@ -170,6 +170,27 @@ function calcBenPreview(){
 }
 function toMXN(a,c){ return c==='MXN'?a:+(a*(rates[c]||1)).toFixed(2); }
 
+// ── TIPO DE CAMBIO HISTÓRICO (para EDICIONES) ──
+// El TC implícito con el que se guardó originalmente un registro es
+// amountMXN / amount. Al editar un registro en moneda extranjera, cualquier
+// recálculo (monto, propina, beneficio, desgloses, diferido) debe respetar
+// ESE tipo de cambio del pasado, no el del día. Si en la edición se cambia
+// la moneda (caso raro), no existe TC histórico para la nueva y se usa el actual.
+function fxRateForEdit(orig, cur){
+  if(cur==='MXN') return 1;
+  if(orig && orig.currency===cur){
+    const a=Number(orig.amount), m=Number(orig.amountMXN);
+    if(a>0 && m>0) return m/a;
+  }
+  return rates[cur]||1;
+}
+function toMXNEdit(a, cur, orig){ return cur==='MXN'? a : +(a*fxRateForEdit(orig,cur)).toFixed(2); }
+function rateNoteEdit(cur, orig){
+  if(cur==='MXN') return '';
+  const r=fxRateForEdit(orig, cur);
+  return `TC: 1 ${cur} = $${r.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})} MXN`;
+}
+
 function rateNote(c){
   if(c==='MXN') return '';
   const r=rates[c];
