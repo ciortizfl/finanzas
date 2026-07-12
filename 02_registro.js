@@ -946,6 +946,9 @@ let _curPredicted=false;      // moneda puesta por la predicción
 let _applyingPrediction=false; // guard: el cambio viene de la predicción, no del usuario
 
 function predictCategory(){
+  // Refrescar el indicador de "recordatorio activo" del botón 🔔 (corre siempre,
+  // incluso con la descripción vacía o corta)
+  try{ if(typeof updateRemToggleIndicator==='function') updateRemToggleIndicator(); }catch(e){}
   const desc = document.getElementById('desc').value.trim().toLowerCase();
   if(desc.length < 3){
     // Dos niveles de reseteo:
