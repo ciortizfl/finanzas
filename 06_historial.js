@@ -3,15 +3,126 @@
 // La exportación a CSV usa exactamente esta lista.
 let lastFilteredEntries=[];
 
+// ── MODO CAMPANITA (🔔): solo registros con recordatorio MANUAL, en secciones ──
+let histBellMode=false;
+
+function setBellMode(on){
+  histBellMode=!!on;
+  const btn=document.getElementById('hist-bell-toggle');
+  if(btn){
+    btn.style.borderColor = on ? 'var(--accent)' : 'var(--border2)';
+    btn.style.color = on ? 'var(--accent)' : 'var(--text3)';
+  }
+  // En campanita no hay filtros de tipo/categoría/método: la barra se oculta
+  const fb=document.querySelector('.filter-bar');
+  if(fb) fb.style.display = on ? 'none' : '';
+  const sp=document.getElementById('sub-filter-panel'); if(sp) sp.classList.remove('vis');
+  const mr=document.getElementById('method-filter-row'); if(mr) mr.style.display='none';
+  const ma=document.getElementById('method-filter-arrow'); if(ma) ma.style.transform='';
+  // Estado limpio en ambas direcciones; al salir, además, se limpia la búsqueda
+  histFilter='todos'; histSelCats=[]; histSelSubcats=[]; histMethodFilter=null;
+  document.querySelectorAll('.filter-bar .f-chip').forEach(ch=>ch.classList.remove('active'));
+  document.getElementById('fchip-todos')?.classList.add('active');
+  if(!on){
+    const s=document.getElementById('hist-search'); if(s) s.value='';
+  }
+}
+
+function toggleBellFilter(){
+  setBellMode(!histBellMode);
+  try{ updateResetButton(); }catch(e){}
+  renderHistorial();
+}
+
+// Clasificación de una regla manual en su sección de la vista campanita:
+// 0 = indefinidos semanales · 1 = indefinidos mensuales · 2 = con fecha fin · 3 = concluidos
+function bellSectionOf(rule){
+  const hoy=localToday();
+  if(rule.until && rule.until < hoy) return 3;
+  if(rule.until) return 2;
+  return rule.freq==='weekly' ? 0 : 1;
+}
+
+// Render de la vista campanita: secciones en el orden acordado, con las filas
+// normales (tocables para abrir la edición). La búsqueda por palabra clave y
+// los chips de presets siguen funcionando dentro de esta vista.
+function renderBellView(hl, hlReal, searchQuery){
+  const BELL_SECS=[
+    '🔁 Indefinidos · semanales',
+    '📆 Indefinidos · mensuales',
+    '⏳ Con fecha fin',
+    '✔️ Concluidos'
+  ];
+  const rules=(typeof reminderConfig!=='undefined' && Array.isArray(reminderConfig.manual))
+    ? reminderConfig.manual : [];
+  if(rules.length===0){
+    lastFilteredEntries=[];
+    hl.innerHTML='<div class="empty"><div class="e-ico">🔔</div>Aún no tienes recordatorios manuales</div>';
+    hlReal.replaceChildren(...hl.childNodes);
+    renderPie([]);
+    return;
+  }
+  // Mapa comercio(+tipo) → {regla, sección}
+  const map={};
+  rules.forEach(r=>{ map[(r.type+'||'+String(r.desc||'').trim().toLowerCase())]={rule:r, sec:bellSectionOf(r)}; });
+
+  // Universo: registros (no vinculados) cuyos comercio+tipo tienen regla manual
+  let entries=data.filter(e=>{
+    if(e.linkedTo) return false;
+    const k=e.type+'||'+String(e.desc||'').trim().toLowerCase();
+    return !!map[k];
+  });
+  if(searchQuery){
+    entries=entries.filter(e=>{
+      const hay=[e.desc||'',e.note||'',e.category||'',e.subcategory||'',e.method||''].join(' ').toLowerCase();
+      return hay.includes(searchQuery);
+    });
+  }
+  if(entries.length===0){
+    lastFilteredEntries=[];
+    hl.innerHTML='<div class="empty"><div class="e-ico">🔍</div>Sin coincidencias entre tus recordatorios</div>';
+    hlReal.replaceChildren(...hl.childNodes);
+    renderPie([]);
+    return;
+  }
+  // Ordenar: sección → fecha descendente
+  entries.sort((a,b)=>{
+    const sa=map[a.type+'||'+String(a.desc||'').trim().toLowerCase()].sec;
+    const sb=map[b.type+'||'+String(b.desc||'').trim().toLowerCase()].sec;
+    if(sa!==sb) return sa-sb;
+    return parseDate(b.date)-parseDate(a.date) || b.id-a.id;
+  });
+  lastFilteredEntries=entries;
+
+  hl.innerHTML='';
+  let curSec=-1;
+  entries.forEach(e=>{
+    const sec=map[e.type+'||'+String(e.desc||'').trim().toLowerCase()].sec;
+    if(sec!==curSec){
+      curSec=sec;
+      const n=entries.filter(x=>map[x.type+'||'+String(x.desc||'').trim().toLowerCase()].sec===sec).length;
+      const h=document.createElement('div');
+      h.className='bell-sec-hdr';
+      h.innerHTML=`${BELL_SECS[sec]} <span class="bell-sec-count">· ${n}</span>`;
+      hl.appendChild(h);
+    }
+    const el=txEl(e,false);
+    el.classList.add('tappable');
+    el.onclick=()=>openEdit(e.id);
+    hl.appendChild(el);
+  });
+  hlReal.replaceChildren(...hl.childNodes);
+  renderPie([]);
+}
+
 // ── PRESETS DE BÚSQUEDA ──
 // Los comercios más comunes del último año, ponderados por cuartos de
-// antigüedad (0-91d→4, 92-182d→3, 183-273d→2, 274-365d→1), con dos ajustes
-// de justicia acordados: cada comercio suma máximo 1 vez por semana (así el
-// sueldo o bono semanal siguen apareciendo sin acaparar los lugares) y un
-// gasto diferido cuenta 1 sola vez, no una por mensualidad.
+// antigüedad (0-91d→4, 92-182d→3, 183-273d→2, 274-365d→1). Cada compra suma
+// (sin tope semanal: 3 McDonald's en una semana suman 3, para que el ranking
+// refleje hábitos reales y tenga dinamismo). Un gasto diferido cuenta 1 sola
+// vez, no una por mensualidad.
 function computeSearchPresets(){
   const DAY=86400000, now=Date.now();
-  const seenWeek=new Set();   // "comercio||semana" ya contados
   const seenDefer=new Set();  // grupos de diferido ya contados
   const score={}, display={}, lastT={};
   data.forEach(e=>{
@@ -28,10 +139,6 @@ function computeSearchPresets(){
       const g=String(e.deferGroup);        // un diferido = 1 sola ocurrencia
       if(seenDefer.has(g)) return;
       seenDefer.add(g);
-    } else {
-      const wk=key+'||'+Math.floor(t/(7*DAY)); // tope: 1 por comercio por semana
-      if(seenWeek.has(wk)) return;
-      seenWeek.add(wk);
     }
     let w=1;
     if(age<=91) w=4; else if(age<=182) w=3; else if(age<=273) w=2;
@@ -561,6 +668,15 @@ function renderHistorial(animate){
   updateTypeChips(selMonth, selYear, isSearchMode && !rangeActive);
 
   let filtered;
+  // MODO CAMPANITA: vista propia por secciones (ignora mes, tipos y categorías;
+  // la búsqueda por palabra clave sí aplica). No convive con el modo rango.
+  if(histBellMode && !rangeActive){
+    const dateRowB=document.getElementById('hist-date-row');
+    if(dateRowB) dateRowB.style.display='none';
+    renderBellView(hl, hlReal, isSearchMode?searchQuery:'');
+    return;
+  }
+
   if(isSearchMode && !rangeActive){
     // Búsqueda NORMAL (fuera de rango): la base son las coincidencias en TODO
     // el tiempo. El tipo, categorías, subcategorías y método se aplican DESPUÉS
