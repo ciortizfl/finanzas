@@ -183,6 +183,7 @@ function goNav(id, btn) {
   const page=document.getElementById('page-'+id);
   page.classList.add('active');
   btn.classList.add('active');
+  if(id==='registro'){ try{ updateReminderCard(); }catch(e){} }
 
   // Render inmediato desde cache CON animación, luego refresco silencioso desde Sheets
   if(id==='balance'){
@@ -447,12 +448,12 @@ function renderCatUI(){
     if(!curSubcat){
       // Mostrar todas las subcategorías
       subs.forEach(s=>{
-        const b=makeCatButton(s, ()=>selectSubcat(s));
+        const b=makeCatButton(s, ()=>selectSubcat(s), true);
         right.appendChild(b);
       });
     } else {
       // Solo la subcategoría elegida (tocarla re-muestra las demás)
-      const b=makeCatButton(curSubcat, ()=>selectSubcat(curSubcat));
+      const b=makeCatButton(curSubcat, ()=>selectSubcat(curSubcat), true);
       b.classList.add(colorCls);
       applyCatBorder(b, curSubcat);
       right.appendChild(b);
@@ -532,14 +533,19 @@ function updateFinalizeVisibility(animDelay){
     submitBtn.style.display='none';
   }
   updateNoteMode();
+  try{ updateRemToggleVisibility(); }catch(e){}
 }
 
-// Crea un botón de categoría/subcategoría con ícono y handler
-function makeCatButton(name, onClick){
+// Crea un botón de categoría/subcategoría con ícono y handler.
+// Para subcategorías (isSubcat), el ícono es DINÁMICO: el emoji personalizado
+// más usado del último año en esa subcategoría (ponderado por cuartos);
+// si nadie tiene emoji personalizado, se queda el ícono estándar de siempre.
+function makeCatButton(name, onClick, isSubcat){
   const b=document.createElement('button');
   b.type='button';
   b.className='cat-block';
-  b.innerHTML=`<span>${ICONS[name]||''}</span><br>${name}`;
+  const icon=(isSubcat ? (dynamicSubcatEmoji(name)||ICONS[name]) : ICONS[name])||'';
+  b.innerHTML=`<span>${icon}</span><br>${name}`;
   b.onclick=onClick;
   return b;
 }
