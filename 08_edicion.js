@@ -99,6 +99,7 @@ function openEdit(id) {
   editDeferGroup = e.deferGroup || null; // grupo diferido (si aplica)
   editEmojiOverride = null; // sin override hasta que el usuario elija uno
   editType = e.type;
+  updateEditMethodLabel();
   editCat  = e.category;
   editSubcat = e.subcategory||'';
   editMethod = e.method||'Tarjeta de crédito';
@@ -354,6 +355,7 @@ function selectEditSubcat(sub){
 
 function setEditType(t,btn){
   editType=t; editCat=''; editSubcat='';
+  updateEditMethodLabel();
   document.querySelectorAll('[data-et]').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
   document.getElementById('e-ahorro-sub-toggle').style.display='none';
@@ -729,4 +731,11 @@ function loadEditPropina(parentId){
   setEditPropinaType(editPropinaType);
   setEditPropinaIncluida(editPropinaIncluida);
   calcEditPropinaPreview();
+}
+
+
+// Título del campo de método en el modal de edición según el tipo
+function updateEditMethodLabel(){
+  const l=document.getElementById('e-method-label');
+  if(l) l.textContent = (editType==='ingreso') ? 'Método de recepción' : 'Método de pago';
 }
