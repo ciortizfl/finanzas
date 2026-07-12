@@ -103,6 +103,8 @@ function openEdit(id) {
   editSubcat = e.subcategory||'';
   editMethod = e.method||'Tarjeta de crédito';
   editBenOn  = false;
+  // Mostrar el estado del recordatorio de este comercio (si tiene regla)
+  try{ if(typeof renderEditReminderSection==='function') renderEditReminderSection(); }catch(err){}
 
   // --- Tipo ---
   // Quitar active de todos los botones de tipo
@@ -314,11 +316,11 @@ function renderEditCatUI(){
   const right=document.createElement('div'); right.className='cat-col-right';
   if(!editSubcat){
     subs.forEach(s=>{
-      const b=makeEditCatButton(s, ()=>selectEditSubcat(s));
+      const b=makeEditCatButton(s, ()=>selectEditSubcat(s), true);
       right.appendChild(b);
     });
   } else {
-    const b=makeEditCatButton(editSubcat, ()=>selectEditSubcat(editSubcat));
+    const b=makeEditCatButton(editSubcat, ()=>selectEditSubcat(editSubcat), true);
     b.classList.add(colorCls);
     applyCatBorder(b, editSubcat);
     right.appendChild(b);
@@ -326,11 +328,12 @@ function renderEditCatUI(){
   container.appendChild(right);
 }
 
-function makeEditCatButton(name, onClick){
+function makeEditCatButton(name, onClick, isSubcat){
   const b=document.createElement('button');
   b.type='button';
   b.className='cat-block';
-  b.innerHTML=`<span>${ICONS[name]||''}</span><br>${name}`;
+  const icon=(isSubcat ? (dynamicSubcatEmoji(name)||ICONS[name]) : ICONS[name])||'';
+  b.innerHTML=`<span>${icon}</span><br>${name}`;
   b.onclick=onClick;
   return b;
 }
