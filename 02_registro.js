@@ -117,6 +117,7 @@ function toggleDesgloseSection(forceOpen){
 }
 
 function onCurChange() {
+  if(typeof _applyingPrediction!=='undefined' && !_applyingPrediction){ _curPredicted=false; }
   const cur = document.getElementById('currency').value;
   const badge = document.getElementById('rate-note');
   const noteEl = document.getElementById('note');
@@ -893,6 +894,7 @@ function setAhorroSubType(t){
 }
 
 function selectCat(cat) {
+  _catPredicted=false; // elección manual del usuario
   const container=document.getElementById('cat-blocks');
   const wasAllShowing = !curCat; // estaban todas visibles
   if(curCat===cat){
@@ -914,6 +916,7 @@ function selectCat(cat) {
 }
 
 function selectSubcat(sub) {
+  _catPredicted=false; // elección manual del usuario
   const container=document.getElementById('cat-blocks');
   if(curSubcat===sub){
     // Tocar la subcategoría ya elegida → re-mostrar las demás
@@ -934,19 +937,46 @@ function selectSubcat(sub) {
   }
 }
 
-// El monto autopredicho se marca para poder actualizarlo/limpiarlo sin pisar
-// lo que el usuario haya tecleado a mano.
-let _amountPredicted=false;
+// Lo que puso la PREDICCIÓN se marca con banderas, para poder deshacerlo al
+// borrar la descripción sin pisar lo que el usuario eligió a mano.
+let _amountPredicted=false;   // monto autopredicho
+let _catPredicted=false;      // categoría/subcategoría puestas por la predicción
+let _methodPredicted=false;   // método puesto por la predicción
+let _curPredicted=false;      // moneda puesta por la predicción
+let _applyingPrediction=false; // guard: el cambio viene de la predicción, no del usuario
 
 function predictCategory(){
   const desc = document.getElementById('desc').value.trim().toLowerCase();
   if(desc.length < 3){
-    // Si se borró la descripción y el monto era autopredicho, limpiarlo
+    // Al borrar la descripción (menos de 3 caracteres), deshacer TODO lo que
+    // haya puesto la predicción — sin tocar lo que el usuario eligió a mano.
     if(_amountPredicted){
       const amtEl=document.getElementById('amount');
       if(amtEl){ amtEl.value=''; }
       _amountPredicted=false;
       try{ calcPropinaPreview(); updateDesgloseRemaining(); renderDiferirPreview(); }catch(e){}
+    }
+    if(_curPredicted){
+      const curSel=document.getElementById('currency');
+      if(curSel && curSel.value!=='MXN'){
+        _applyingPrediction=true;
+        curSel.value='MXN';
+        try{ onCurChange(); }catch(e){}
+        _applyingPrediction=false;
+      }
+      _curPredicted=false;
+    }
+    if(_methodPredicted){
+      selMethod='Tarjeta de crédito';
+      document.querySelectorAll('#method-field .chip').forEach(ch=>{
+        ch.classList.toggle('active', ch.getAttribute('data-method')===selMethod);
+      });
+      _methodPredicted=false;
+    }
+    if(_catPredicted){
+      curCat=''; curSubcat='';
+      _catPredicted=false;
+      renderCatUI();
     }
     return;
   }
@@ -1004,6 +1034,7 @@ function predictCategory(){
     const [bestMethod] = methodEntries.sort((a,b)=>b[1]-a[1])[0];
     if(bestMethod && bestMethod !== selMethod){
       selMethod = bestMethod;
+      _methodPredicted = true;
       // Actualizar el chip visual del método
       document.querySelectorAll('#method-field .chip').forEach(c=>{
         if(!c) return;
@@ -1023,8 +1054,11 @@ function predictCategory(){
     predictedCur = bestCur;
     const curSel = document.getElementById('currency');
     if(curSel && bestCur && curSel.value !== bestCur){
+      _applyingPrediction = true;
       curSel.value = bestCur;
       onCurChange(); // refrescar la etiqueta de tipo de cambio
+      _applyingPrediction = false;
+      _curPredicted = true;
     }
   }
 
@@ -1085,6 +1119,7 @@ function predictCategory(){
   if(curCat === bestCat && curSubcat === bestSub) return;
 
   // Preseleccionar categoría y subcategoría directamente
+  _catPredicted = true;
   curCat = bestCat;
   const subs = sortedSubcats(curType, bestCat);
   const hasSubs = subs && !(subs.length===1 && subs[0]==='—');
@@ -1093,6 +1128,7 @@ function predictCategory(){
 }
 
 function setMethod(m,el){
+  _methodPredicted=false; // elección manual del usuario
   selMethod=m;
   document.querySelectorAll('#method-field .chip').forEach(c=>c&&c.classList.remove('active'));
   if(el) el.classList.add('active');
