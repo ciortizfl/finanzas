@@ -1029,9 +1029,12 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
 }
 .btn-copy:active { transform: scale(0.98); }
 
-/* ── Botón "ir arriba" (esquina inferior IZQUIERDA, estilo del reload) ── */
+/* ── Botón "ir arriba": inferior DERECHA, flotando ENCIMA de la barra de
+   navegación fija (altura de nav = 49px + max(12px, safe-area) → botón a
+   12px por encima). Solo visible dentro de Historial. ── */
 .scrolltop-btn {
-  top: auto; right: auto; left: 16px; bottom: 18px;
+  top: auto; left: auto; right: 16px;
+  bottom: max(73px, calc(61px + env(safe-area-inset-bottom, 0px)));
   opacity: 0; pointer-events: none; transform: translateY(8px);
   transition: opacity 0.2s, transform 0.25s ease;
 }
