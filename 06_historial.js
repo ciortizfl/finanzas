@@ -14,8 +14,10 @@ function setBellMode(on){
     btn.style.color = on ? 'var(--accent)' : 'var(--text3)';
   }
   // En campanita no hay filtros de tipo/categoría/método: la barra se oculta
-  const fb=document.querySelector('.filter-bar');
+  const fb=document.getElementById('hist-filter-bar');
   if(fb) fb.style.display = on ? 'none' : '';
+  const bellRow=document.getElementById('hist-bell-row');
+  if(bellRow) bellRow.style.display = on ? 'flex' : 'none';
   const sp=document.getElementById('sub-filter-panel'); if(sp) sp.classList.remove('vis');
   const mr=document.getElementById('method-filter-row'); if(mr) mr.style.display='none';
   const ma=document.getElementById('method-filter-arrow'); if(ma) ma.style.transform='';
@@ -50,7 +52,7 @@ function renderBellView(hl, hlReal, searchQuery){
   const BELL_SECS=[
     '🔁 Indefinidos · semanales',
     '📆 Indefinidos · mensuales',
-    '⏳ Con fecha fin',
+    '⏳ Con fecha final',
     '✔️ Concluidos'
   ];
   const rules=(typeof reminderConfig!=='undefined' && Array.isArray(reminderConfig.manual))
@@ -673,6 +675,12 @@ function renderHistorial(animate){
   if(histBellMode && !rangeActive){
     const dateRowB=document.getElementById('hist-date-row');
     if(dateRowB) dateRowB.style.display='none';
+    // Blindaje: en campanita la barra de tipos NUNCA se muestra, y la fila
+    // de "Regresar" siempre sí (por si algún otro flujo las tocó).
+    const fbB=document.getElementById('hist-filter-bar');
+    if(fbB) fbB.style.display='none';
+    const brB=document.getElementById('hist-bell-row');
+    if(brB) brB.style.display='flex';
     renderBellView(hl, hlReal, isSearchMode?searchQuery:'');
     return;
   }
