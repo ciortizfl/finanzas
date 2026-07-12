@@ -273,3 +273,24 @@ function exportCSV(){
 
 init();
 try { updateReminderCard(); } catch(e){}
+
+
+// ── Botón "ir arriba": aparece tras bajar más del 15% del alto scrolleable ──
+// El regreso es INSTANTÁNEO a propósito (el scroll suave ya nos falló en iOS
+// standalone; no reincidir).
+function scrollToTopNow(){ window.scrollTo(0,0); }
+(function(){
+  const btn=document.getElementById('scrolltop-btn');
+  if(!btn) return;
+  let ticking=false;
+  function check(){
+    ticking=false;
+    const max=document.documentElement.scrollHeight - window.innerHeight;
+    const thr=Math.max(max*0.15, 120);
+    btn.classList.toggle('vis', max>0 && window.scrollY>thr);
+  }
+  window.addEventListener('scroll', ()=>{
+    if(!ticking){ ticking=true; requestAnimationFrame(check); }
+  }, {passive:true});
+  check();
+})();
