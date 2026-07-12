@@ -33,9 +33,16 @@
       <div class="rem-title" id="rem-title"></div>
       <div class="rem-sub" id="rem-sub"></div>
       <div class="rem-actions">
-        <button type="button" class="rem-btn rem-btn-apply" onclick="remApply()">Aplicar</button>
-        <button type="button" class="rem-btn" id="rem-skip-btn" onclick="remSkip()">Este mes no</button>
-        <button type="button" class="rem-btn rem-btn-mute" onclick="remMute()">No recordar más</button>
+        <div class="rem-actions-row">
+          <button type="button" class="rem-btn rem-btn-apply" onclick="remApply()">Registrar</button>
+          <button type="button" class="rem-btn rem-btn-snooze" onclick="remSnooze(1)">⏰ Mañana</button>
+          <button type="button" class="rem-btn rem-btn-snooze" onclick="remSnooze(7)">⏰ En 1 semana</button>
+        </div>
+        <div class="rem-actions-row rem-actions-secondary">
+          <button type="button" class="rem-btn-ghost" id="rem-skip-btn" onclick="remSkip()">Este mes no</button>
+          <span class="rem-ghost-sep">·</span>
+          <button type="button" class="rem-btn-ghost" onclick="remMute()">Ya no recordar</button>
+        </div>
       </div>
     </div>
   </div>
