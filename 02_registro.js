@@ -47,6 +47,12 @@ function desgloseHasData(){
 function updateNoteDesgloseIndicators(){
   updateInlineBtn('note-toggle-btn', _noteVisible, noteHasData());
   updateInlineBtn('desglose-toggle-btn', _desgloseVisible, desgloseHasData());
+  // Tercer tab: 🔔 Recordar (activo = panel abierto; con-datos = armado pero en otro tab)
+  try{
+    updateInlineBtn('rem-toggle-btn',
+      typeof _remPanelVisible!=='undefined' && _remPanelVisible,
+      typeof _remToggleOn!=='undefined' && _remToggleOn && !_remPanelVisible);
+  }catch(e){}
 }
 
 // Decide el modo de la nota:
@@ -94,6 +100,11 @@ function toggleNoteField(forceOpen){
       const dsec=document.getElementById('desglose-section');
       if(dsec) dsec.style.display='none';
     }
+      if(isManual && typeof _remPanelVisible!=='undefined' && _remPanelVisible){
+        _remPanelVisible=false;
+        const rc=document.getElementById('rem-config');
+        if(rc) rc.style.display='none';
+      }
   }
   updateNoteDesgloseIndicators();
 }
@@ -113,6 +124,11 @@ function toggleDesgloseSection(forceOpen){
       const nwrap=document.getElementById('note-field-wrap');
       if(nwrap) nwrap.style.display='none';
     }
+      if(isManual && typeof _remPanelVisible!=='undefined' && _remPanelVisible){
+        _remPanelVisible=false;
+        const rc=document.getElementById('rem-config');
+        if(rc) rc.style.display='none';
+      }
     // Si no hay ningún desglose aún, agregar uno automáticamente para agilizar
     if(desgloses.length===0) addDesglose();
   }
