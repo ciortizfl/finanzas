@@ -13,7 +13,8 @@
 // Config sincronizada con Google Sheets (reglas manuales, silenciados y saltos).
 
 const RK = 'tomin_reminders';
-const WEEKDAYS_ES = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
+// Siempre se usan tras "los ...", por eso sábado y domingo van en plural
+const WEEKDAYS_ES = ['domingos','lunes','martes','miércoles','jueves','viernes','sábados'];
 const _REM_DAY = 86400000;
 
 // ── Configuración persistente ──
@@ -540,7 +541,7 @@ function renderEditReminderSection(){
       <div class="e-rem-box">
         <div class="e-rem-title">🔔 Recordatorio ${_remRuleLabel(rule)}</div>
         <div>Vigencia: ${vigencia}.</div>
-        <button type="button" class="e-rem-link" onclick="editRemUntil()">${rule.until ? 'Cambiar la fecha fin' : 'Ponerle fecha fin'}</button>
+        <button type="button" class="e-rem-link" onclick="editRemUntil()">${rule.until ? 'Cambiar fecha final' : 'Ponerle fecha final'}</button>
       </div>`;
   } else {
     box.innerHTML = `
