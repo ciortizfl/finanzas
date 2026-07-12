@@ -17,14 +17,15 @@ const WEEKDAYS_ES = ['domingo','lunes','martes','miércoles','jueves','viernes',
 const _REM_DAY = 86400000;
 
 // ── Configuración persistente ──
-let reminderConfig = { manual: [], muted: [], skips: [] };
+let reminderConfig = { manual: [], muted: [], skips: [], snoozes: [] };
 try {
   const _rc = JSON.parse(localStorage.getItem(RK) || 'null');
   if (_rc && typeof _rc === 'object') {
     reminderConfig = {
-      manual: Array.isArray(_rc.manual) ? _rc.manual : [],
-      muted:  Array.isArray(_rc.muted)  ? _rc.muted  : [],
-      skips:  Array.isArray(_rc.skips)  ? _rc.skips  : []
+      manual:  Array.isArray(_rc.manual)  ? _rc.manual  : [],
+      muted:   Array.isArray(_rc.muted)   ? _rc.muted   : [],
+      skips:   Array.isArray(_rc.skips)   ? _rc.skips   : [],
+      snoozes: Array.isArray(_rc.snoozes) ? _rc.snoozes : []
     };
   }
 } catch (e) {}
@@ -54,9 +55,10 @@ function adoptRemindersFromServer(server){
   if (_remDirty) return;
   if (!server || typeof server !== 'object') return;
   const normalized = {
-    manual: Array.isArray(server.manual) ? server.manual : [],
-    muted:  Array.isArray(server.muted)  ? server.muted  : [],
-    skips:  Array.isArray(server.skips)  ? server.skips  : []
+    manual:  Array.isArray(server.manual)  ? server.manual  : [],
+    muted:   Array.isArray(server.muted)   ? server.muted   : [],
+    skips:   Array.isArray(server.skips)   ? server.skips   : [],
+    snoozes: Array.isArray(server.snoozes) ? server.snoozes : []
   };
   if (JSON.stringify(normalized) !== JSON.stringify(reminderConfig)) {
     reminderConfig = normalized;
@@ -183,7 +185,15 @@ function getDueReminders(){
     // Regla manual con fecha límite: no recordar ciclos posteriores al límite
     if (r.source === 'manual' && r.until && _remFmt(expected) > r.until) return;
     const age = (todayT - expected.getTime()) / _REM_DAY;
-    if (age < 0 || age > grace) return;
+    if (age < 0) return;
+    // Posponer (⏰): mientras no llegue la fecha elegida, no molestar. Al llegar,
+    // el recordatorio reaparece AUNQUE el periodo de gracia normal ya haya pasado,
+    // y se puede volver a posponer cuantas veces se quiera.
+    const todayStr = _remFmt(T);
+    const sn = (reminderConfig.snoozes || []).find(s => s.key === r.key && s.cycle === cycle);
+    if (sn && todayStr < sn.until) return;
+    const forced = !!(sn && todayStr >= sn.until);
+    if (age > grace && !forced) return;
     if ((reminderConfig.skips || []).some(s => s.key === r.key && s.cycle === cycle)) return;
     if (_remAppliedSession.has(r.key + '|' + cycle)) return;
     if (_remAlreadyRegistered(r, expected, tol, T)) return;
@@ -198,7 +208,7 @@ function getDueReminders(){
 let _remCurrent = null;
 
 function _remLabel(r){
-  const nombre = `«${r.desc}»`;
+  const nombre = `"${r.desc}"`;
   if (r.source === 'manual') {
     const cuando = r.freq === 'weekly' ? `cada semana los ${WEEKDAYS_ES[r.day]}` : `cada mes el día ${r.day}`;
     return { title: `Recordatorio: ${nombre}`, sub: `Lo programaste ${cuando}.` };
@@ -282,6 +292,21 @@ function remApply(){
   }
   const amt = document.getElementById('amount');
   if (amt) { try { amt.focus(); } catch(e){} }
+}
+
+// Posponer el recordatorio actual N días (1 = mañana, 7 = en una semana).
+// Reemplaza cualquier snooze previo de ese patrón; extensible sin límite.
+function remSnooze(days){
+  const r = _remCurrent;
+  if (!r) return;
+  const T = parseDate(localToday());
+  const until = new Date(T.getFullYear(), T.getMonth(), T.getDate() + (Number(days)||1));
+  reminderConfig.snoozes = (reminderConfig.snoozes || []).filter(s => s.key !== r.key);
+  reminderConfig.snoozes.push({ key: r.key, cycle: r.cycle, until: _remFmt(until) });
+  if (reminderConfig.snoozes.length > 60) reminderConfig.snoozes = reminderConfig.snoozes.slice(-60);
+  saveRemindersToSheets();
+  const card = document.getElementById('rem-card');
+  if (card) _remAnimateOut(card, () => { card.style.display = 'none'; _remCurrent = null; updateReminderCard(); });
 }
 
 function remSkip(){
