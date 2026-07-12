@@ -225,6 +225,8 @@ function goNav(id, btn) {
   page.classList.add('active');
   btn.classList.add('active');
   if(id==='registro'){ try{ updateReminderCard(); }catch(e){} }
+  // El botón "ir arriba" solo vive en Historial: refrescar su visibilidad
+  try{ if(typeof updateScrollTopBtn==='function') updateScrollTopBtn(); }catch(e){}
 
   // Render inmediato desde cache CON animación, luego refresco silencioso desde Sheets
   if(id==='balance'){
