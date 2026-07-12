@@ -5,7 +5,7 @@
 let desgloses = []; // {id, amount, category, subcategory, note}
 
 function addDesglose(){
-  desgloses.push({ id: genId(), amount: 0, category: '', subcategory: '', note: '' });
+  desgloses.push({ id: genId(), amount: 0, category: '', subcategory: '', note: '', ownDesc:false, desc:'' });
   renderDesgloses(true); // animar la nueva card
 }
 
@@ -174,26 +174,11 @@ function buildDesgloseSubcatOptions(desgloseArr, d, parentCat, parentSubcat, typ
   const hasSubs = subs && !(subs.length===1 && subs[0]==='—');
   if(!hasSubs) return { hasSubs:false, html:'' };
 
-  // Recolectar subcategorías tomadas EN LA MISMA CATEGORÍA que este desglose,
-  // en orden: primero la del madre, luego las de los otros desgloses (en orden).
-  const takenOrder = [];
-  if(parentCat===d.category && parentSubcat){
-    takenOrder.push(parentSubcat);
-  }
-  desgloseArr.forEach(other=>{
-    if(other.id===d.id) return;               // no contar el propio desglose
-    if(other.category!==d.category) return;   // solo misma categoría
-    if(other.subcategory && !takenOrder.includes(other.subcategory)){
-      takenOrder.push(other.subcategory);
-    }
-  });
-  const takenSet = new Set(takenOrder);
-
-  // Subcategorías activas (no tomadas), en su orden normal; salvo la que este
-  // desglose ya tiene seleccionada, que siempre debe poder mostrarse activa.
-  const active = subs.filter(s=> !takenSet.has(s) || s===d.subcategory );
-  // Tomadas (excepto la propia selección) al final, en orden de haberse tomado
-  const disabled = takenOrder.filter(s=> s!==d.subcategory );
+  // Regla de "no repetir subcategorías" ELIMINADA a petición: un pago de Izzi
+  // puede desglosar Netflix y Vix ambas como Ocio/Suscripciones. Todas las
+  // subcategorías quedan siempre activas.
+  const active = subs;
+  const disabled = [];
 
   const optHtml = [];
   optHtml.push(`<option value="">Subcategoría...</option>`);
@@ -240,6 +225,13 @@ function renderDesgloses(animateNew){
       </div>
       ${showSubcat?`<select data-desg-subcat onchange="setDesgloseSubcat(${d.id},this.value)" style="width:100%;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;margin-bottom:8px;">${subOpts}</select>`:''}
       ${showNote?`<input data-desg-note type="text" placeholder="Nota (opcional)" value="${d.note||''}" oninput="updateDesglose(${d.id},'note',this.value)" style="width:100%;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:13px;outline:none;">`:''}
+      ${showNote?`<div style="margin-top:8px;">
+        <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text2);cursor:pointer;user-select:none;">
+          <input type="checkbox" ${d.ownDesc?'checked':''} onchange="toggleDesgloseOwnDesc(${d.id},this.checked)" style="width:15px;height:15px;accent-color:var(--accent);">
+          Nombre propio en el historial
+        </label>
+        ${d.ownDesc?`<input data-desg-owndesc type="text" placeholder="Ej. Netflix" value="${(d.desc||'').replace(/"/g,'&quot;')}" oninput="updateDesglose(${d.id},'desc',this.value)" style="width:100%;margin-top:6px;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">`:''}
+      </div>`:''}
     `;
     list.appendChild(card);
     // Animar solo si se pidió y esta card es nueva (no estaba antes)
@@ -371,7 +363,7 @@ function updateDesgloseVisibility(){
 let editDesgloses = []; // {id, amount, category, subcategory, note, existingId?}
 
 function addEditDesglose(){
-  editDesgloses.push({ id: genId(), amount: 0, category: '', subcategory: '', note: '' });
+  editDesgloses.push({ id: genId(), amount: 0, category: '', subcategory: '', note: '', ownDesc:false, desc:'' });
   renderEditDesgloses();
 }
 function removeEditDesglose(id){
@@ -426,6 +418,20 @@ function animateEditDesgloseRemoval(card, isOnlyOne, applyRemoval){
     }
   }, 320);
 }
+// Nombre propio: rompe SOLO la herencia de descripción (linkedTo intacto)
+function toggleDesgloseOwnDesc(id, on){
+  const d=desgloses.find(x=>x.id===id);
+  if(!d) return;
+  d.ownDesc=!!on;
+  renderDesgloses(false);
+}
+function toggleEditDesgloseOwnDesc(id, on){
+  const d=editDesgloses.find(x=>x.id===id);
+  if(!d) return;
+  d.ownDesc=!!on;
+  renderEditDesgloses();
+}
+
 function updateEditDesglose(id, field, value){
   const d = editDesgloses.find(x=>x.id===id);
   if(!d) return;
@@ -536,6 +542,13 @@ function renderEditDesgloses(){
       </div>
       ${showSubcat?`<select onchange="setEditDesgloseSubcat(${d.id},this.value)" style="width:100%;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;margin-bottom:8px;">${subOpts}</select>`:''}
       ${isComplete?`<input data-desg-note type="text" placeholder="Nota (opcional)" value="${d.note||''}" oninput="updateEditDesglose(${d.id},'note',this.value)" style="width:100%;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:13px;outline:none;">`:''}
+      ${isComplete?`<div style="margin-top:8px;">
+        <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text2);cursor:pointer;user-select:none;">
+          <input type="checkbox" ${d.ownDesc?'checked':''} onchange="toggleEditDesgloseOwnDesc(${d.id},this.checked)" style="width:15px;height:15px;accent-color:var(--accent);">
+          Nombre propio en el historial
+        </label>
+        ${d.ownDesc?`<input data-desg-owndesc type="text" placeholder="Ej. Netflix" value="${(d.desc||'').replace(/"/g,'&quot;')}" oninput="updateEditDesglose(${d.id},'desc',this.value)" style="width:100%;margin-top:6px;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">`:''}
+      </div>`:''}
     `;
     list.appendChild(card);
   });
