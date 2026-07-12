@@ -170,7 +170,7 @@
       </div>
 
       <div class="field" id="method-field">
-        <label>Método de pago</label>
+        <label id="method-field-label">Método de pago</label>
         <div class="chips">
           <button class="chip active" id="method-credito" data-method="Tarjeta de crédito" onclick="setMethod('Tarjeta de crédito',this)">Crédito</button>
           <button class="chip" data-method="Efectivo" onclick="setMethod('Efectivo',this)">Efectivo</button>
@@ -386,6 +386,7 @@
     <select id="hist-month-sel" onchange="renderHistorial(true)"></select>
     <select id="hist-year-sel" onchange="renderHistorial(true)"></select>
     <button type="button" id="hist-range-toggle" onclick="toggleDateRange()" title="Filtrar por rango de fechas" style="flex:0 0 auto;width:38px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface);color:var(--text3);font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;">📅</button>
+    <button type="button" id="hist-bell-toggle" onclick="toggleBellFilter()" title="Registros con recordatorio manual" style="flex:0 0 auto;width:38px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface);color:var(--text3);font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;">🔔</button>
   </div>
   <div id="hist-range-row" style="display:none;flex-direction:column;gap:10px;margin-bottom:12px;padding:0 16px;">
     <div style="display:flex;gap:8px;align-items:center;">
@@ -592,7 +593,7 @@
 
         <!-- Método de pago -->
         <div class="field" id="e-method-field">
-          <label>Método de pago</label>
+          <label id="e-method-label">Método de pago</label>
           <div class="chips" id="e-chips">
             <button class="chip" onclick="setEditMethod('Tarjeta de crédito',this)">Crédito</button>
             <button class="chip" onclick="setEditMethod('Efectivo',this)">Efectivo</button>
