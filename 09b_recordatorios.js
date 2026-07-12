@@ -72,6 +72,28 @@ function _remKey(type, desc){ return type + '||' + String(desc||'').trim().toLow
 function _remFmt(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
 function _remClampDom(y, m, day){ const last = new Date(y, m+1, 0).getDate(); return Math.min(day, last); }
 
+// ── HELPERS DE REGLA (representación en historial, registro y edición) ──
+// La regla manual de un comercio (o null si no existe o está silenciado).
+function getManualRule(type, desc){
+  const key = _remKey(type, desc);
+  if ((reminderConfig.muted || []).includes(key)) return null;
+  return (reminderConfig.manual || []).find(m => _remKey(m.type, m.desc) === key) || null;
+}
+// ¿Tiene regla ACTIVA (existe y no ha llegado su fecha fin)?
+function hasActiveManualReminder(type, desc){
+  const r = getManualRule(type, desc);
+  if (!r) return false;
+  return !r.until || r.until >= localToday();
+}
+function _remLongDate(iso){
+  const d = parseDate(iso);
+  const M = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  return `${d.getDate()} de ${M[d.getMonth()]} de ${d.getFullYear()}`;
+}
+function _remRuleLabel(r){
+  return r.freq === 'weekly' ? `semanal · los ${WEEKDAYS_ES[r.day]}` : `mensual · el día ${r.day}`;
+}
+
 // ── DETECCIÓN AUTOMÁTICA DE PATRONES ──
 function detectAutoReminders(){
   const groups = {}; // key → {desc, type, ts:[timestamps]}
@@ -335,15 +357,43 @@ function remMute(){
 let _remToggleOn = false;
 let _remFreq = 'monthly';
 let _remUntilMode = 'inf';
+let _remExistingRule = null; // regla activa que coincide con la descripción actual
+
+// Enciende el botón 🔔 como "Activo" cuando la descripción escrita coincide con
+// una regla existente (y guarda una copia para prellenar el panel y preservar
+// el día de la regla al actualizarla).
+function updateRemToggleIndicator(){
+  const btn = document.getElementById('rem-toggle-btn');
+  if (!btn) return;
+  const desc = (document.getElementById('desc')?.value || '').trim();
+  const t = (typeof curType !== 'undefined') ? curType : 'egreso';
+  let rule = null;
+  if (desc.length >= 2 && (t === 'egreso' || t === 'ingreso')) {
+    const r = getManualRule(t, desc);
+    if (r && (!r.until || r.until >= localToday())) rule = r;
+  }
+  _remExistingRule = rule ? { ...rule } : null;
+  const lbl = btn.querySelectorAll('span')[1];
+  if (!_remToggleOn) {
+    btn.classList.toggle('active', !!rule);
+    if (lbl) lbl.textContent = rule ? 'Activo' : 'Recordar';
+  } else {
+    if (lbl) lbl.textContent = 'Recordar';
+  }
+}
 
 function _remHintUpdate(){
   const hint = document.getElementById('rem-freq-hint');
   if (!hint) return;
   const dateStr = document.getElementById('tx-date')?.value || localToday();
   const d = parseDate(dateStr);
-  hint.textContent = _remFreq === 'weekly'
-    ? `Te recordaré los ${WEEKDAYS_ES[d.getDay()]} (según la fecha del registro).`
-    : `Te recordaré el día ${d.getDate()} de cada mes (según la fecha del registro).`;
+  const usaRegla = _remExistingRule && _remExistingRule.freq === _remFreq;
+  const base = usaRegla
+    ? (_remFreq === 'weekly' ? `los ${WEEKDAYS_ES[_remExistingRule.day]}` : `el día ${_remExistingRule.day} de cada mes`)
+    : (_remFreq === 'weekly' ? `los ${WEEKDAYS_ES[d.getDay()]}` : `el día ${d.getDate()} de cada mes`);
+  hint.textContent = usaRegla
+    ? `Te recordaré ${base} — este comercio ya tiene recordatorio; se actualizará al guardar.`
+    : `Te recordaré ${base} (según la fecha del registro).`;
   const uh = document.getElementById('rem-until-hint');
   if (uh) {
     if (_remUntilMode === 'date') {
@@ -357,9 +407,26 @@ function toggleRemPanel(){
   _remToggleOn = !_remToggleOn;
   const btn = document.getElementById('rem-toggle-btn');
   const panel = document.getElementById('rem-config');
-  if (btn) btn.classList.toggle('active', _remToggleOn);
+  if (btn) btn.classList.toggle('active', _remToggleOn || !!_remExistingRule);
   if (panel) panel.style.display = _remToggleOn ? 'block' : 'none';
-  if (_remToggleOn) { setRemFreq(_remFreq); setRemUntil(_remUntilMode); }
+  if (_remToggleOn) {
+    if (_remExistingRule) {
+      // Prellenar con la regla existente (pintando chips sin abrir el datepicker)
+      _remFreq = _remExistingRule.freq;
+      _remUntilMode = _remExistingRule.until ? 'date' : 'inf';
+      const v = document.getElementById('rem-until-value');
+      if (v) v.value = _remExistingRule.until || '';
+      document.getElementById('rem-freq-monthly')?.classList.toggle('active', _remFreq === 'monthly');
+      document.getElementById('rem-freq-weekly')?.classList.toggle('active', _remFreq === 'weekly');
+      document.getElementById('rem-until-inf')?.classList.toggle('active', _remUntilMode === 'inf');
+      document.getElementById('rem-until-date')?.classList.toggle('active', _remUntilMode === 'date');
+      _remHintUpdate();
+    } else {
+      setRemFreq(_remFreq);
+      setRemUntil('inf');
+    }
+  }
+  updateRemToggleIndicator();
 }
 
 function setRemFreq(f){
@@ -396,6 +463,9 @@ function resetRemToggle(){
   if (panel) panel.style.display = 'none';
   const v = document.getElementById('rem-until-value');
   if (v) v.value = '';
+  _remExistingRule = null;
+  const lbl = document.getElementById('rem-toggle-btn')?.querySelectorAll('span')[1];
+  if (lbl) lbl.textContent = 'Recordar';
 }
 
 // Ocultar el botón 🔔 para beneficios (no aplican recordatorios ahí)
@@ -416,7 +486,11 @@ function createManualReminderFromEntry(entry){
     desc: String(entry.desc).trim(),
     type: entry.type,
     freq: _remFreq,
-    day: _remFreq === 'weekly' ? d.getDay() : d.getDate(),
+    // Si ya existía regla con la MISMA frecuencia, conservar SU día (que
+    // registrar el gas el 11 no mueva un recordatorio que vive el día 8).
+    day: (_remExistingRule && _remExistingRule.freq === _remFreq)
+      ? _remExistingRule.day
+      : (_remFreq === 'weekly' ? d.getDay() : d.getDate()),
     until: (_remUntilMode === 'date' && document.getElementById('rem-until-value')?.value) || null,
     created: localToday()
   };
@@ -426,4 +500,81 @@ function createManualReminderFromEntry(entry){
   reminderConfig.manual.push(rule);
   reminderConfig.muted = (reminderConfig.muted || []).filter(k => k !== key);
   saveRemindersToSheets();
+}
+
+
+// ── REPRESENTACIÓN EN EL MODAL DE EDICIÓN ──
+// Muestra el estado del recordatorio del comercio que se está editando:
+//  · Regla ACTIVA: frecuencia, día y vigencia. Indefinido → puede ponerle fecha
+//    fin; con fecha → puede cambiarla por OTRA fecha futura (nunca de regreso a
+//    indefinido: esa asimetría es a propósito).
+//  · Regla VENCIDA: "Los recordatorios pararon el ..." + crear la regla de nuevo
+//    (renace indefinida, con la misma frecuencia y día; se le puede poner fecha
+//    fin de inmediato).
+// Las reglas nunca tocan los registros: editar aquí solo cambia la regla.
+function renderEditReminderSection(){
+  const box = document.getElementById('e-rem-section');
+  if (!box) return;
+  const e = (typeof editId !== 'undefined' && editId != null)
+    ? data.find(x => String(x.id) === String(editId)) : null;
+  if (!e || (e.type !== 'egreso' && e.type !== 'ingreso')) {
+    box.style.display = 'none'; box.innerHTML = ''; return;
+  }
+  const rule = getManualRule(e.type, e.desc);
+  if (!rule) { box.style.display = 'none'; box.innerHTML = ''; return; }
+
+  const activa = !rule.until || rule.until >= localToday();
+  if (activa) {
+    const vigencia = rule.until ? `hasta el ${_remLongDate(rule.until)}` : 'indefinido';
+    box.innerHTML = `
+      <div class="e-rem-box">
+        <div class="e-rem-title">🔔 Recordatorio ${_remRuleLabel(rule)}</div>
+        <div>Vigencia: ${vigencia}.</div>
+        <button type="button" class="e-rem-link" onclick="editRemUntil()">${rule.until ? 'Cambiar la fecha fin' : 'Ponerle fecha fin'}</button>
+      </div>`;
+  } else {
+    box.innerHTML = `
+      <div class="e-rem-box">
+        <div class="e-rem-title">🔔 Recordatorio ${_remRuleLabel(rule)}</div>
+        <div>Los recordatorios pararon el ${_remLongDate(rule.until)}.</div>
+        <button type="button" class="e-rem-link" onclick="recreateRemFromEdit()">Crear el recordatorio de nuevo</button>
+      </div>`;
+  }
+  box.style.display = 'block';
+}
+
+// Poner o cambiar la fecha fin (solo fechas futuras; sin camino de vuelta a indefinido)
+function editRemUntil(){
+  const e = data.find(x => String(x.id) === String(editId));
+  if (!e) return;
+  const rule = getManualRule(e.type, e.desc);
+  if (!rule) return;
+  openDatepicker({
+    initial: rule.until ? parseDate(rule.until) : null,
+    min: parseDate(localToday()),
+    presets: false,
+    onPick: (d) => {
+      rule.until = _remFmt(d);   // referencia viva dentro de reminderConfig.manual
+      saveRemindersToSheets();
+      renderEditReminderSection();
+      try { updateReminderCard(); } catch(err){}
+    }
+  });
+}
+
+// Recrear una regla vencida: renace indefinida, misma frecuencia y día
+function recreateRemFromEdit(){
+  const e = data.find(x => String(x.id) === String(editId));
+  if (!e) return;
+  const key = _remKey(e.type, e.desc);
+  const old = (reminderConfig.manual || []).find(m => _remKey(m.type, m.desc) === key) || null;
+  const freq = old ? old.freq : 'monthly';
+  const day  = old ? old.day  : parseDate(e.date).getDate();
+  reminderConfig.manual = (reminderConfig.manual || []).filter(m => _remKey(m.type, m.desc) !== key);
+  reminderConfig.manual.push({ id: Date.now(), desc: String(e.desc).trim(), type: e.type,
+                               freq, day, until: null, created: localToday() });
+  reminderConfig.muted = (reminderConfig.muted || []).filter(k => k !== key);
+  saveRemindersToSheets();
+  renderEditReminderSection();
+  try { updateReminderCard(); } catch(err){}
 }
