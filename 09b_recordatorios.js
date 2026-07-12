@@ -359,6 +359,7 @@ let _remToggleOn = false;
 let _remFreq = 'monthly';
 let _remUntilMode = 'inf';
 let _remExistingRule = null; // regla activa que coincide con la descripción actual
+let _remPanelVisible = false; // el tab Recordar está abierto (comparte espacio con Nota/Desglose)
 
 // Enciende el botón 🔔 como "Activo" cuando la descripción escrita coincide con
 // una regla existente (y guarda una copia para prellenar el panel y preservar
@@ -374,13 +375,12 @@ function updateRemToggleIndicator(){
     if (r && (!r.until || r.until >= localToday())) rule = r;
   }
   _remExistingRule = rule ? { ...rule } : null;
+  // El estado visual del botón (tab activo / contiene datos) lo maneja
+  // updateInlineBtn con la clase 'on', igual que Nota y Desglose. Aquí solo
+  // se ajusta la etiqueta informativa.
   const lbl = btn.querySelectorAll('span')[1];
-  if (!_remToggleOn) {
-    btn.classList.toggle('active', !!rule);
-    if (lbl) lbl.textContent = rule ? 'Activo' : 'Recordar';
-  } else {
-    if (lbl) lbl.textContent = 'Recordar';
-  }
+  if (lbl) lbl.textContent = (rule && !_remToggleOn) ? 'Activo' : 'Recordar';
+  try{ updateNoteDesgloseIndicators(); }catch(e){}
 }
 
 function _remHintUpdate(){
@@ -405,12 +405,29 @@ function _remHintUpdate(){
 }
 
 function toggleRemPanel(){
-  _remToggleOn = !_remToggleOn;
-  const btn = document.getElementById('rem-toggle-btn');
+  // Tercer TAB del renglón Nota/Desglose/Recordar: comparte el mismo espacio.
+  // Abrirlo lo ARMA (_remToggleOn: se creará/actualizará la regla al guardar).
+  // Cambiar a otro tab conserva lo armado (indicador de "contiene datos").
+  // Re-taparlo lo cierra Y desarma (cancelar el recordatorio de este registro).
   const panel = document.getElementById('rem-config');
-  if (btn) btn.classList.toggle('active', _remToggleOn || !!_remExistingRule);
-  if (panel) panel.style.display = _remToggleOn ? 'block' : 'none';
-  if (_remToggleOn) {
+  const open = !_remPanelVisible;
+  if(open){
+    _remPanelVisible = true;
+    if(panel){ panel.style.display='block'; try{ revealAnimate(panel); }catch(e){} }
+    // Mutuamente excluyente: cerrar Nota y Desglose (sus datos se conservan)
+    try{
+      if(typeof _noteVisible!=='undefined' && _noteVisible){
+        _noteVisible=false;
+        const w=document.getElementById('note-field-wrap'); if(w) w.style.display='none';
+      }
+    }catch(e){}
+    try{
+      if(typeof _desgloseVisible!=='undefined' && _desgloseVisible){
+        _desgloseVisible=false;
+        const s=document.getElementById('desglose-section'); if(s) s.style.display='none';
+      }
+    }catch(e){}
+    _remToggleOn = true;
     if (_remExistingRule) {
       // Prellenar con la regla existente (pintando chips sin abrir el datepicker)
       _remFreq = _remExistingRule.freq;
@@ -426,9 +443,13 @@ function toggleRemPanel(){
       setRemFreq(_remFreq);
       setRemUntil('inf');
     }
+  } else {
+    resetRemToggle(); // cierra el panel y desarma
   }
+  try{ updateNoteDesgloseIndicators(); }catch(e){}
   updateRemToggleIndicator();
 }
+
 
 function setRemFreq(f){
   _remFreq = f;
@@ -458,8 +479,8 @@ function setRemUntil(mode){
 }
 
 function resetRemToggle(){
-  _remToggleOn = false; _remFreq = 'monthly'; _remUntilMode = 'inf';
-  document.getElementById('rem-toggle-btn')?.classList.remove('active');
+  _remToggleOn = false; _remPanelVisible = false;
+  _remFreq = 'monthly'; _remUntilMode = 'inf';
   const panel = document.getElementById('rem-config');
   if (panel) panel.style.display = 'none';
   const v = document.getElementById('rem-until-value');
@@ -467,6 +488,7 @@ function resetRemToggle(){
   _remExistingRule = null;
   const lbl = document.getElementById('rem-toggle-btn')?.querySelectorAll('span')[1];
   if (lbl) lbl.textContent = 'Recordar';
+  try{ updateNoteDesgloseIndicators(); }catch(e){}
 }
 
 // Ocultar el botón 🔔 para beneficios (no aplican recordatorios ahí)
