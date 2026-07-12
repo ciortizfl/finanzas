@@ -62,6 +62,9 @@ function playRegisterSaveAnimation(done){
 
 // Restaura el botón y hace reaparecer el formulario en cascada
 function restoreRegisterForm(){
+  // Refrescar la tarjeta de recordatorios: el recién guardado sale de la cola
+  // y, si hay otro pendiente, aparece en su lugar.
+  try { if(typeof updateReminderCard==='function') updateReminderCard(); } catch(e){}
   const card=document.getElementById('register-form-card');
   const btn=document.getElementById('submit-btn');
   const btnTxt=document.getElementById('submit-btn-txt');
@@ -334,6 +337,9 @@ function _submitEntry(){
     toast('✓ Registro guardado');
   });
 
+  // Si el usuario activó 🔔 Recordar, crear la regla del recordatorio manual
+  try { if (typeof _remToggleOn !== 'undefined' && _remToggleOn) createManualReminderFromEntry(entry); } catch(e){}
+
   // Reproducir animación de guardado: absorción + palomita, luego reset y cascada.
   playRegisterSaveAnimation(()=>{
     // Resetear el formulario (reconstruye limpio y oculta note/submit)
@@ -347,6 +353,7 @@ function _submitEntry(){
 function resetForm(){
   ['amount','desc','note','ben-amount','ben-pct'].forEach(id=>{const el=document.getElementById(id); if(el) el.value='';});
   if(typeof _amountPredicted!=='undefined') _amountPredicted=false;
+  try { if(typeof resetRemToggle==='function') resetRemToggle(); } catch(e){}
   document.getElementById('currency').value='MXN';
   const _today = localToday();
   document.getElementById('tx-date').value = _today;
@@ -617,6 +624,10 @@ async function loadFromSheets(silent) {
         emojisChanged=true;
       }
     }
+
+    // Sincronizar recordatorios (reglas, silenciados y saltos) desde Sheets.
+    // Si el campo no viene (Apps Script sin actualizar), se ignora sin fallar.
+    try { if(typeof adoptRemindersFromServer==='function') adoptRemindersFromServer(json.reminders); } catch(e){}
 
     if(changed || emojisChanged){
       populateSelectors();
