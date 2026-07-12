@@ -54,6 +54,9 @@ function updateNoteDesgloseIndicators(){
 //    El textarea se muestra directamente, sin botón toggle.
 //  - MODO TOGGLE: cuando conviven Nota y Desglose (egreso normal). Botones toggle.
 function updateNoteMode(){
+  // El botón 🔔 Recordar sigue las mismas reglas de visibilidad (se oculta con
+  // diferido activo/con datos, y en tipos que no son egreso)
+  try{ if(typeof updateRemToggleVisibility==='function') updateRemToggleVisibility(); }catch(e){}
   const row=document.getElementById('note-desglose-row');
   const noteBtn=document.getElementById('note-toggle-btn');
   const wrap=document.getElementById('note-field-wrap');
@@ -214,7 +217,9 @@ function goNav(id, btn) {
     if(grid) revealAnimate(grid, true);
     loadFromSheets(true); // refresco silencioso (sin re-animar)
   } else if(id==='historial'){
-    // Al entrar a historial, partir siempre de la vista por meses (sin rango activo)
+    // Al entrar a historial, partir siempre de la vista por meses (sin rango
+    // activo y sin modo campanita)
+    try{ if(typeof histBellMode!=='undefined' && histBellMode) setBellMode(false); }catch(e){}
     if(histRangeMode){
       histRangeMode=false; histRangeApplied=false;
       stopRangeBreathe();
@@ -554,6 +559,9 @@ function updateFinalizeVisibility(animDelay){
     noteSection.style.display='none';
     submitBtn.style.display='none';
   }
+  // Título del método según el tipo (ingreso = recepción)
+  const mlbl=document.getElementById('method-field-label');
+  if(mlbl) mlbl.textContent = (curType==='ingreso') ? 'Método de recepción' : 'Método de pago';
   updateNoteMode();
   try{ updateRemToggleVisibility(); }catch(e){}
 }
