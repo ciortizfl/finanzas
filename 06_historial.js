@@ -816,11 +816,14 @@ function txEl(e, showDelete){
   let noteDisplay = '';
   if(metaParts.length) noteDisplay += `<div class="tx-note" style="opacity:0.7">${metaParts.join(' | ')}</div>`;
   if(userParts.length) noteDisplay += `<div class="tx-note">${userParts.join(' | ')}</div>`;
+  // 🔔 discreto si este comercio tiene un recordatorio manual ACTIVO
+  const remIco=(typeof hasActiveManualReminder==='function' && hasActiveManualReminder(e.type, e.desc))
+    ? '<span class="tx-rem-ico">🔔</span>' : '';
   el.innerHTML=`
     <div class="tx-color-bar" style="background:${barColor}"></div>
     <div class="tx-ico ${e.type}" style="margin-left:8px">${ico}</div>
     <div class="tx-info">
-      <div class="tx-desc">${e.desc}</div>
+      <div class="tx-desc">${e.desc}${remIco}</div>
       <div class="tx-meta">${sub}${cur}</div>
       ${noteDisplay}
     </div>
