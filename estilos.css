@@ -1018,3 +1018,31 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
   margin: 18px 16px 8px; display: flex; align-items: center; gap: 6px;
 }
 .bell-sec-hdr .bell-sec-count { font-weight: 600; color: var(--text3); text-transform: none; letter-spacing: 0; }
+
+/* ── Copiar registro ── */
+.btn-copy {
+  width: 100%; margin-top: 10px; padding: 13px;
+  border: 1px solid var(--accent); border-radius: var(--radius-sm);
+  background: var(--surface); color: var(--accent);
+  font-family: inherit; font-size: 14.5px; font-weight: 700; cursor: pointer;
+  -webkit-appearance: none; appearance: none;
+}
+.btn-copy:active { transform: scale(0.98); }
+
+/* ── Botón "ir arriba" (esquina inferior IZQUIERDA, estilo del reload) ── */
+.scrolltop-btn {
+  top: auto; right: auto; left: 16px; bottom: 18px;
+  opacity: 0; pointer-events: none; transform: translateY(8px);
+  transition: opacity 0.2s, transform 0.25s ease;
+}
+.scrolltop-btn.vis { opacity: 1; pointer-events: auto; transform: translateY(0); }
+
+/* ── Tarjeta de recordatorio: layout móvil en 3 renglones (web intacta) ── */
+@media (max-width: 640px) {
+  #rem-card .rem-actions-row { flex-wrap: wrap; }
+  #rem-card .rem-btn-apply { flex: 1 1 100%; text-align: center; }
+  #rem-card .rem-btn-snooze { flex: 1 1 0; text-align: center; }
+  #rem-card .rem-actions-secondary { display: flex; }
+  #rem-card .rem-btn-ghost { flex: 1 1 0; text-align: center; }
+  #rem-card .rem-ghost-sep { display: none; }
+}
