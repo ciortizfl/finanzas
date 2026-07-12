@@ -31,6 +31,7 @@ Numerados en el orden en que la app los carga. Cada uno cubre un tema:
 | `07_datepicker_fechas.js` | El **calendario** para elegir fechas (con presets 1s/2s/3s/1m/3m/6m) y la tira de días del registro. |
 | `08_edicion.js` | La ventana para **editar** un registro, borrar (con animación) y la propina en edición. |
 | `09_edicion_diferir.js` | Editar diferidos: cambiar mensualidades o convertir un gasto en diferido. |
+| `09b_recordatorios.js` | **Recordatorios inteligentes**: detecta tus pagos/ingresos recurrentes y te los recuerda dentro de la app; también los recordatorios manuales (🔔 Recordar) al registrar. |
 | `10_presupuesto_csv_init.js` | El **presupuesto** mensual, exportar a **CSV** y el arranque de la app. |
 
 ---
