@@ -219,15 +219,18 @@ function toggleDateRange(){
   const monthRow=document.getElementById('hist-date-row');
   const rangeRow=document.getElementById('hist-range-row');
   if(histRangeMode){
-    // Prefijar el rango con el mes actualmente seleccionado (contexto útil)
-    const mSel=document.getElementById('hist-month-sel');
-    const ySel=document.getElementById('hist-year-sel');
-    const y=ySel?parseInt(ySel.value):new Date().getFullYear();
-    const mo=mSel?parseInt(mSel.value):new Date().getMonth();
-    const first=`${y}-${String(mo+1).padStart(2,'0')}-01`;
-    // La fecha final preseleccionada es HOY (no el último día del mes)
+    // Al salir del modo campanita (si estaba activo), volver a la vista base
+    try{ if(typeof histBellMode!=='undefined' && histBellMode) setBellMode(false); }catch(e){}
+    // Defaults del rango: la fecha final es HOY y la inicial es EXACTAMENTE un
+    // mes antes (11 jul → 11 jun; si el mes previo es más corto, se recorta al
+    // último día: 31 jul → 30 jun).
     const todayD=new Date();
-    const last=`${todayD.getFullYear()}-${String(todayD.getMonth()+1).padStart(2,'0')}-${String(todayD.getDate()).padStart(2,'0')}`;
+    const pad=n=>String(n).padStart(2,'0');
+    const last=`${todayD.getFullYear()}-${pad(todayD.getMonth()+1)}-${pad(todayD.getDate())}`;
+    let py=todayD.getFullYear(), pm=todayD.getMonth()-1;
+    if(pm<0){ pm=11; py--; }
+    const lastDayPrev=new Date(py,pm+1,0).getDate();
+    const first=`${py}-${pad(pm+1)}-${pad(Math.min(todayD.getDate(),lastDayPrev))}`;
     const fromEl=document.getElementById('hist-range-from');
     const toEl=document.getElementById('hist-range-to');
     if(fromEl && !fromEl.value) fromEl.value=first;
