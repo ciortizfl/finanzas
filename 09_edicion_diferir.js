@@ -248,7 +248,7 @@ async function saveEditDeferred({amount, desc, cur, note, subcat, date}){
       amount:monthAmt, amountMXN:toMXNEdit(monthAmt,cur,_origFx), currency:cur,
       desc, category:editCat, subcategory:subcat,
       method, date:dateStr, note,
-      deferGroup:groupId, deferIndex:i+1, deferTotal:n, deferOriginal:amount
+      deferGroup:groupId, deferIndex:i+1, deferTotal:n, deferOriginal:deferTotalAmount
     };
     newEntries.push(madre);
 
@@ -331,26 +331,55 @@ async function saveEditConvertToDefer({amount, desc, cur, note, subcat}){
   const startDate=parseDate(document.getElementById('e-date').value)||new Date();
   const n=editDiferirMonths;
   const groupId=genId();
-  // Borrar el registro original y sus hijos (propina/beneficio/desglose no aplican)
+  const _origFx=orig||null;   // TC histórico (antes se buscaba DESPUÉS de borrarlo: siempre null)
+
+  // ── R5 · BENEFICIO EN LA CONVERSIÓN ──
+  // Este flujo IGNORABA el beneficio por completo: convertir un gasto con
+  // cashback a meses lo hacía desaparecer. Ahora se conserva y se aplica la
+  // misma regla que en el resto de la app:
+  //  · Descuento aplicado → reduce el total antes de prorratear
+  //  · Cashback → se acredita completo en la mensualidad elegida
+  const benAmt=(editType==='egreso'&&editBenOn)?getEditBenAmount():0;
+  if(benAmt>0 && !editBenType){ toast('Elige el tipo de beneficio'); return; }
+  const benDescuento = (benAmt>0 && benReduceGasto(editBenType)) ? benAmt : 0;
+
+  const principalTotal=+(amount-benDescuento).toFixed(2);
+  if(principalTotal<0){ toast('El beneficio no puede superar el gasto'); return; }
+  const deferTotalAmount = principalTotal;
+  const benMonth=Math.min(Math.max(parseInt(document.getElementById('e-ben-month')?.value||'1',10)||1,1),n);
+
+  // Borrar el registro original y sus hijos del estado local
   const oldChildIds=data.filter(x=>x.linkedTo===editId).map(x=>x.id);
   data=data.filter(x=>x.id!==editId && x.linkedTo!==editId);
-  const perMonth=Math.floor((amount/n)*100)/100;
+
+  const perMonth=Math.floor((principalTotal/n)*100)/100;
   let acc=0;
   const newEntries=[];
-  const _origFx=data.find(x=>String(x.id)===String(editId))||null; // TC histórico
   for(let i=0;i<n;i++){
     let monthAmt=perMonth;
-    if(i===n-1) monthAmt=+(amount-acc).toFixed(2);
+    if(i===n-1) monthAmt=+(principalTotal-acc).toFixed(2);
     acc+=perMonth;
     const d=diferirMonthlyDate(startDate,i);
     const dateStr=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-    newEntries.push({
+    const madre={
       id: genId(), type:'egreso',
       amount:monthAmt, amountMXN:toMXNEdit(monthAmt,cur,_origFx), currency:cur,
       desc, category:editCat, subcategory:subcat,
       method, date:dateStr, note,
-      deferGroup:groupId, deferIndex:i+1, deferTotal:n, deferOriginal:amount
-    });
+      deferGroup:groupId, deferIndex:i+1, deferTotal:n, deferOriginal:deferTotalAmount
+    };
+    newEntries.push(madre);
+    // El beneficio se acredita completo en la mensualidad elegida
+    if(benAmt>0 && (i+1)===benMonth){
+      newEntries.push({
+        id: genId(), type:'ahorro-pasivo',
+        amount:benAmt, amountMXN:toMXNEdit(benAmt,cur,_origFx), currency:cur,
+        desc, category:editBenType, subcategory:'',
+        date:dateStr,
+        note:`Beneficio de: ${desc} | acreditado en la mensualidad ${benMonth} de ${n}`,
+        linkedTo:madre.id
+      });
+    }
   }
   newEntries.forEach(e=>data.unshift(e));
   save();
@@ -501,10 +530,14 @@ async function saveEdit(){
     propinaIncludedAmt = getEditPropinaAmount();
   }
 
-  // Validar que reducciones no excedan el monto
-  if(benAmt + totalDesg + propinaIncludedAmt > amount) return toast('Beneficio, desgloses y propina exceden el monto');
+  // R5: solo los DESCUENTOS APLICADOS reducen el gasto. El cashback es un
+  // crédito que llega después: la compra se registra completa.
+  const benDescuento = (benAmt > 0 && benReduceGasto(editBenType)) ? benAmt : 0;
 
-  let mainAmount = +(amount - benAmt - totalDesg - propinaIncludedAmt).toFixed(2);
+  // Validar que reducciones no excedan el monto
+  if(benDescuento + totalDesg + propinaIncludedAmt > amount) return toast('Beneficio, desgloses y propina exceden el monto');
+
+  let mainAmount = +(amount - benDescuento - totalDesg - propinaIncludedAmt).toFixed(2);
   if(mainAmount < 0) mainAmount = 0;
 
   // Regla: ningún desglose individual puede superar el remanente del gasto principal
