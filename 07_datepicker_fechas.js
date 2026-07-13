@@ -8,6 +8,7 @@
 let _dpViewMonth=new Date().getMonth();
 let _dpViewYear=new Date().getFullYear();
 let _dpSelected=null;      // Date actualmente seleccionada en el picker
+let _dpAllow=null;
 let _dpMinDate=null;       // fecha mínima permitida (para "hasta" ≥ "desde")
 let _dpShowPresets=false;  // mostrar presets (solo para "hasta")
 let _dpPresetStart=null;   // fecha inicial (para calcular presets)
@@ -16,10 +17,14 @@ let _dpOnPick=null;        // callback(dateObj) al elegir
 function _dpFmt(d){ return d?`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`:null; }
 
 // Abre el datepicker.
-// opts: { initial:Date|null, min:Date|null, presets:bool, presetStart:Date|null, onPick:fn }
+// opts: { initial:Date|null, min:Date|null, presets:bool, presetStart:Date|null,
+//         onPick:fn, allow:fn(Date)->bool }
+// 'allow' permite restringir qué días son elegibles (p.ej. solo los domingos, o
+// solo el día 12 de cada mes: las fechas finales válidas de un recordatorio).
 function openDatepicker(opts){
   opts=opts||{};
   _dpMinDate=opts.min||null;
+  _dpAllow=(typeof opts.allow==='function')?opts.allow:null;
   _dpShowPresets=!!opts.presets;
   _dpPresetStart=opts.presetStart||null;
   _dpOnPick=opts.onPick||null;
@@ -54,7 +59,8 @@ function _dpRenderGrid(){
     const btn=document.createElement('button'); btn.type='button'; btn.className='dp-day'; btn.textContent=day;
     if(d.getTime()===today.getTime()) btn.classList.add('today');
     const belowMin = _dpMinDate && d < _dpMinDate;
-    if(belowMin){ btn.classList.add('disabled'); }
+    const notAllowed = _dpAllow && !_dpAllow(d);
+    if(belowMin || notAllowed){ btn.classList.add('disabled'); }
     else {
       if(_dpSelected && d.getTime()===_dpSelected.getTime()) btn.classList.add('selected');
       btn.onclick=()=>_dpPick(d);
@@ -64,6 +70,7 @@ function _dpRenderGrid(){
 }
 function _dpPick(d){
   if(_dpMinDate && d < _dpMinDate) return;
+  if(_dpAllow && !_dpAllow(d)) return;
   if(_dpOnPick) _dpOnPick(d);
   dpClose();
 }
