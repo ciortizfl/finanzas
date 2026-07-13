@@ -123,12 +123,31 @@ function submitDeferredEntry({amount, desc, cur, date, note, subcat}){
   const n=diferirMonths;
   const groupId=genId();
   const base=parseDate(date)||new Date();
-  const perMonth=Math.floor((amount/n)*100)/100;
+
+  // ── DESGLOSES EN UN DIFERIDO: se PRORRATEAN entre las N mensualidades ──
+  // (el regalo dentro de una compra a meses también se paga a plazos)
+  const activeDesg=(typeof desgloses!=='undefined'?desgloses:[]).filter(d=>d.amount>0);
+  const totalDesg=activeDesg.reduce((s,d)=>s+d.amount,0);
+  const principalTotal=+(amount-totalDesg).toFixed(2);
+  if(principalTotal<0) return toast('Los desgloses no pueden superar el gasto');
+
+  // ── BENEFICIO EN UN DIFERIDO: NO se prorratea. El cashback se acredita
+  //    completo en UNA mensualidad (la que elijas), como llega en la realidad.
+  const benAmt=(curType==='egreso'&&benOn)?getBenAmount():0;
+  if(benAmt>0 && !curBenType) return toast('Elige el tipo de beneficio');
+  const benMonth=Math.min(Math.max(parseInt(document.getElementById('ben-month')?.value||'1',10)||1,1),n);
+
+  const perMonth=Math.floor((principalTotal/n)*100)/100;
   let acc=0;
+  // Fracción mensual de cada desglose (el último mes absorbe su residuo)
+  const desgAcc=activeDesg.map(()=>0);
+  const desgPer=activeDesg.map(d=>Math.floor((d.amount/n)*100)/100);
+  const childrenAll=[];
+
   for(let i=0;i<n;i++){
     // El último mes absorbe el residuo del redondeo para cuadrar el total
     let monthAmt=perMonth;
-    if(i===n-1) monthAmt=+(amount-acc).toFixed(2);
+    if(i===n-1) monthAmt=+(principalTotal-acc).toFixed(2);
     acc+=perMonth;
     const d=diferirMonthlyDate(base,i);
     const dateStr=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
@@ -140,6 +159,45 @@ function submitDeferredEntry({amount, desc, cur, date, note, subcat}){
       deferGroup:groupId, deferIndex:i+1, deferTotal:n, deferOriginal:amount
     };
     data.unshift(entry);
+
+    // Hijos: fracción del desglose de ESTE mes
+    activeDesg.forEach((dg,k)=>{
+      let dAmt=desgPer[k];
+      if(i===n-1) dAmt=+(dg.amount-desgAcc[k]).toFixed(2);
+      desgAcc[k]+=desgPer[k];
+      if(dAmt<=0) return;
+      const dsubs=sortedSubcats(curType, dg.category);
+      const dHasSubs=dsubs && !(dsubs.length===1 && dsubs[0]==='—');
+      const child={
+        id:genId(), type:curType,
+        amount:dAmt, amountMXN:toMXN(dAmt,cur), currency:cur,
+        desc:((dg.desc||'').trim()) ? dg.desc.trim() : desc,
+        category:dg.category, subcategory: dHasSubs?dg.subcategory:'',
+        method:selMethod, date:dateStr,
+        note:[`Desglose de: ${desc}`, dg.note||''].filter(Boolean).join(' | '),
+        linkedTo:entry.id
+      };
+      data.unshift(child); childrenAll.push(child);
+    });
+
+    // Beneficio: solo en la mensualidad elegida, por el monto COMPLETO
+    if(benAmt>0 && (i+1)===benMonth){
+      const sym=cur==='MXN'?'$':`${cur} `;
+      let benNote=`Beneficio de: ${desc}`;
+      if(benType==='pct'){
+        const pct=parseFloat(document.getElementById('ben-pct').value)||0;
+        benNote += ` | ${pct}% de ${sym}${amount.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})}`;
+      }
+      benNote += ` | acreditado en la mensualidad ${benMonth} de ${n}`;
+      const benChild={
+        id:genId(), type:'ahorro-pasivo',
+        amount:benAmt, amountMXN:toMXN(benAmt,cur), currency:cur,
+        desc:desc, category:curBenType, subcategory:'',
+        method:null, date:dateStr,
+        note:benNote, linkedTo:entry.id
+      };
+      data.unshift(benChild); childrenAll.push(benChild);
+    }
   }
   trackUsage(curType, curCat, subcat);
   save();
@@ -149,7 +207,9 @@ function submitDeferredEntry({amount, desc, cur, date, note, subcat}){
   // El "✓ guardado" aparece cuando la escritura REALMENTE terminó (no por timer):
   // así el spinner "Guardando…" indica con honestidad que hay que esperar.
   const groupEntries=data.filter(x=>sameGroup(x.deferGroup,groupId));
-  saveBatchToSheets(groupEntries).then(()=>{
+  const groupIds=new Set(groupEntries.map(x=>x.id));
+  const allToSave=[...groupEntries, ...data.filter(x=>x.linkedTo && groupIds.has(x.linkedTo))];
+  saveBatchToSheets(allToSave).then(()=>{
     hideSyncing();
     toast(`✓ Gasto diferido en ${n} meses`);
   });
