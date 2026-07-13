@@ -41,13 +41,11 @@ function _remSaveLocal(){
 async function saveRemindersToSheets(){
   _remDirty = true;
   _remSaveLocal();
-  try {
-    await fetch(SHEETS_URL, {
-      method: 'POST',
-      body: JSON.stringify({ action: 'saveReminders', reminders: reminderConfig })
-    });
-    _remDirty = false;
-  } catch(e) { console.warn('Sheets reminders save failed', e); }
+  // R2: la escritura informa si la nube confirmó. El estado local ya quedó
+  // guardado arriba, así que un fallo aquí nunca pierde la regla.
+  const r = await _sheetsPost({ action: 'saveReminders', reminders: reminderConfig }, 'reminders save');
+  if(r.ok) _remDirty = false;
+  return r;
 }
 
 // Adoptar la copia del servidor (llamado desde loadFromSheets). Si hay cambios
@@ -722,12 +720,17 @@ function removeRemFromEdit(){
   const key = _remKey(type, desc);
   reminderConfig.manual = (reminderConfig.manual || []).filter(m => _remKey(m.type, m.desc) !== key);
   reminderConfig.snoozes = (reminderConfig.snoozes || []).filter(s => s.key !== key);
-  saveRemindersToSheets();
+  saveRemindersToSheets().then(r=>{
+    // R2: solo se afirma el éxito si la nube lo confirmó
+    try{
+      if(r && r.ok) toast('✓ Recordatorio quitado');
+      else toast('⚠️ Recordatorio quitado en el teléfono, pero no se sincronizó');
+    }catch(e){}
+  });
   resetEditRemState();
   renderEditReminderSection();
   try{ updateReminderCard(); }catch(e){}
   try{ renderHistorial(); }catch(e){}
-  try{ toast('✓ Recordatorio quitado'); }catch(e){}
 }
 
 // Poner o cambiar la fecha fin (solo fechas futuras; sin camino de vuelta a indefinido)
