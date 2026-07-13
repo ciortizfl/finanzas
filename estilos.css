@@ -944,15 +944,19 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
 
 /* ── PRESETS DE BÚSQUEDA (comercios más comunes, un solo renglón) ── */
 .hist-presets {
-  display: flex; gap: 3px; margin-top: 6px;
-  /* Justificados: ocupan el renglón completo; el gap es el MÍNIMO para que
-     las sombritas de chips vecinos no se corten entre sí */
-  justify-content: space-between;
+  display: flex; gap: 5px; margin-top: 6px;
+  /* Un solo renglón, rellenado de forma natural de izquierda a derecha: caben
+     tantos chips como quepan (el sobrante se recorta en JS). */
   flex-wrap: nowrap; overflow: hidden; white-space: nowrap;
-  padding: 2px 2px 6px;
+  padding: 2px 2px 8px;
+  /* Separador sutil respecto a la barra de filtros (Todos/Egresos/…) */
+  border-bottom: 0.5px solid var(--border2);
+  margin-bottom: 10px;
 }
 @media (max-width: 640px) {
-  .hist-presets { gap: 2px; }
+  /* En móvil los chips ceden protagonismo: más pequeños y discretos */
+  .hist-presets { gap: 4px; padding-bottom: 7px; }
+  .preset-chip { padding: 4px 9px; font-size: 11.5px; font-weight: 600; }
 }
 .hist-presets:empty { display: none; }
 .preset-chip {
