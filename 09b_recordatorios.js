@@ -355,11 +355,21 @@ function remMute(){
 }
 
 // ── RECORDATORIO MANUAL AL REGISTRAR (toggle 🔔 Recordar) ──
-let _remToggleOn = false;
-let _remFreq = 'monthly';
-let _remUntilMode = 'inf';
+let _remToggleOn = false;   // (derivado: se mantiene por compatibilidad)
+let _remFreq = null;        // 'monthly' | 'weekly' | null — SIN default: el usuario elige
+let _remUntilMode = null;   // 'inf' | 'date' | null — SIN default: el usuario elige
 let _remExistingRule = null; // regla activa que coincide con la descripción actual
 let _remPanelVisible = false; // el tab Recordar está abierto (comparte espacio con Nota/Desglose)
+
+// El recordatorio "contiene datos" SOLO si se cumplen ambas condiciones:
+// frecuencia (mes/semana) + vigencia (indefinido/fecha con fecha elegida).
+// Si no se cumplen, NO se guarda ninguna regla al registrar.
+function remHasData(){
+  if(!_remFreq || !_remUntilMode) return false;
+  if(_remUntilMode==='date' && !(document.getElementById('rem-until-value')?.value)) return false;
+  return true;
+}
+
 
 // Enciende el botón 🔔 como "Activo" cuando la descripción escrita coincide con
 // una regla existente (y guarda una copia para prellenar el panel y preservar
@@ -379,41 +389,51 @@ function updateRemToggleIndicator(){
   // updateInlineBtn con la clase 'on', igual que Nota y Desglose. Aquí solo
   // se ajusta la etiqueta informativa.
   const lbl = btn.querySelectorAll('span')[1];
-  if (lbl) lbl.textContent = (rule && !_remToggleOn) ? 'Activo' : 'Recordar';
+  if (lbl) lbl.textContent = (rule && !remHasData()) ? 'Activo' : 'Recordar';
   try{ updateNoteDesgloseIndicators(); }catch(e){}
 }
 
 function _remHintUpdate(){
-  const hint = document.getElementById('rem-freq-hint');
-  if (!hint) return;
-  const dateStr = document.getElementById('tx-date')?.value || localToday();
-  const d = parseDate(dateStr);
-  const usaRegla = _remExistingRule && _remExistingRule.freq === _remFreq;
-  const base = usaRegla
-    ? (_remFreq === 'weekly' ? `los ${WEEKDAYS_ES[_remExistingRule.day]}` : `el día ${_remExistingRule.day} de cada mes`)
-    : (_remFreq === 'weekly' ? `los ${WEEKDAYS_ES[d.getDay()]}` : `el día ${d.getDate()} de cada mes`);
-  hint.textContent = usaRegla
-    ? `Te recordaré ${base} — este comercio ya tiene recordatorio; se actualizará al guardar.`
-    : `Te recordaré ${base} (según la fecha del registro).`;
-  const uh = document.getElementById('rem-until-hint');
-  if (uh) {
-    if (_remUntilMode === 'date') {
-      const v = document.getElementById('rem-until-value')?.value;
-      uh.textContent = v ? `Hasta el ${v}.` : 'Elige la fecha límite…';
-    } else uh.textContent = '';
+  const hint=document.getElementById('rem-freq-hint');
+  if(hint){
+    if(!_remFreq){
+      hint.textContent = _remExistingRule
+        ? `Este comercio ya tiene recordatorio ${_remRuleLabel(_remExistingRule)}${_remExistingRule.until?` · hasta el ${_remExistingRule.until}`:' · indefinido'}. Si eliges opciones aquí, se actualizará al guardar.`
+        : 'Elige la frecuencia para programarlo.';
+    } else {
+      const dateStr=document.getElementById('tx-date')?.value||localToday();
+      const d=parseDate(dateStr);
+      const usaRegla=_remExistingRule && _remExistingRule.freq===_remFreq;
+      const base=usaRegla
+        ? (_remFreq==='weekly' ? `los ${WEEKDAYS_ES[_remExistingRule.day]}` : `el día ${_remExistingRule.day} de cada mes`)
+        : (_remFreq==='weekly' ? `los ${WEEKDAYS_ES[d.getDay()]}` : `el día ${d.getDate()} de cada mes`);
+      hint.textContent=usaRegla
+        ? `Te recordaré ${base} — se actualizará el recordatorio existente al guardar.`
+        : `Te recordaré ${base} (según la fecha del registro).`;
+    }
+  }
+  const uh=document.getElementById('rem-until-hint');
+  if(uh){
+    if(_remUntilMode==='date'){
+      const v=document.getElementById('rem-until-value')?.value;
+      uh.textContent=v?`Hasta el ${v}.`:'Elige la fecha límite…';
+    } else if(_remUntilMode==='inf'){
+      uh.textContent='Sin fecha de término.';
+    } else {
+      uh.textContent=_remFreq?'Elige la vigencia: indefinido o hasta una fecha.':'';
+    }
   }
 }
 
 function toggleRemPanel(){
-  // Tercer TAB del renglón Nota/Desglose/Recordar: comparte el mismo espacio.
-  // Abrirlo lo ARMA (_remToggleOn: se creará/actualizará la regla al guardar).
-  // Cambiar a otro tab conserva lo armado (indicador de "contiene datos").
-  // Re-taparlo lo cierra Y desarma (cancelar el recordatorio de este registro).
+  // Tercer TAB del renglón Nota/Desglose/Recordar. Re-taparlo SOLO lo cierra
+  // (los datos elegidos se conservan y el botón muestra "contiene datos").
   const panel = document.getElementById('rem-config');
   const open = !_remPanelVisible;
+  _remPanelVisible = open;
+  if(panel) panel.style.display = open ? 'block' : 'none';
   if(open){
-    _remPanelVisible = true;
-    if(panel){ panel.style.display='block'; try{ revealAnimate(panel); }catch(e){} }
+    try{ revealAnimate(panel); }catch(e){}
     // Mutuamente excluyente: cerrar Nota y Desglose (sus datos se conservan)
     try{
       if(typeof _noteVisible!=='undefined' && _noteVisible){
@@ -427,67 +447,69 @@ function toggleRemPanel(){
         const s=document.getElementById('desglose-section'); if(s) s.style.display='none';
       }
     }catch(e){}
-    _remToggleOn = true;
-    if (_remExistingRule) {
-      // Prellenar con la regla existente (pintando chips sin abrir el datepicker)
-      _remFreq = _remExistingRule.freq;
-      _remUntilMode = _remExistingRule.until ? 'date' : 'inf';
-      const v = document.getElementById('rem-until-value');
-      if (v) v.value = _remExistingRule.until || '';
-      document.getElementById('rem-freq-monthly')?.classList.toggle('active', _remFreq === 'monthly');
-      document.getElementById('rem-freq-weekly')?.classList.toggle('active', _remFreq === 'weekly');
-      document.getElementById('rem-until-inf')?.classList.toggle('active', _remUntilMode === 'inf');
-      document.getElementById('rem-until-date')?.classList.toggle('active', _remUntilMode === 'date');
-      _remHintUpdate();
-    } else {
-      setRemFreq(_remFreq);
-      setRemUntil('inf');
-    }
-  } else {
-    resetRemToggle(); // cierra el panel y desarma
+    _remPaintChips();
+    _remHintUpdate();
   }
   try{ updateNoteDesgloseIndicators(); }catch(e){}
   updateRemToggleIndicator();
 }
 
+// Pinta el estado activo/inactivo de los 4 chips según la selección actual
+function _remPaintChips(){
+  document.getElementById('rem-freq-monthly')?.classList.toggle('active', _remFreq==='monthly');
+  document.getElementById('rem-freq-weekly')?.classList.toggle('active', _remFreq==='weekly');
+  document.getElementById('rem-until-inf')?.classList.toggle('active', _remUntilMode==='inf');
+  document.getElementById('rem-until-date')?.classList.toggle('active', _remUntilMode==='date');
+}
+
 
 function setRemFreq(f){
-  _remFreq = f;
-  document.getElementById('rem-freq-monthly')?.classList.toggle('active', f === 'monthly');
-  document.getElementById('rem-freq-weekly')?.classList.toggle('active', f === 'weekly');
+  // Tocar el chip activo lo DESELECCIONA (vuelve a null): sin ambas condiciones
+  // elegidas, no se guarda ningún recordatorio.
+  _remFreq = (_remFreq===f) ? null : f;
+  _remPaintChips();
   _remHintUpdate();
+  try{ updateNoteDesgloseIndicators(); }catch(e){}
 }
 
 function setRemUntil(mode){
-  _remUntilMode = mode;
-  document.getElementById('rem-until-inf')?.classList.toggle('active', mode === 'inf');
-  document.getElementById('rem-until-date')?.classList.toggle('active', mode === 'date');
-  if (mode === 'date') {
-    const cur = document.getElementById('rem-until-value')?.value;
-    openDatepicker({
-      initial: cur ? parseDate(cur) : null,
-      min: parseDate(localToday()),
-      presets: false,
-      onPick: (d) => {
-        const v = document.getElementById('rem-until-value');
-        if (v) v.value = _remFmt(d);
-        _remHintUpdate();
-      }
-    });
+  if(_remUntilMode===mode){
+    // Deseleccionar
+    _remUntilMode=null;
+    if(mode==='date'){ const v=document.getElementById('rem-until-value'); if(v) v.value=''; }
+  } else {
+    _remUntilMode=mode;
+    if(mode==='date'){
+      const cur=document.getElementById('rem-until-value')?.value;
+      openDatepicker({
+        initial: cur ? parseDate(cur) : null,
+        min: parseDate(localToday()),
+        presets: false,
+        onPick: (d)=>{
+          const v=document.getElementById('rem-until-value');
+          if(v) v.value=_remFmt(d);
+          _remHintUpdate();
+          try{ updateNoteDesgloseIndicators(); }catch(e){}
+        }
+      });
+    }
   }
+  _remPaintChips();
   _remHintUpdate();
+  try{ updateNoteDesgloseIndicators(); }catch(e){}
 }
 
 function resetRemToggle(){
-  _remToggleOn = false; _remPanelVisible = false;
-  _remFreq = 'monthly'; _remUntilMode = 'inf';
-  const panel = document.getElementById('rem-config');
-  if (panel) panel.style.display = 'none';
-  const v = document.getElementById('rem-until-value');
-  if (v) v.value = '';
-  _remExistingRule = null;
-  const lbl = document.getElementById('rem-toggle-btn')?.querySelectorAll('span')[1];
-  if (lbl) lbl.textContent = 'Recordar';
+  _remToggleOn=false; _remPanelVisible=false;
+  _remFreq=null; _remUntilMode=null;
+  const panel=document.getElementById('rem-config');
+  if(panel) panel.style.display='none';
+  const v=document.getElementById('rem-until-value');
+  if(v) v.value='';
+  _remExistingRule=null;
+  _remPaintChips();
+  const lbl=document.getElementById('rem-toggle-btn')?.querySelectorAll('span')[1];
+  if(lbl) lbl.textContent='Recordar';
   try{ updateNoteDesgloseIndicators(); }catch(e){}
 }
 
@@ -505,8 +527,7 @@ function updateRemToggleVisibility(){
   const hide = noEgreso || diferido;
   btn.style.display = hide ? 'none' : '';
   if (hide){
-    if (_remToggleOn) resetRemToggle();
-    _remExistingRule = null;
+    resetRemToggle();
   }
 }
 
