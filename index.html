@@ -84,6 +84,12 @@
           <input type="text" id="amount" placeholder="0.00" inputmode="decimal" oninput="handleAmountInput(this);calcPropinaPreview();updateDesgloseRemaining();renderDiferirPreview()">
         </div>
         <div class="rate-note" id="rate-note"><span class="rate-dot"></span><span id="rate-text"></span></div>
+        <!-- TC manual: solo visible en moneda extranjera. Vacío = automático -->
+        <div class="fx-row" id="fx-row" style="display:none;">
+          <label for="fx-manual">Tipo de cambio</label>
+          <input type="text" id="fx-manual" inputmode="decimal" placeholder="" oninput="onFxManualInput()">
+          <span class="fx-hint" id="fx-hint"></span>
+        </div>
       </div>
 
       <!-- Inline toggles for propina + beneficio — only visible for egresos -->
@@ -240,7 +246,7 @@
           <input type="hidden" id="rem-until-value">
         </div>
         <div id="note-field-wrap" style="display:none;margin-top:10px">
-          <textarea id="note" placeholder="Nota opcional" oninput="updateNoteDesgloseIndicators()" style="width:100%;padding:11px 13px;border:none;border-radius:var(--radius-sm);background:var(--surface2);color:var(--text);font-family:inherit;font-size:15px;outline:none;resize:none;height:64px;"></textarea>
+          <textarea id="note" placeholder="Nota opcional" oninput="onNoteInput()" style="width:100%;padding:11px 13px;border:none;border-radius:var(--radius-sm);background:var(--surface2);color:var(--text);font-family:inherit;font-size:15px;outline:none;resize:none;height:64px;"></textarea>
         </div>
         <!-- Desgloses -->
         <div id="desglose-section" style="display:none;margin-top:10px;">
@@ -505,7 +511,7 @@
         <div class="field">
           <label>Descripción</label>
           <div style="display:flex;gap:8px;align-items:stretch;">
-            <input type="text" id="e-desc" placeholder="¿En qué fue?" oninput="refreshEditEmojiBtn();eRemSectionRefresh()" style="flex:1;">
+            <input type="text" id="e-desc" placeholder="¿En qué fue?" oninput="refreshEditEmojiBtn();eRemSectionRefresh();predictEditNote()" style="flex:1;">
             <button type="button" id="e-emoji-btn" onclick="openEmojiPicker()" title="Personalizar emoji" style="flex:0 0 auto;width:46px;border:none;border-radius:var(--radius-sm);background:var(--surface2);font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center;">📌</button>
           </div>
         </div>
@@ -522,6 +528,12 @@
             <input type="text" id="e-amount" placeholder="0.00" inputmode="decimal" oninput="handleAmountInput(this);calcEditBenPreview();updateEditDesgloseRemaining();calcEditPropinaPreview();renderEditDiferirPreview()">
           </div>
           <div class="rate-note" id="e-rate-note"><span class="rate-dot"></span><span id="e-rate-text"></span></div>
+          <div class="fx-row" id="e-fx-row" style="display:none;">
+            <label for="e-fx-manual">Tipo de cambio</label>
+            <input type="text" id="e-fx-manual" inputmode="decimal" placeholder="" oninput="onEFxManualInput()">
+            <span class="fx-hint" id="e-fx-hint"></span>
+          </div>
+          <button type="button" class="fx-revert" id="e-fx-revert" style="display:none;" onclick="revertFxToHistoric()">Regresar a TC histórico</button>
         </div>
 
         <!-- Inline toggles propina + beneficio + diferir (solo para egreso) -->
@@ -683,7 +695,7 @@
           </div>
         </div>
         <div id="e-note-field-wrap" style="display:none;margin-top:10px">
-          <textarea id="e-note" placeholder="Nota opcional" oninput="updateEditNoteDesgloseIndicators()" style="width:100%;padding:11px 13px;border:none;border-radius:var(--radius-sm);background:var(--surface2);color:var(--text);font-family:inherit;font-size:15px;outline:none;resize:none;height:64px;"></textarea>
+          <textarea id="e-note" placeholder="Nota opcional" oninput="onENoteInput()" style="width:100%;padding:11px 13px;border:none;border-radius:var(--radius-sm);background:var(--surface2);color:var(--text);font-family:inherit;font-size:15px;outline:none;resize:none;height:64px;"></textarea>
         </div>
         <!-- Desgloses -->
         <div id="e-desglose-section" style="display:none;margin-top:10px;">
