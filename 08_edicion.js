@@ -48,7 +48,7 @@ function updateEditNoteMode(){
   if(!row || !noteBtn || !wrap) return;
   const ta=document.getElementById('e-note');
   const hasData = ta && ta.value.trim().length>0;
-  const noteDirecto = (editType!=='egreso') || !!editDeferGroup;
+  const noteDirecto = (editType!=='egreso');   // en diferidos la Nota sigue siendo tab
   if(noteDirecto){
     noteBtn.style.display='none';
     wrap.style.display='block';
@@ -111,6 +111,7 @@ function openEdit(id) {
   editType = e.type;
   updateEditMethodLabel();
   try{ resetCopyModeUI(); }catch(_e){}
+  try{ updateEditBenMonthSelector(); }catch(_e){}
   const _cpBtn=document.getElementById('e-copy-btn');
   if(_cpBtn) _cpBtn.style.display = e.deferGroup ? 'none' : '';
   editCat  = e.category;
@@ -844,4 +845,33 @@ function playAppearAnimation(entryId){
       }catch(_e){ el.style.borderLeft=''; }
     };
   }catch(_e){ el.style.overflow=''; el.style.borderLeft=''; }
+}
+
+
+// Selector "¿en qué mensualidad se te acreditó?" del beneficio (solo diferidos)
+function updateEditBenMonthSelector(){
+  const row=document.getElementById('e-ben-month-row');
+  const sel=document.getElementById('e-ben-month');
+  if(!row || !sel) return;
+  const grupo = editDeferGroup ? data.filter(x=>sameGroup(x.deferGroup, editDeferGroup)) : [];
+  const n = (editDiferirMonths && editDiferirMonths>=2)
+    ? editDiferirMonths
+    : (grupo.length ? (grupo[0].deferTotal||grupo.length) : 0);
+  if(!n || n<2){ row.style.display='none'; return; }
+  // Mes donde está hoy el beneficio (si ya existe)
+  let actual=1;
+  const madres=grupo.slice().sort((a,b)=>a.deferIndex-b.deferIndex);
+  madres.forEach(m=>{
+    const ben=data.find(x=>x.linkedTo===m.id && x.type==='ahorro-pasivo');
+    if(ben) actual=m.deferIndex;
+  });
+  sel.innerHTML='';
+  for(let i=1;i<=n;i++){
+    const o=document.createElement('option');
+    o.value=String(i);
+    o.textContent=`Mensualidad ${i} de ${n}`;
+    sel.appendChild(o);
+  }
+  sel.value=String(Math.min(actual,n));
+  row.style.display='block';
 }
