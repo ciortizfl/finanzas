@@ -72,9 +72,16 @@ function animateDesgloseRemoval(card, isOnlyOne, applyRemoval){
 function updateDesglose(id, field, value){
   const d = desgloses.find(x=>x.id===id);
   if(!d) return;
-  if(field==='amount'){ d.amount = parseFloat(value)||0; d._amtPred=false; }
-  if(field==='note') d._notePred=false;   // nota escrita a mano: la predicción ya no la toca
-  else d[field] = value;
+  // OJO: el 'else' debe colgar del if del MONTO. Antes colgaba del if de la nota,
+  // y por eso una nota escrita a mano nunca se guardaba en el estado (y el monto
+  // se sobrescribía con el texto crudo en vez del número).
+  if(field==='amount'){
+    d.amount = parseFloat(value)||0;
+    d._amtPred=false;
+  } else {
+    if(field==='note') d._notePred=false;   // nota a mano: la predicción ya no la toca
+    d[field] = value;
+  }
   if(field==='amount'){ updateDesgloseRemaining(); updateNoteDesgloseIndicators(); }
 
   // Nombre propio → predecir su categoría/subcategoría (misma regla del formulario).
@@ -489,9 +496,16 @@ function animateEditDesgloseRemoval(card, isOnlyOne, applyRemoval){
 function updateEditDesglose(id, field, value){
   const d = editDesgloses.find(x=>x.id===id);
   if(!d) return;
-  if(field==='amount'){ d.amount = parseFloat(value)||0; d._amtPred=false; }
-  if(field==='note') d._notePred=false;   // nota escrita a mano: la predicción ya no la toca
-  else d[field] = value;
+  // OJO: el 'else' debe colgar del if del MONTO. Antes colgaba del if de la nota,
+  // y por eso una nota escrita a mano nunca se guardaba en el estado (y el monto
+  // se sobrescribía con el texto crudo en vez del número).
+  if(field==='amount'){
+    d.amount = parseFloat(value)||0;
+    d._amtPred=false;
+  } else {
+    if(field==='note') d._notePred=false;   // nota a mano: la predicción ya no la toca
+    d[field] = value;
+  }
   if(field==='amount'){ updateEditDesgloseRemaining(); updateEditNoteDesgloseIndicators(); }
 
   // Nombre propio → predecir su categoría/subcategoría (misma regla del formulario).
