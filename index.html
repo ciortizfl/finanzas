@@ -154,6 +154,11 @@
             <label style="font-size:13px;font-weight:600;color:var(--text2);display:block;margin-bottom:6px;">Tipo de beneficio</label>
             <div class="cat-grid-ui" id="ben-type-blocks"></div>
           </div>
+          <!-- Mes en que se acreditó el beneficio (solo si el gasto es diferido) -->
+          <div id="ben-month-row" style="display:none;margin-top:10px;">
+            <label style="font-size:13px;font-weight:600;color:var(--text2);display:block;margin-bottom:6px;">¿En qué mensualidad se te acreditó?</label>
+            <select id="ben-month" style="width:100%;padding:9px 12px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;"></select>
+          </div>
         </div>
         <!-- Diferir panel -->
         <div id="diferir-panel" style="display:none;margin-top:12px;padding:12px;background:var(--surface2);border-radius:var(--radius-sm);">
@@ -587,6 +592,11 @@
               <label style="font-size:13px;font-weight:600;color:var(--text2);display:block;margin-bottom:6px;">Tipo de beneficio</label>
               <div class="cat-grid-ui" id="e-ben-type-blocks"></div>
             </div>
+          <!-- Mes en que se acreditó el beneficio (solo si el gasto es diferido) -->
+          <div id="e-ben-month-row" style="display:none;margin-top:10px;">
+            <label style="font-size:13px;font-weight:600;color:var(--text2);display:block;margin-bottom:6px;">¿En qué mensualidad se te acreditó?</label>
+            <select id="e-ben-month" style="width:100%;padding:9px 12px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;"></select>
+          </div>
           </div>
           <!-- Diferir panel (edición) -->
           <div id="e-diferir-panel" style="display:none;margin-top:12px;padding:12px;background:var(--surface2);border-radius:var(--radius-sm);">
