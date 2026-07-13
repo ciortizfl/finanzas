@@ -172,7 +172,7 @@ function computeSearchPresets(){
   });
   return Object.keys(score)
     .sort((a,b)=> score[b]-score[a] || lastT[b]-lastT[a])
-    .slice(0,10)
+    .slice(0,20)          // cantera amplia; el tope real lo pone renderSearchPresets
     .map(k=>display[k]);
 }
 
@@ -213,17 +213,15 @@ function renderSearchPresets(){
   // sale siempre "no cabe" (bug que dejaba un solo chip). Por eso se mide
   // primero y la justificación se aplica al final.
   if(box.clientWidth>0){
-    box.style.justifyContent='flex-start';
     const fits=()=>{
       const last=box.lastElementChild;
       if(!last) return true;
       return (last.offsetLeft + last.offsetWidth) <= box.clientWidth;
     };
-    let guard=20;
+    let guard=25;
     while(box.lastElementChild && guard-->0 && !fits()){
       box.removeChild(box.lastElementChild);
     }
-    box.style.justifyContent='';   // vuelve al space-between del CSS
   }
 }
 
