@@ -83,6 +83,7 @@ function updateNoteMode(){
   // El botón 🔔 Recordar sigue las mismas reglas de visibilidad (se oculta con
   // diferido activo/con datos, y en tipos que no son egreso)
   try{ if(typeof updateRemToggleVisibility==='function') updateRemToggleVisibility(); }catch(e){}
+  try{ if(typeof updateDesgloseButtonForDiferir==='function') updateDesgloseButtonForDiferir(); }catch(e){}
   const row=document.getElementById('note-desglose-row');
   const noteBtn=document.getElementById('note-toggle-btn');
   const wrap=document.getElementById('note-field-wrap');
@@ -159,6 +160,11 @@ function toggleDesgloseSection(forceOpen){
 
 function onCurChange() {
   if(typeof _applyingPrediction!=='undefined' && !_applyingPrediction){ _curPredicted=false; }
+  // Cambiar de moneda invalida el TC manual escrito para la anterior
+  const _fx=document.getElementById('fx-manual');
+  if(_fx) _fx.value='';
+  _fxOverride=null;
+  try{ updateFxRow(); }catch(e){}
   const cur = document.getElementById('currency').value;
   const badge = document.getElementById('rate-note');
   const noteEl = document.getElementById('note');
@@ -212,7 +218,18 @@ function calcBenPreview(){
     calcEl.textContent='';
   }
 }
-function toMXN(a,c){ return c==='MXN'?a:+(a*(rates[c]||1)).toFixed(2); }
+// ── TIPO DE CAMBIO MANUAL ──
+// Si el usuario escribe un TC, ese manda sobre el automático. Vale para el
+// registro madre y TODO lo ligado (propina, beneficio, desgloses, mensualidades
+// del diferido), porque todas las conversiones pasan por aquí.
+let _fxOverride = null;       // TC manual en el formulario de registro
+let _fxOverrideEdit = null;   // TC manual en el modal de edición
+
+function toMXN(a,c){
+  if(c==='MXN') return a;
+  const r = (_fxOverride && _fxOverride>0) ? _fxOverride : (rates[c]||1);
+  return +(a*r).toFixed(2);
+}
 
 // ── TIPO DE CAMBIO HISTÓRICO (para EDICIONES) ──
 // El TC implícito con el que se guardó originalmente un registro es
@@ -228,16 +245,20 @@ function fxRateForEdit(orig, cur){
   }
   return rates[cur]||1;
 }
-function toMXNEdit(a, cur, orig){ return cur==='MXN'? a : +(a*fxRateForEdit(orig,cur)).toFixed(2); }
+function toMXNEdit(a, cur, orig){
+  if(cur==='MXN') return a;
+  const r = (_fxOverrideEdit && _fxOverrideEdit>0) ? _fxOverrideEdit : fxRateForEdit(orig,cur);
+  return +(a*r).toFixed(2);
+}
 function rateNoteEdit(cur, orig){
   if(cur==='MXN') return '';
-  const r=fxRateForEdit(orig, cur);
+  const r=(_fxOverrideEdit && _fxOverrideEdit>0) ? _fxOverrideEdit : fxRateForEdit(orig, cur);
   return `TC: 1 ${cur} = $${r.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})} MXN`;
 }
 
 function rateNote(c){
   if(c==='MXN') return '';
-  const r=rates[c];
+  const r=(_fxOverride && _fxOverride>0) ? _fxOverride : rates[c];
   if(!r) return '';
   return `TC: 1 ${c} = $${r.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})} MXN${ratesLoaded?'':' (est.)'}`;
 }
@@ -652,46 +673,85 @@ function benHasData(){
 let _propinaVisible=false;
 let _benVisible=false;
 
-function inlineTogglePropina(){
-  if(_propinaVisible){
+// ══════════ PROPINA · BENEFICIO · DIFERIR: TABS (comparten el mismo espacio) ══════════
+// Reglas de convivencia:
+//  · Propina y Diferir se EXCLUYEN (una propina no se difiere).
+//  · Diferir y Recordar se EXCLUYEN (el diferido ya crea los cargos mensuales).
+//  · Beneficio y Desglose conviven con todo.
+// Cerrar un tab NO borra sus datos: el botón queda marcado como "contiene datos".
+
+// Cierra los paneles de los otros dos tabs (sin borrar sus datos)
+function _closeOtherTopTabs(keep){
+  if(keep!=='propina' && _propinaVisible){
     _propinaVisible=false;
-    document.getElementById('propina-panel').style.display='none';
-    updateInlineBtn('inline-propina-btn', false, propinaHasData());
-  } else {
-    _propinaVisible=true; propinaOn=true;
+    const p=document.getElementById('propina-panel'); if(p) p.style.display='none';
+  }
+  if(keep!=='ben' && _benVisible){
     _benVisible=false;
-    const ppanel=document.getElementById('propina-panel');
-    ppanel.style.display='block';
-    revealAnimate(ppanel);
-    document.getElementById('ben-panel').style.display='none';
-    updateInlineBtn('inline-propina-btn', true, false);
-    updateInlineBtn('inline-ben-btn', false, benHasData());
+    const b=document.getElementById('ben-panel'); if(b) b.style.display='none';
+  }
+  if(keep!=='diferir' && _diferirVisible){
+    _diferirVisible=false;
+    const d=document.getElementById('diferir-panel'); if(d) d.style.display='none';
   }
 }
 
-function inlineToggleBen(){
-  if(_benVisible){
-    _benVisible=false;
-    document.getElementById('ben-panel').style.display='none';
-    updateInlineBtn('inline-ben-btn', false, benHasData());
-  } else {
-    _benVisible=true; benOn=true;
-    _propinaVisible=false;
-    const bpanel=document.getElementById('ben-panel');
-    bpanel.style.display='block';
-    revealAnimate(bpanel);
-    document.getElementById('propina-panel').style.display='none';
-    updateInlineBtn('inline-ben-btn', true, false);
-    updateInlineBtn('inline-propina-btn', false, propinaHasData());
-    if(!document.querySelector('#ben-type-blocks .cat-block')){
-      // Empezar sin selección para mostrar todos los tipos (como las categorías)
-      curBenType='';
-      buildBenTypeBlocks('ben-type-blocks', '', t=>{ curBenType=t; });
-    }
-    // Sincronizar estado visual del toggle % / $
-    setBenType(benType);
-  }
+// Refresca qué botones se ven, según las exclusiones vigentes
+function refreshTopTabsVisibility(){
+  const pbn=document.getElementById('inline-propina-btn');
+  const dbn=document.getElementById('inline-diferir-btn');
+  const propinaActiva = _propinaVisible || propinaHasData();
+  const diferirActivo = _diferirVisible || diferirHasData();
+  if(pbn) pbn.style.display = diferirActivo ? 'none' : '';
+  if(dbn) dbn.style.display = propinaActiva ? 'none' : '';
+  updateInlineBtn('inline-propina-btn', _propinaVisible, propinaHasData() && !_propinaVisible);
+  updateInlineBtn('inline-ben-btn', _benVisible, benHasData() && !_benVisible);
+  updateInlineBtn('inline-diferir-btn', _diferirVisible, diferirHasData() && !_diferirVisible);
+  // Diferir ↔ Recordar
+  try{ updateRemToggleVisibility(); }catch(e){}
+  try{ updateNoteDesgloseIndicators(); }catch(e){}
+  try{ updateBenMonthSelector(); }catch(e){}
 }
+
+function inlineTogglePropina(){
+  const abrir = !_propinaVisible;
+  _closeOtherTopTabs('propina');
+  _propinaVisible = abrir;
+  const p=document.getElementById('propina-panel');
+  if(p){
+    p.style.display = abrir ? 'block' : 'none';
+    if(abrir) revealAnimate(p);
+  }
+  if(abrir) propinaOn=true;
+  refreshTopTabsVisibility();
+}
+
+function inlineToggleBen(){
+  const abrir = !_benVisible;
+  _closeOtherTopTabs('ben');
+  _benVisible = abrir;
+  const b=document.getElementById('ben-panel');
+  if(b){
+    b.style.display = abrir ? 'block' : 'none';
+    if(abrir){ revealAnimate(b); benOn=true; try{ buildBenTypeBlocks('ben-type-blocks', curBenType, t=>{ curBenType=t; }); }catch(e){} }
+  }
+  refreshTopTabsVisibility();
+}
+
+function inlineToggleDiferir(){
+  const abrir = !_diferirVisible;
+  _closeOtherTopTabs('diferir');
+  _diferirVisible = abrir;
+  const d=document.getElementById('diferir-panel');
+  if(d){
+    d.style.display = abrir ? 'block' : 'none';
+    if(abrir){ revealAnimate(d); renderDiferirPresets(); renderDiferirPreview(); }
+  }
+  refreshTopTabsVisibility();
+}
+
+
+
 
 
 // ════════════════════════════════════════════
@@ -709,34 +769,7 @@ let diferirCustom=false;     // si el valor viene del campo personalizado
 function diferirHasData(){ return diferirMonths>0; }
 
 // Abrir/cerrar el panel de Diferir
-function inlineToggleDiferir(){
-  if(_diferirVisible){
-    // Cerrar el panel. Si no hay data, reaparecen Propina/Beneficio.
-    _diferirVisible=false;
-    document.getElementById('diferir-panel').style.display='none';
-    updateInlineBtn('inline-diferir-btn', diferirHasData(), diferirHasData());
-  try{ updateBenMonthSelector(); }catch(e){}
-    if(!diferirHasData()){
-      showPropinaBenButtons(); // fade in de Propina/Beneficio
-    }
-  } else {
-    // Abrir el panel. Propina/Beneficio hacen fade out de inmediato.
-    _diferirVisible=true;
-    // Cerrar propina/beneficio si estaban abiertos
-    _propinaVisible=false; _benVisible=false;
-    document.getElementById('propina-panel').style.display='none';
-    document.getElementById('ben-panel').style.display='none';
-    const dpanel=document.getElementById('diferir-panel');
-    dpanel.style.display='block';
-    revealAnimate(dpanel);
-    updateInlineBtn('inline-diferir-btn', true, false);
-    hidePropinaBenButtons(); // fade out de Propina/Beneficio
-    renderDiferirPresets();
-    renderDiferirPreview();
-    // También ocultar Desglose abajo (solo queda Nota)
-    updateDesgloseButtonForDiferir();
-  }
-}
+
 
 // Crossfade: los 3 botones salen y el botón "Diferir" completo entra (con micro-scale).
 // Con Diferir activo se oculta SOLO la Propina (una propina no se difiere: o vino
@@ -879,10 +912,17 @@ function diferirMonthlyDate(base, i){
 }
 
 // Oculta/muestra el botón Desglose según el estado de Diferir (Diferir abierto → sin Desglose)
-// El Desglose ya NO se oculta con Diferir (se prorratea entre las mensualidades)
+// El Desglose ya NO se oculta con Diferir (se prorratea entre las mensualidades).
+// Aquí solo se reparte el ancho del renglón entre los botones que quedan visibles:
+// con diferido activo, Recordar se esconde y Nota+Desglose ocupan 50% cada uno.
 function updateDesgloseButtonForDiferir(){
-  const btn=document.getElementById('desglose-toggle-btn');
-  if(btn && curType==='egreso') btn.style.display='';
+  const noteBtn=document.getElementById('note-toggle-btn');
+  const desgBtn=document.getElementById('desglose-toggle-btn');
+  const remBtn=document.getElementById('rem-toggle-btn');
+  if(desgBtn) desgBtn.style.display = (curType==='egreso') ? '' : 'none';
+  const visibles=[noteBtn,desgBtn,remBtn].filter(b=>b && b.style.display!=='none');
+  visibles.forEach(b=>{ b.style.flex='1 1 0'; });
+  if(visibles.length===1 && noteBtn) noteBtn.style.flex='1 1 100%';
   try{ updateBenMonthSelector(); }catch(e){}
 }
 
@@ -1234,3 +1274,34 @@ function calcEditBenPreview(){
 BEN_TYPES.forEach(t=>{ CATS['ahorro-pasivo'][t]=['—']; });
 let curBenType = 'Cashback';
 let editBenType = 'Cashback';
+
+
+// ══════════ TC MANUAL: UI DEL FORMULARIO DE REGISTRO ══════════
+// El campo solo aparece en moneda extranjera. Vacío = TC automático.
+function _fxParse(v){
+  const n=parseFloat(String(v||'').replace(/[^\d.]/g,''));
+  return (isFinite(n) && n>0) ? n : null;
+}
+function updateFxRow(){
+  const cur=document.getElementById('currency')?.value||'MXN';
+  const row=document.getElementById('fx-row');
+  const inp=document.getElementById('fx-manual');
+  const hint=document.getElementById('fx-hint');
+  if(!row||!inp) return;
+  if(cur==='MXN'){
+    row.style.display='none';
+    inp.value=''; _fxOverride=null;
+    return;
+  }
+  const auto=rates[cur]||0;
+  inp.placeholder = auto ? `${auto.toFixed(2)} (automático)` : 'automático';
+  _fxOverride=_fxParse(inp.value);
+  if(hint) hint.textContent = _fxOverride ? `1 ${cur} = $${_fxOverride.toFixed(2)} MXN` : `Vacío = usar el automático`;
+  row.style.display='flex';
+}
+function onFxManualInput(){
+  _fxOverride=_fxParse(document.getElementById('fx-manual')?.value);
+  updateFxRow();
+  // Recalcular vistas previas que dependen del TC
+  try{ calcPropinaPreview(); calcBenPreview(); updateDesgloseRemaining(); renderDiferirPreview(); }catch(e){}
+}
