@@ -389,6 +389,12 @@
     <button type="button" id="hist-range-toggle" onclick="toggleDateRange()" title="Filtrar por rango de fechas" style="flex:0 0 auto;width:38px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface);color:var(--text3);font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;">📅</button>
     <button type="button" id="hist-bell-toggle" onclick="toggleBellFilter()" title="Registros con recordatorio manual" style="flex:0 0 auto;width:38px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface);color:var(--text3);font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;">🔔</button>
   </div>
+  <!-- Fila del modo campanita: leyenda a la izquierda, regresar (↩︎, mismo botón
+       que en rango de fechas) a la derecha -->
+  <div id="hist-bell-row" style="display:none;align-items:center;gap:10px;margin-bottom:12px;padding:0 16px;">
+    <span style="flex:1 1 auto;font-size:13.5px;color:var(--text2);font-weight:600;">🔔 Registros con recordatorio</span>
+    <button type="button" onclick="toggleBellFilter()" title="Regresar al listado" style="flex:0 0 auto;width:40px;height:40px;background:var(--surface2);color:var(--text2);border:none;border-radius:var(--radius-sm);font-size:17px;cursor:pointer;display:flex;align-items:center;justify-content:center;">↩︎</button>
+  </div>
   <!-- Fila del modo campanita: regresar al listado completo (todo se resetea) -->
   <div id="hist-bell-row" style="display:none;align-items:center;gap:10px;margin-bottom:12px;padding:0 16px;">
     <button type="button" onclick="toggleBellFilter()" style="display:flex;align-items:center;gap:6px;padding:9px 14px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface);color:var(--text2);font-family:inherit;font-size:13.5px;font-weight:600;cursor:pointer;flex:0 0 auto;">← Regresar</button>
