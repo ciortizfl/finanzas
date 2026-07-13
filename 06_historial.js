@@ -1173,7 +1173,12 @@ function txEl(e, showDelete){
           if(hdr && hdr.classList.contains('day-group-hdr')){ const hi=allItems.indexOf(hdr); if(hi>=0) cascadeFrom=hi; }
         }
         playDeleteAnimation(e.id, ()=>{
-          data=data.filter(x=>!sameGroup(x.deferGroup,groupId));
+          // R4: filtrar también a los HIJOS (desglose/beneficio) vinculados a
+          // cualquiera de las mensualidades del grupo — antes solo se quitaban
+          // las mensualidades y los hijos quedaban huérfanos hasta la próxima
+          // recarga (el servidor sí los borra en cascada, pero localmente
+          // seguían visibles como registros fantasma sin su padre).
+          data=data.filter(x=>!sameGroup(x.deferGroup,groupId) && !(x.linkedTo && groupIds.includes(x.linkedTo)));
           save();
           showSyncing('⟳ Eliminando...');
           Promise.all(groupIds.map(gid=>deleteEntryInSheets(gid))).then(results=>{
