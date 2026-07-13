@@ -103,6 +103,10 @@ function updateDesglose(id, field, value){
           if(catSel) catSel.value=d.category;
           refreshAllDesgloseSubcatDropdowns();
           revealDesgloseFields(d.id);
+          // La predicción no llamaba a esto: el botón "+ Agregar desglose" se
+          // quedaba oculto aunque categoría+subcategoría ya quedaran completas
+          // (solo aparecía si además tocabas el selector a mano).
+          updateAddDesgloseBtnVisibility();
           updateNoteDesgloseIndicators();
         }
       }
@@ -150,6 +154,7 @@ function updateDesglose(id, field, value){
         if(catSel) catSel.value='';
         refreshAllDesgloseSubcatDropdowns();
         revealDesgloseFields(d.id);
+        updateAddDesgloseBtnVisibility();
         updateNoteDesgloseIndicators();
       }
     }catch(e){}
@@ -527,6 +532,7 @@ function updateEditDesglose(id, field, value){
           if(catSel) catSel.value=d.category;
           refreshAllEditDesgloseSubcatDropdowns();
           revealEditDesgloseFields(d.id);
+          updateEditAddDesgloseBtnVisibility();
           updateEditNoteDesgloseIndicators();
         }
       }
@@ -573,6 +579,7 @@ function updateEditDesglose(id, field, value){
         if(catSel) catSel.value='';
         refreshAllEditDesgloseSubcatDropdowns();
         revealEditDesgloseFields(d.id);
+        updateEditAddDesgloseBtnVisibility();
         updateEditNoteDesgloseIndicators();
       }
     }catch(e){}
