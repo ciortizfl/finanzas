@@ -112,6 +112,23 @@ function openEdit(id) {
   updateEditMethodLabel();
   try{ resetCopyModeUI(); }catch(_e){}
   try{ updateEditBenMonthSelector(); }catch(_e){}
+  // TC manual: leer la etiqueta de sistema TCauto (si el registro se guardó con TC manual)
+  try{
+    _fxOverrideEdit=null;
+    _editFxAuto=null;
+    const _tc=(e.note||'').split(' | ').map(p=>p.trim()).find(p=>p.startsWith('TCauto:'));
+    if(_tc){
+      const v=parseFloat(_tc.replace('TCauto:','').trim());
+      if(isFinite(v) && v>0) _editFxAuto=v;
+    }
+    const _fxInp=document.getElementById('e-fx-manual');
+    if(_fxInp){
+      // Con TC manual guardado, el campo llega con ese TC (el efectivo del registro)
+      const efectivo=_editHistoricRate();
+      _fxInp.value = (_editFxAuto && efectivo>0) ? String(+efectivo.toFixed(4)) : '';
+    }
+    updateEditFxRow();
+  }catch(_e){}
   const _cpBtn=document.getElementById('e-copy-btn');
   if(_cpBtn) _cpBtn.style.display = e.deferGroup ? 'none' : '';
   editCat  = e.category;
@@ -154,9 +171,30 @@ function openEdit(id) {
   document.getElementById('e-desc').value     = e.desc;
   // El monto guardado ya tiene restados: beneficio, propina incluida y desgloses.
   // Para editar mostramos el monto ORIGINAL sumándolos todos de vuelta.
-  const _linkedBen = e.type==='egreso' ? data.find(x=>x.linkedTo===id&&x.type==='ahorro-pasivo') : null;
-  // Desgloses reales: hijos del MISMO tipo cuya nota marca "Desglose de:"
-  const _realDesgloses = data.filter(x=>x.linkedTo===id&&x.type===e.type&&(x.note||'').includes('Desglose de:'));
+  // ── DIFERIDOS: los hijos viven repartidos entre las mensualidades ──
+  // El desglose se guardó prorrateado (300 en cada uno de los 6 meses), así que
+  // para editarlo hay que SUMARLO a lo largo del grupo (1,800). El beneficio no
+  // se prorratea: vive completo en la mensualidad donde se acreditó, y hay que
+  // encontrarlo aunque se esté editando otro mes.
+  const _grupoIds = e.deferGroup
+    ? data.filter(x=>sameGroup(x.deferGroup, e.deferGroup)).map(x=>x.id)
+    : [id];
+  const _linkedBen = e.type==='egreso'
+    ? data.find(x=>_grupoIds.includes(x.linkedTo) && x.type==='ahorro-pasivo')
+    : null;
+  let _realDesgloses;
+  if(e.deferGroup){
+    const agrupados = {};
+    data.filter(x=>_grupoIds.includes(x.linkedTo) && x.type===e.type && (x.note||'').includes('Desglose de:'))
+      .forEach(x=>{
+        const k = [x.category||'', x.subcategory||'', (x.desc||'').trim().toLowerCase()].join('||');
+        if(!agrupados[k]) agrupados[k] = {...x, amount:0};
+        agrupados[k].amount = +(agrupados[k].amount + x.amount).toFixed(2);
+      });
+    _realDesgloses = Object.values(agrupados);
+  } else {
+    _realDesgloses = data.filter(x=>x.linkedTo===id&&x.type===e.type&&(x.note||'').includes('Desglose de:'));
+  }
   // Propina incluida: se sumó al cobro original, hay que devolverla al monto mostrado
   const _linkedPropina = e.type==='egreso' ? data.find(x=>x.linkedTo===id&&x.subcategory==='Propinas'&&(x.note||'').includes('Propina de:')) : null;
   const _propinaIncluida = _linkedPropina && (_linkedPropina.note||'').includes('incluida');
@@ -197,6 +235,7 @@ function openEdit(id) {
     const t=p.trim();
     return t.length>0
         && !t.startsWith('TC:')
+        && !t.startsWith('TCauto:')
         && !t.startsWith('Monto original:')
         && !t.startsWith('Desglose de:')
         && !t.startsWith('Propina de:')
@@ -428,6 +467,12 @@ function updateEBenUI(){
 }
 
 function onECurChange(){
+  // Cambiar de moneda invalida el TC manual escrito para la anterior
+  const _efx=document.getElementById('e-fx-manual');
+  if(_efx) _efx.value='';
+  _fxOverrideEdit=null; _editFxAuto=null;
+  try{ updateEditFxRow(); }catch(e){}
+
   const cur=document.getElementById('e-currency').value;
   const note=document.getElementById('e-rate-note');
   if(cur==='MXN'){note.style.display='none';return;}
@@ -874,4 +919,65 @@ function updateEditBenMonthSelector(){
   }
   sel.value=String(Math.min(actual,n));
   row.style.display='block';
+}
+
+
+// ══════════ TC MANUAL EN EL MODAL DE EDICIÓN ══════════
+// El campo aparece solo en moneda extranjera.
+//  · Registro con TC automático → campo VACÍO, placeholder = TC histórico.
+//    Dejarlo vacío conserva el histórico (nada se recalcula por error).
+//  · Registro con TC manual → el campo llega con ESE TC y aparece el enlace
+//    "Regresar a TC histórico": lo vacía y, al guardar, se recalcula todo con
+//    el automático que se guardó el día del registro.
+let _editFxAuto = null;   // TC automático original (de la etiqueta TCauto)
+
+function _eFxParse(v){
+  const n=parseFloat(String(v||'').replace(/[^\d.]/g,''));
+  return (isFinite(n) && n>0) ? n : null;
+}
+// TC histórico efectivo del registro (el que realmente se usó al guardarlo)
+function _editHistoricRate(){
+  const e=data.find(x=>String(x.id)===String(editId));
+  if(!e) return 0;
+  const a=Number(e.amount), m=Number(e.amountMXN);
+  return (a>0 && m>0) ? m/a : 0;
+}
+function updateEditFxRow(){
+  const cur=document.getElementById('e-currency')?.value||'MXN';
+  const row=document.getElementById('e-fx-row');
+  const inp=document.getElementById('e-fx-manual');
+  const hint=document.getElementById('e-fx-hint');
+  const revert=document.getElementById('e-fx-revert');
+  if(!row||!inp) return;
+  if(cur==='MXN'){
+    row.style.display='none';
+    if(revert) revert.style.display='none';
+    inp.value=''; _fxOverrideEdit=null;
+    return;
+  }
+  // Placeholder: si hubo TC manual, el automático guardado; si no, el histórico
+  const base = _editFxAuto || _editHistoricRate() || rates[cur] || 0;
+  inp.placeholder = base ? `${base.toFixed(2)} (histórico)` : 'automático';
+  _fxOverrideEdit=_eFxParse(inp.value);
+  if(hint){
+    hint.textContent = _fxOverrideEdit
+      ? `1 ${cur} = $${_fxOverrideEdit.toFixed(2)} MXN`
+      : (base ? `Vacío = conservar $${base.toFixed(2)}` : 'Vacío = automático');
+  }
+  // El enlace de revertir solo tiene sentido si el registro tiene TC manual guardado
+  if(revert) revert.style.display = (_editFxAuto && inp.value.trim()!=='') ? 'block' : 'none';
+  row.style.display='flex';
+}
+function onEFxManualInput(){
+  _fxOverrideEdit=_eFxParse(document.getElementById('e-fx-manual')?.value);
+  updateEditFxRow();
+  try{ calcEditPropinaPreview(); calcEditBenPreview(); updateEditDesgloseRemaining(); renderEditDiferirPreview(); }catch(e){}
+}
+// Vaciar el campo: al guardar, todo se recalcula con el TC automático original
+function revertFxToHistoric(){
+  const inp=document.getElementById('e-fx-manual');
+  if(inp) inp.value='';
+  _fxOverrideEdit=null;
+  updateEditFxRow();
+  try{ toast('Al guardar se recalculará con el TC histórico'); }catch(e){}
 }
