@@ -91,6 +91,45 @@ function _remLongDate(iso){
   const M = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
   return `${d.getDate()} de ${M[d.getMonth()]} de ${d.getFullYear()}`;
 }
+// ── FECHA FINAL VÁLIDA DE UN RECORDATORIO ──
+// La fecha final debe caer en un día de ciclo (si no, el último recordatorio se
+// perdería). Semanal → solo ese día de la semana; mensual → solo ese día del mes
+// (recortado en meses cortos). Y como mínimo, un ciclo completo hacia adelante.
+function _remCycleAnchor(freq){
+  // Día base: el de la fecha del registro que se está capturando/editando
+  const ds = document.getElementById('tx-date')?.value
+          || document.getElementById('e-date')?.value
+          || localToday();
+  return parseDate(ds);
+}
+function _remMinUntil(freq, anchor){
+  const T = parseDate(localToday());
+  const a = anchor || _remCycleAnchor(freq);
+  if(freq==='weekly'){
+    // El próximo día-de-semana del ancla que sea > hoy (al menos una semana)
+    const wd = a.getDay();
+    let d = new Date(T.getFullYear(), T.getMonth(), T.getDate());
+    do { d = new Date(d.getFullYear(), d.getMonth(), d.getDate()+1); } while(d.getDay()!==wd);
+    return d;
+  }
+  // Mensual: el mismo día del mes siguiente (recortado si el mes es corto)
+  const dom = a.getDate();
+  let y=T.getFullYear(), m=T.getMonth()+1;
+  if(m>11){ m=0; y++; }
+  let d=new Date(y, m, _remClampDom(y, m, dom));
+  if(d<=T){ m++; if(m>11){ m=0; y++; } d=new Date(y, m, _remClampDom(y, m, dom)); }
+  return d;
+}
+function _remAllowFn(freq, anchor){
+  const a = anchor || _remCycleAnchor(freq);
+  if(freq==='weekly'){
+    const wd=a.getDay();
+    return (d)=>d.getDay()===wd;
+  }
+  const dom=a.getDate();
+  return (d)=>d.getDate()===_remClampDom(d.getFullYear(), d.getMonth(), dom);
+}
+
 function _remRuleLabel(r){
   return r.freq === 'weekly' ? `semanal · los ${WEEKDAYS_ES[r.day]}` : `mensual · el día ${r.day}`;
 }
@@ -399,7 +438,7 @@ function _remHintUpdate(){
     if(!_remFreq){
       hint.textContent = _remExistingRule
         ? `Este comercio ya tiene recordatorio ${_remRuleLabel(_remExistingRule)}${_remExistingRule.until?` · hasta el ${_remExistingRule.until}`:' · indefinido'}. Si eliges opciones aquí, se actualizará al guardar.`
-        : 'Elige la frecuencia para programarlo.';
+        : 'Elige la frecuencia para programarlo';
     } else {
       const dateStr=document.getElementById('tx-date')?.value||localToday();
       const d=parseDate(dateStr);
@@ -416,11 +455,11 @@ function _remHintUpdate(){
   if(uh){
     if(_remUntilMode==='date'){
       const v=document.getElementById('rem-until-value')?.value;
-      uh.textContent=v?`Hasta el ${v}.`:'Elige la fecha límite…';
+      uh.textContent=v?`Hasta el ${_remLongDate(v)}`:'Elige la fecha límite';
     } else if(_remUntilMode==='inf'){
-      uh.textContent='Sin fecha de término.';
+      uh.textContent='Sin fecha de término';
     } else {
-      uh.textContent=_remFreq?'Elige la vigencia: indefinido o hasta una fecha.':'';
+      uh.textContent='Elige la fecha límite';
     }
   }
 }
@@ -481,9 +520,19 @@ function setRemUntil(mode){
     _remUntilMode=mode;
     if(mode==='date'){
       const cur=document.getElementById('rem-until-value')?.value;
+      if(!_remFreq){
+        // Sin frecuencia no hay ciclo que respetar: pedirla primero
+        _remUntilMode=null;
+        _remPaintChips();
+        const h=document.getElementById('rem-freq-hint');
+        if(h) h.textContent='Primero elige la frecuencia (cada mes o cada semana)';
+        return;
+      }
+      const minD=_remMinUntil(_remFreq);
       openDatepicker({
-        initial: cur ? parseDate(cur) : null,
-        min: parseDate(localToday()),
+        initial: cur ? parseDate(cur) : minD,   // llega preseleccionada
+        min: minD,                               // al menos un ciclo completo
+        allow: _remAllowFn(_remFreq),            // solo días de ciclo válidos
         presets: false,
         onPick: (d)=>{
           const v=document.getElementById('rem-until-value');
@@ -598,15 +647,16 @@ function renderEditReminderSection(){
       <div class="e-rem-box">
         <div class="e-rem-title">🔔 Recordatorio</div>
         <div>"${desc}" no tiene recordatorio. Prográmalo aquí si quieres:</div>
-        <div class="rem-cfg-row" style="margin-top:10px">
+        <div class="rem-cfg-hint" id="e-rem-freq-hint" style="margin-top:10px"></div>
+        <div class="rem-cfg-row" style="margin-top:6px">
           <button type="button" class="chip" id="e-rem-freq-monthly" onclick="eSetRemFreq('monthly')">Cada mes</button>
           <button type="button" class="chip" id="e-rem-freq-weekly" onclick="eSetRemFreq('weekly')">Cada semana</button>
         </div>
-        <div class="rem-cfg-row" style="margin-top:8px">
+        <div class="rem-cfg-hint" id="e-rem-until-hint" style="margin-top:12px"></div>
+        <div class="rem-cfg-row" style="margin-top:6px">
           <button type="button" class="chip" id="e-rem-until-inf" onclick="eSetRemUntil('inf')">Indefinido</button>
           <button type="button" class="chip" id="e-rem-until-date" onclick="eSetRemUntil('date')">Hasta fecha…</button>
         </div>
-        <div class="rem-cfg-hint" id="e-rem-hint"></div>
         <input type="hidden" id="e-rem-until-value">
       </div>`;
     box.style.display = 'block';
@@ -690,17 +740,21 @@ function _eRemPaint(){
 }
 
 function _eRemHint(){
-  const h=document.getElementById('e-rem-hint');
-  if(!h) return;
-  if(!_eRemFreq){ h.textContent='Elige la frecuencia para programarlo.'; return; }
-  const f=_eRemFreq==='weekly'?'cada semana':'cada mes';
-  if(_eRemUntilMode==='date'){
-    const v=document.getElementById('e-rem-until-value')?.value;
-    h.textContent=v?`Te recordaré ${f} (día según la fecha del registro), hasta el ${v}.`:'Elige la fecha límite…';
-  } else if(_eRemUntilMode==='inf'){
-    h.textContent=`Te recordaré ${f} (día según la fecha del registro), sin fecha de término.`;
-  } else {
-    h.textContent=`Elige la vigencia: indefinido o hasta una fecha.`;
+  const hf=document.getElementById('e-rem-freq-hint');
+  if(hf) hf.textContent = _eRemFreq
+    ? (_eRemFreq==='weekly' ? 'Te recordaré cada semana (día según la fecha del registro)'
+                            : 'Te recordaré cada mes (día según la fecha del registro)')
+    : 'Elige la frecuencia para programarlo';
+  const hu=document.getElementById('e-rem-until-hint');
+  if(hu){
+    if(_eRemUntilMode==='date'){
+      const v=document.getElementById('e-rem-until-value')?.value;
+      hu.textContent=v?`Hasta el ${_remLongDate(v)}`:'Elige la fecha límite';
+    } else if(_eRemUntilMode==='inf'){
+      hu.textContent='Sin fecha de término';
+    } else {
+      hu.textContent='Elige la fecha límite';
+    }
   }
 }
 
@@ -716,10 +770,20 @@ function eSetRemUntil(mode){
   } else {
     _eRemUntilMode=mode;
     if(mode==='date'){
+      if(!_eRemFreq){
+        _eRemUntilMode=null;
+        _eRemPaint();
+        const h=document.getElementById('e-rem-freq-hint');
+        if(h) h.textContent='Primero elige la frecuencia (cada mes o cada semana)';
+        return;
+      }
       const cur=document.getElementById('e-rem-until-value')?.value;
+      const anchor=parseDate(document.getElementById('e-date')?.value || localToday());
+      const minD=_remMinUntil(_eRemFreq, anchor);
       openDatepicker({
-        initial: cur?parseDate(cur):null,
-        min: parseDate(localToday()),
+        initial: cur?parseDate(cur):minD,
+        min: minD,
+        allow: _remAllowFn(_eRemFreq, anchor),
         presets:false,
         onPick:(d)=>{
           const v=document.getElementById('e-rem-until-value');
