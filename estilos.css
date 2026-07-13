@@ -956,13 +956,13 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
 @media (max-width: 640px) {
   /* En móvil los chips ceden protagonismo: más pequeños y discretos */
   .hist-presets { gap: 4px; padding-bottom: 7px; }
-  .preset-chip { padding: 4px 9px; font-size: 11.5px; font-weight: 600; }
+  .preset-chip { padding: 4px 8px; font-size: 10.5px; }
 }
 .hist-presets:empty { display: none; }
 .preset-chip {
-  flex: 0 0 auto; padding: 6px 12px; border-radius: 100px;
+  flex: 0 0 auto; padding: 5px 10px; border-radius: 100px;
   border: 1px solid var(--border2); background: var(--surface);
-  color: var(--text2); font-family: inherit; font-size: 12.5px; font-weight: 600;
+  color: var(--text2); font-family: inherit; font-size: 11.5px; font-weight: 600;
   cursor: pointer; transition: all 0.15s; box-shadow: var(--shadow);
   -webkit-appearance: none; appearance: none;
 }
