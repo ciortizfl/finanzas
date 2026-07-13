@@ -239,12 +239,9 @@ function setMerchantEmoji(desc, subcatOrCat, emoji){
 
 // Guarda (o borra, si emoji es '') un emoji personalizado en Sheets
 async function saveEmojiToSheets(key, emoji){
-  try {
-    await fetch(SHEETS_URL, {
-      method: 'POST',
-      body: JSON.stringify({ action: 'saveEmoji', key, emoji })
-    });
-  } catch(e){ console.warn('Sheets emoji save failed', e); }
+  // R2: devuelve el resultado como el resto de las escrituras. No tiene efectos
+  // destructivos encadenados ni mensaje de éxito, así que no cambia la UX.
+  return await _sheetsPost({ action: 'saveEmoji', key, emoji }, 'emoji save');
 }
 
 // Emoji default DINÁMICO de una subcategoría: el más usado (personalizado por comercio)
