@@ -184,7 +184,7 @@ function renderEditDiferirPreview(){
   if(clearBtn) clearBtn.style.display='block';
 }
 
-function saveEditDeferred({amount, desc, cur, note, subcat, date}){
+async function saveEditDeferred({amount, desc, cur, note, subcat, date}){
   const group=data.filter(x=>sameGroup(x.deferGroup,editDeferGroup)).sort((a,b)=>a.deferIndex-b.deferIndex);
   if(group.length===0){ closeModal(); return; }
   // Nuevo número de meses (editable); si no es válido, conservar el original
@@ -290,20 +290,25 @@ function saveEditDeferred({amount, desc, cur, note, subcat, date}){
   newEntries.forEach(e=>data.unshift(e));
   save();
   showSyncing('⟳ Guardando...');
-  // Primero borrar los viejos (secuencial), luego guardar los nuevos en un batch
   // ORDEN SEGURO: primero se CREA lo nuevo y solo después se borra lo viejo.
   // (Borrar primero fue lo que permitió perder un registro completo si el
   // guardado fallaba a medio camino. Además, el borrado en Sheets arrastra en
   // cascada a los hijos vinculados, así que basta con borrar las mensualidades.)
-  (async()=>{
-    const r = await saveBatchToSheets(newEntries);
-    if(!r.ok){
-      // R2: la escritura falló → NO se borra nada. Quedan las mensualidades
-      // viejas en la nube (duplicado recuperable) en vez de perderlo todo.
-      hideSyncing();
-      toast('⚠️ No se pudo sincronizar: no se borró nada');
-      return;
-    }
+  //
+  // AJUSTE: antes esta cadena se disparaba SIN esperar (el modal se cerraba de
+  // inmediato mientras el guardado/borrado seguía en curso). Si el usuario
+  // navegaba a otra pantalla o la app se suspendía en ese instante, el borrado
+  // de limpieza podía quedar a medias — sin aviso, porque el modal ya se había
+  // cerrado. Ahora la función ESPERA a que la cadena completa termine antes de
+  // cerrar el modal: mientras tanto, el usuario ve "Guardando..." y no puede
+  // alejarse a media operación.
+  const r = await saveBatchToSheets(newEntries);
+  if(!r.ok){
+    // R2: la escritura falló → NO se borra nada. Quedan las mensualidades
+    // viejas en la nube (duplicado recuperable) en vez de perderlo todo.
+    hideSyncing();
+    toast('⚠️ No se pudo sincronizar: no se borró nada');
+  } else {
     let delOk = true;
     for(const oid of oldIds){
       const dr = await deleteEntryInSheets(oid);
@@ -312,13 +317,15 @@ function saveEditDeferred({amount, desc, cur, note, subcat, date}){
     hideSyncing();
     if(delOk) toast('✓ Gasto diferido actualizado');
     else toast('⚠️ Se guardó, pero quedaron mensualidades viejas sin borrar');
-  })();
+  }
+  // El modal se cierra en AMBOS casos (igual que antes de este ajuste); lo único
+  // que cambió es que ahora se cierra DESPUÉS de que la cadena termine, no antes.
   closeModalWithSlide();
   renderHistorial(); renderBalance();
 }
 
 // Convierte un gasto único (no diferido) en un grupo diferido de N mensualidades.
-function saveEditConvertToDefer({amount, desc, cur, note, subcat}){
+async function saveEditConvertToDefer({amount, desc, cur, note, subcat}){
   const orig=data.find(x=>x.id===editId);
   const method=orig?orig.method:selMethod;
   const startDate=parseDate(document.getElementById('e-date').value)||new Date();
@@ -348,16 +355,22 @@ function saveEditConvertToDefer({amount, desc, cur, note, subcat}){
   newEntries.forEach(e=>data.unshift(e));
   save();
   showSyncing('⟳ Guardando...');
-  (async()=>{
-    // R2 · ORDEN SEGURO: este flujo BORRABA el registro original ANTES de guardar
-    // las mensualidades nuevas — el mismo patrón que causó la pérdida de datos.
-    // Ahora se crea primero, se verifica, y solo entonces se borra lo viejo.
-    const r = await saveBatchToSheets(newEntries);
-    if(!r.ok){
-      hideSyncing();
-      toast('⚠️ No se pudo sincronizar: no se borró nada');
-      return;
-    }
+  // R2 · ORDEN SEGURO: este flujo BORRABA el registro original ANTES de guardar
+  // las mensualidades nuevas — el mismo patrón que causó la pérdida de datos.
+  // Ahora se crea primero, se verifica, y solo entonces se borra lo viejo.
+  //
+  // AJUSTE: antes esta cadena se disparaba sin esperarla (el modal se cerraba de
+  // inmediato). Esto fue justo lo que le pasó a Carlos: convirtió un gasto en
+  // diferido, el modal se cerró al instante, y el borrado del registro original
+  // quedó pendiente en segundo plano — si en ese momento se navega a otra
+  // pantalla o la app se suspende, el borrado nunca llega a completarse y el
+  // registro viejo sobrevive como duplicado fantasma. Ahora se espera la cadena
+  // completa antes de cerrar el modal.
+  const r = await saveBatchToSheets(newEntries);
+  if(!r.ok){
+    hideSyncing();
+    toast('⚠️ No se pudo sincronizar: no se borró nada');
+  } else {
     let delOk = true;
     const dr = await deleteEntryInSheets(editId);
     if(!dr.ok) delOk = false;
@@ -368,13 +381,14 @@ function saveEditConvertToDefer({amount, desc, cur, note, subcat}){
     hideSyncing();
     if(delOk) toast(`✓ Gasto diferido en ${n} meses`);
     else toast('⚠️ Se guardó, pero el registro viejo no se borró');
-  })();
+  }
+  // El modal se cierra en AMBOS casos (igual que antes); solo cambia el momento.
   closeModalWithSlide();
   renderHistorial(); renderBalance();
 }
 
 // Quita el diferido: colapsa el grupo a un solo gasto único (de una vez).
-function saveEditRemoveDefer({amount, desc, cur, note, subcat, date}){
+async function saveEditRemoveDefer({amount, desc, cur, note, subcat, date}){
   const group=data.filter(x=>sameGroup(x.deferGroup,editDeferGroup)).sort((a,b)=>a.deferIndex-b.deferIndex);
   if(group.length===0){ closeModal(); return; }
   // Al colapsar en gasto único también manda la fecha del modal
@@ -397,14 +411,13 @@ function saveEditRemoveDefer({amount, desc, cur, note, subcat, date}){
   showSyncing('⟳ Guardando...');
   // R2 · ORDEN SEGURO: antes los borrados del grupo y el guardado del registro
   // nuevo salían EN PARALELO; si el guardado fallaba y los borrados triunfaban,
-  // se perdía todo. Ahora: guardar → verificar → borrar.
-  (async()=>{
-    const r = await saveEntryToSheets(single);
-    if(!r.ok){
-      hideSyncing();
-      toast('⚠️ No se pudo sincronizar: no se borró nada');
-      return;
-    }
+  // se perdía todo. Ahora: guardar → verificar → borrar, y AHORA TAMBIÉN se
+  // espera a que la cadena completa termine antes de cerrar el modal.
+  const r = await saveEntryToSheets(single);
+  if(!r.ok){
+    hideSyncing();
+    toast('⚠️ No se pudo sincronizar: no se borró nada');
+  } else {
     let delOk = true;
     for(const oid of oldIds){
       const dr = await deleteEntryInSheets(oid);
@@ -413,12 +426,12 @@ function saveEditRemoveDefer({amount, desc, cur, note, subcat, date}){
     hideSyncing();
     if(delOk) toast('✓ Diferido convertido en gasto único');
     else toast('⚠️ Se guardó, pero quedaron mensualidades viejas sin borrar');
-  })();
+  }
   closeModalWithSlide();
   renderHistorial(); renderBalance();
 }
 
-function saveEdit(){
+async function saveEdit(){
   const amount=parseFloat(rawAmount(document.getElementById('e-amount').value));
   const desc=document.getElementById('e-desc').value.trim();
   const cur=document.getElementById('e-currency').value;
@@ -449,13 +462,13 @@ function saveEdit(){
   const nowDeferred = editType==='egreso' && editDiferirHasData();
   if(wasDeferred && nowDeferred){
     // Sigue diferido: recrear el grupo con nuevos valores/meses/FECHA
-    return saveEditDeferred({amount, desc, cur, note, subcat, date});
+    return await saveEditDeferred({amount, desc, cur, note, subcat, date});
   } else if(wasDeferred && !nowDeferred){
     // Quitó el diferido: colapsar el grupo a un solo gasto único
-    return saveEditRemoveDefer({amount, desc, cur, note, subcat, date});
+    return await saveEditRemoveDefer({amount, desc, cur, note, subcat, date});
   } else if(!wasDeferred && nowDeferred){
     // Se volvió diferido: convertir el gasto único en grupo diferido
-    return saveEditConvertToDefer({amount, desc, cur, note, subcat});
+    return await saveEditConvertToDefer({amount, desc, cur, note, subcat});
   }
   // else: no diferido ni antes ni ahora → flujo normal
 
@@ -641,22 +654,23 @@ function saveEdit(){
   save();
   showSyncing(_isCopy ? '⟳ Guardando copia...' : '⟳ Actualizando...');
   // ORDEN SEGURO: crear/actualizar primero, borrar los hijos viejos al final.
-  (async()=>{
-    let rPadre;
-    if(_isCopy){
-      rPadre = await saveEntryToSheets({..._copyParent, benType:'', benAmount:0, benDesc:''});
-    } else {
-      const updatedEntry = data.find(x=>x.id===editId);
-      rPadre = await updateEntryInSheets({...updatedEntry, benType:'', benAmount:0, benDesc:''});
-    }
-    const rHijos = await Promise.all(newChildren.map(c=>saveEntryToSheets({...c, benType:'', benAmount:0, benDesc:''})));
-    // R2: si la escritura no se confirmó, NO se borran los hijos viejos.
-    if(!rPadre.ok || !_allOk(rHijos)){
-      hideSyncing();
-      toast(_isCopy ? '⚠️ Copia guardada en el teléfono, pero no se sincronizó'
-                    : '⚠️ No se pudo sincronizar: no se borró nada');
-      return;
-    }
+  // AJUSTE: antes esta cadena se disparaba sin esperarla, y el modal se cerraba
+  // de inmediato — el mismo patrón que causó el registro fantasma con el
+  // diferido convertido. Ahora se espera a que termine antes de cerrar.
+  let rPadre;
+  if(_isCopy){
+    rPadre = await saveEntryToSheets({..._copyParent, benType:'', benAmount:0, benDesc:''});
+  } else {
+    const updatedEntry = data.find(x=>x.id===editId);
+    rPadre = await updateEntryInSheets({...updatedEntry, benType:'', benAmount:0, benDesc:''});
+  }
+  const rHijos = await Promise.all(newChildren.map(c=>saveEntryToSheets({...c, benType:'', benAmount:0, benDesc:''})));
+  // R2: si la escritura no se confirmó, NO se borran los hijos viejos.
+  if(!rPadre.ok || !_allOk(rHijos)){
+    hideSyncing();
+    toast(_isCopy ? '⚠️ Copia guardada en el teléfono, pero no se sincronizó'
+                  : '⚠️ No se pudo sincronizar: no se borró nada');
+  } else {
     let delOk = true;
     if(!_isCopy){
       for(const oid of oldChildIds){
@@ -667,7 +681,7 @@ function saveEdit(){
     hideSyncing();
     if(delOk) toast(_isCopy ? '✓ Copia guardada' : '✓ Registro actualizado');
     else toast('⚠️ Se guardó, pero quedaron desgloses viejos sin borrar');
-  })();
+  }
 
   const _finalId = _parentId;
   if(_isCopy){ try{ resetCopyModeUI(); }catch(_e){} }
