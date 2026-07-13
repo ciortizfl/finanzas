@@ -397,8 +397,10 @@ async function saveEditRemoveDefer({amount, desc, cur, note, subcat, date}){
   const method=group[0].method;
   const oldIds=group.map(x=>x.id);
   const dateStr=`${startDate.getFullYear()}-${String(startDate.getMonth()+1).padStart(2,'0')}-${String(startDate.getDate()).padStart(2,'0')}`;
-  // Borrar todo el grupo
-  data=data.filter(x=>!sameGroup(x.deferGroup,editDeferGroup));
+  // R4: borrar todo el grupo Y a sus hijos vinculados (desglose/beneficio de
+  // cualquier mensualidad) — antes solo se quitaban las mensualidades y los
+  // hijos quedaban huérfanos localmente hasta la próxima recarga.
+  data=data.filter(x=>!sameGroup(x.deferGroup,editDeferGroup) && !(x.linkedTo && oldIds.includes(x.linkedTo)));
   // Crear un único gasto con el monto total
   const single={
     id: genId(), type:'egreso',
@@ -759,7 +761,9 @@ function deleteEntry(){
     const groupIds=grp.map(x=>x.id);
     closeModalWithSlide();
     setTimeout(()=>{
-      data=data.filter(x=>!sameGroup(x.deferGroup,groupId));
+      // R4: filtrar también a los hijos vinculados (mismo arreglo que en el
+      // borrado desde el historial y en el colapso a gasto único).
+      data=data.filter(x=>!sameGroup(x.deferGroup,groupId) && !(x.linkedTo && groupIds.includes(x.linkedTo)));
       save();
       showSyncing('⟳ Eliminando...');
       Promise.all(groupIds.map(gid=>deleteEntryInSheets(gid))).then(results=>{
