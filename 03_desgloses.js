@@ -76,24 +76,35 @@ function updateDesglose(id, field, value){
   else d[field] = value;
   if(field==='amount'){ updateDesgloseRemaining(); updateNoteDesgloseIndicators(); }
 
-  // Nombre propio → predecir su categoría/subcategoría (misma regla del formulario),
-  // solo si aún no se ha elegido categoría a mano en este desglose.
+  // Nombre propio → predecir su categoría/subcategoría (misma regla del formulario).
+  // IMPORTANTE: se actualiza de forma QUIRÚRGICA (sin re-dibujar la lista), porque
+  // reconstruir las tarjetas destruiría el input donde el usuario está escribiendo
+  // y le robaría el foco a media palabra.
   if(field==='desc'){
     try{
-      if(!d.category && typeof predictCatForDesc==='function'){
+      const card=document.querySelector(`#desglose-list [data-desg-id="${d.id}"]`);
+      const catSel=card?Array.from(card.querySelectorAll('select')).find(s=>(s.getAttribute('onchange')||'').includes('setDesgloseCat')):null;
+      if((!d.category || d._catPred) && typeof predictCatForDesc==='function'){
         const p=predictCatForDesc(value, curType);
-        if(p){
+        if(p && (p.category!==d.category || (p.subcategory||'')!==(d.subcategory||''))){
           d.category=p.category;
           const subs=sortedSubcats(curType, p.category);
           const hasSubs=subs && !(subs.length===1 && subs[0]==='—');
           d.subcategory=(hasSubs && p.subcategory && subs.includes(p.subcategory)) ? p.subcategory : '';
           d._catPred=true;
-          renderDesgloses(false);
+          if(catSel) catSel.value=d.category;
+          refreshAllDesgloseSubcatDropdowns();
+          revealDesgloseFields(d.id);
+          updateNoteDesgloseIndicators();
         }
-      } else if(d._catPred && String(value||'').trim().length<3){
+      }
+      if(d._catPred && String(value||'').trim().length<3){
         // Se borró el nombre propio: deshacer SOLO lo que puso la predicción
         d.category=''; d.subcategory=''; d._catPred=false;
-        renderDesgloses(false);
+        if(catSel) catSel.value='';
+        refreshAllDesgloseSubcatDropdowns();
+        revealDesgloseFields(d.id);
+        updateNoteDesgloseIndicators();
       }
     }catch(e){}
   }
@@ -443,24 +454,35 @@ function updateEditDesglose(id, field, value){
   else d[field] = value;
   if(field==='amount'){ updateEditDesgloseRemaining(); updateEditNoteDesgloseIndicators(); }
 
-  // Nombre propio → predecir su categoría/subcategoría (misma regla del formulario),
-  // solo si aún no se ha elegido categoría a mano en este desglose.
+  // Nombre propio → predecir su categoría/subcategoría (misma regla del formulario).
+  // IMPORTANTE: se actualiza de forma QUIRÚRGICA (sin re-dibujar la lista), porque
+  // reconstruir las tarjetas destruiría el input donde el usuario está escribiendo
+  // y le robaría el foco a media palabra.
   if(field==='desc'){
     try{
-      if(!d.category && typeof predictCatForDesc==='function'){
+      const card=document.querySelector(`#e-desglose-list [data-desg-id="${d.id}"]`);
+      const catSel=card?Array.from(card.querySelectorAll('select')).find(s=>(s.getAttribute('onchange')||'').includes('setEditDesgloseCat')):null;
+      if((!d.category || d._catPred) && typeof predictCatForDesc==='function'){
         const p=predictCatForDesc(value, editType);
-        if(p){
+        if(p && (p.category!==d.category || (p.subcategory||'')!==(d.subcategory||''))){
           d.category=p.category;
           const subs=sortedSubcats(editType, p.category);
           const hasSubs=subs && !(subs.length===1 && subs[0]==='—');
           d.subcategory=(hasSubs && p.subcategory && subs.includes(p.subcategory)) ? p.subcategory : '';
           d._catPred=true;
-          renderEditDesgloses();
+          if(catSel) catSel.value=d.category;
+          refreshAllEditDesgloseSubcatDropdowns();
+          revealEditDesgloseFields(d.id);
+          updateEditNoteDesgloseIndicators();
         }
-      } else if(d._catPred && String(value||'').trim().length<3){
+      }
+      if(d._catPred && String(value||'').trim().length<3){
         // Se borró el nombre propio: deshacer SOLO lo que puso la predicción
         d.category=''; d.subcategory=''; d._catPred=false;
-        renderEditDesgloses();
+        if(catSel) catSel.value='';
+        refreshAllEditDesgloseSubcatDropdowns();
+        revealEditDesgloseFields(d.id);
+        updateEditNoteDesgloseIndicators();
       }
     }catch(e){}
   }
@@ -761,4 +783,23 @@ function updateBenUI(){
   if(b){ b.classList.toggle('on',benOn); b.textContent=benOn?'✓':''; }
   const extra=document.getElementById('ben-extra');
   if(extra) extra.classList.toggle('vis',benOn);
+}
+
+
+// ── VALIDACIÓN DE DESGLOSES ──
+// Una tarjeta "iniciada" (con monto, categoría o nombre propio) debe estar
+// COMPLETA para poder guardar: monto > 0 + categoría + subcategoría si aplica.
+// Las tarjetas totalmente vacías se ignoran en silencio (el usuario agregó una
+// y se arrepintió).
+function firstIncompleteDesglose(list, tipo){
+  for(const d of (list||[])){
+    const iniciada = (d.amount>0) || !!d.category || !!String(d.desc||'').trim();
+    if(!iniciada) continue;
+    if(!(d.amount>0)) return 'Ponle monto a cada desglose (o elimínalo)';
+    if(!d.category) return 'Elige la categoría de cada desglose (o elimínalo)';
+    const subs=sortedSubcats(tipo, d.category);
+    const hasSubs=subs && !(subs.length===1 && subs[0]==='—');
+    if(hasSubs && !d.subcategory) return 'Elige la subcategoría de cada desglose (o elimínalo)';
+  }
+  return null;
 }
