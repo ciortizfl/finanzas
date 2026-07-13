@@ -51,7 +51,7 @@ function updateNoteDesgloseIndicators(){
   try{
     updateInlineBtn('rem-toggle-btn',
       typeof _remPanelVisible!=='undefined' && _remPanelVisible,
-      typeof _remToggleOn!=='undefined' && _remToggleOn && !_remPanelVisible);
+      typeof remHasData==='function' && remHasData() && !_remPanelVisible);
   }catch(e){}
 }
 
@@ -158,6 +158,8 @@ function onCurChange() {
   calcBenPreview();
   calcPropinaPreview();
   if(typeof renderDesgloses==='function' && desgloses.length>0) renderDesgloses();
+  // Si cambia la moneda, refrescar las tarjetas de desglose (etiqueta USD/MXN)
+  try{ if(typeof renderDesgloses==='function' && desgloses.length>0) renderDesgloses(false); }catch(e){}
 }
 
 function calcBenPreview(){
