@@ -998,6 +998,15 @@ function renderHistorial(animate){
 
 function sum(arr,t){return arr.filter(e=>e.type===t).reduce((s,e)=>s+e.amountMXN,0);}
 
+// Monto para TAGLINES: si los centavos son .00 se omiten (ahorra espacio).
+// Esta regla aplica SOLO aquí, no en los montos principales de la app.
+function tagAmt(n, sym){
+  const v=Number(n)||0;
+  const entero=Math.abs(v%1)<0.005;
+  const s=v.toLocaleString('es-MX',{minimumFractionDigits:entero?0:2, maximumFractionDigits:2});
+  return `${sym||'$'}${s}`;
+}
+
 function txEl(e, showDelete){
   const el=document.createElement('div');
   el.className='tx-item';
@@ -1008,9 +1017,9 @@ function txEl(e, showDelete){
   //   USD $19.99 (TC: $17.56 MXN)
   let curLine='';
   if(e.currency!=='MXN'){
-    const montoOrig=`${e.currency} $${e.amount.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})}`;
+    const montoOrig=`${e.currency} ${tagAmt(e.amount)}`;
     const tc=(e.amount>0 && e.amountMXN>0) ? (e.amountMXN/e.amount) : 0;
-    const tcTxt=tc>0 ? ` (TC: $${tc.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})} MXN)` : '';
+    const tcTxt=tc>0 ? ` (TC: ${tagAmt(tc)} MXN)` : '';
     curLine=`<div class="tx-note" style="opacity:0.7">${montoOrig}${tcTxt}</div>`;
   }
   const sign={ingreso:'+',egreso:'−',ahorro:'→','ahorro-pasivo':'★'}[e.type]||'';
@@ -1049,7 +1058,7 @@ function txEl(e, showDelete){
       if(p.startsWith('Monto original:')) return;
       if(p.startsWith('Vinculado a:')) return;
       // Detalles útiles que SÍ se muestran (% de $X, incluida/adicional, TC)
-      if(p.startsWith('TC:')) return;   // el TC ya se muestra junto al monto original
+      if(p.startsWith('TC:') || p.startsWith('TCauto:')) return;   // el TC ya se muestra junto al monto original
       const isDetail = /^\d+%/.test(p)
         || p==='incluida' || p==='adicional'
         || p.startsWith('incluida ') || p.startsWith('adicional ');
@@ -1065,7 +1074,8 @@ function txEl(e, showDelete){
 
     // Etiqueta de gasto diferido: "Diferido · mes X/N · de $Total"
     if(e.deferGroup && e.deferTotal){
-      metaParts.push(`Diferido: mes ${e.deferIndex}/${e.deferTotal} (${sym}${(e.deferOriginal||0).toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})})`);
+      // "Mensualidad 1/6 de $6,054" — el total de la compra, no el cargo del mes
+      metaParts.push(`Mensualidad ${e.deferIndex}/${e.deferTotal} de ${tagAmt(e.deferOriginal||0, sym)}`);
     }
 
     // Monto original = monto del madre + suma de reducciones (desgloses + beneficio)
@@ -1077,7 +1087,9 @@ function txEl(e, showDelete){
     if(childBen && !e.deferGroup) origAmount += childBen.amount;
     const hasReductions = childDesg.length>0 || (!!childBen && !e.deferGroup);
     if(hasReductions){
-      metaParts.push(`Monto original: ${sym}${origAmount.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})}`);
+      metaParts.push(e.deferGroup
+        ? `Cargo del mes: ${tagAmt(origAmount, sym)}`
+        : `Monto original: ${tagAmt(origAmount, sym)}`);
     }
     // Resumen de hijos
     if(childDesg.length>0){
@@ -1097,7 +1109,7 @@ function txEl(e, showDelete){
     // Nota real del usuario: filtrar TODAS las etiquetas del sistema (se calculan
     // dinámicamente arriba). Solo se conservan el TC (meta) y la nota real del usuario.
     (e.note||'').split(' | ').map(p=>p.trim()).filter(Boolean).forEach(p=>{
-      if(p.startsWith('TC:')) return;   // el TC ya se muestra junto al monto original
+      if(p.startsWith('TC:') || p.startsWith('TCauto:')) return;   // el TC ya se muestra junto al monto original
       // Descartar etiquetas del sistema que pudieran haber quedado guardadas
       const isSystemLabel = p.startsWith('Monto original:')
         || p.startsWith('Desglose de:')
@@ -1107,6 +1119,9 @@ function txEl(e, showDelete){
         || p.startsWith('Propina ')          // "Propina X% incluida/adicional" (viejo)
         || /^\d+%\s/.test(p)                  // "10% de $X"
         || /^\d+\s+desglose/.test(p);         // "1 desglose"
+      // "acreditado en la mensualidad 1 de 6" → "Acreditado de 1/6"
+      const mAcr=p.match(/^acreditado en la mensualidad\s+(\d+)\s+de\s+(\d+)$/i);
+      if(mAcr){ metaParts.push(`Acreditado de ${mAcr[1]}/${mAcr[2]}`); return; }
       if(!isSystemLabel) userParts.push(p);
     });
   }
