@@ -59,6 +59,26 @@ function updateNoteDesgloseIndicators(){
 //  - MODO DIRECTO: cuando la nota va sola (ingreso, beneficio o egreso diferido).
 //    El textarea se muestra directamente, sin botón toggle.
 //  - MODO TOGGLE: cuando conviven Nota y Desglose (egreso normal). Botones toggle.
+// Poblar el selector "¿en qué mensualidad se te acreditó?" del beneficio.
+// Solo aparece cuando el gasto es diferido (en gastos normales no aplica).
+function updateBenMonthSelector(){
+  const row=document.getElementById('ben-month-row');
+  const sel=document.getElementById('ben-month');
+  if(!row || !sel) return;
+  const n=(typeof diferirHasData==='function' && diferirHasData()) ? diferirMonths : 0;
+  if(!n || n<2){ row.style.display='none'; return; }
+  const prev=sel.value;
+  sel.innerHTML='';
+  for(let i=1;i<=n;i++){
+    const o=document.createElement('option');
+    o.value=String(i);
+    o.textContent=`Mensualidad ${i} de ${n}`;
+    sel.appendChild(o);
+  }
+  sel.value=(prev && Number(prev)>=1 && Number(prev)<=n) ? prev : '1';
+  row.style.display='block';
+}
+
 function updateNoteMode(){
   // El botón 🔔 Recordar sigue las mismas reglas de visibilidad (se oculta con
   // diferido activo/con datos, y en tipos que no son egreso)
@@ -67,7 +87,9 @@ function updateNoteMode(){
   const noteBtn=document.getElementById('note-toggle-btn');
   const wrap=document.getElementById('note-field-wrap');
   if(!row || !noteBtn || !wrap) return;
-  const noteDirecto = (curType!=='egreso') || _diferirVisible || diferirHasData();
+  // Con diferido activo, la Nota sigue siendo un TAB (para que Desglose y
+  // Recordar puedan convivir); solo en ingresos/beneficios va directa.
+  const noteDirecto = (curType!=='egreso');
   if(noteDirecto){
     // El botón Nota deja de ser toggle: se oculta y el textarea queda directo.
     noteBtn.style.display='none';
@@ -693,6 +715,7 @@ function inlineToggleDiferir(){
     _diferirVisible=false;
     document.getElementById('diferir-panel').style.display='none';
     updateInlineBtn('inline-diferir-btn', diferirHasData(), diferirHasData());
+  try{ updateBenMonthSelector(); }catch(e){}
     if(!diferirHasData()){
       showPropinaBenButtons(); // fade in de Propina/Beneficio
     }
@@ -716,43 +739,45 @@ function inlineToggleDiferir(){
 }
 
 // Crossfade: los 3 botones salen y el botón "Diferir" completo entra (con micro-scale).
+// Con Diferir activo se oculta SOLO la Propina (una propina no se difiere: o vino
+// incluida en el total, o te la cobraron de inmediato). Beneficio y Desglose SÍ
+// conviven con el diferido: el desglose se prorratea entre las mensualidades y el
+// beneficio se acredita completo en la mensualidad que elijas.
 function hidePropinaBenButtons(){
-  const row=document.getElementById('inline-row-main');
+  const pbn=document.getElementById('inline-propina-btn');
   const full=document.getElementById('inline-diferir-full');
-  if(!row || !full) return;
-  row.getAnimations().forEach(a=>a.cancel());
-  full.getAnimations().forEach(a=>a.cancel());
-  // Los 3 botones se desvanecen
-  row.animate([{opacity:1},{opacity:0}],{duration:220,easing:'cubic-bezier(0.4,0,0.2,1)',fill:'forwards'});
-  row.style.pointerEvents='none';
-  // El botón completo entra con micro-scale
-  full.style.pointerEvents='auto';
-  full.animate([
-    {opacity:0,transform:'scale(0.98)'},
-    {opacity:1,transform:'scale(1)'}
-  ],{duration:220,easing:'cubic-bezier(0.22,0.61,0.36,1)',fill:'forwards'});
+  const row=document.getElementById('inline-row-main');
+  if(full){ full.getAnimations().forEach(a=>a.cancel()); full.style.opacity='0'; full.style.pointerEvents='none'; }
+  if(row){ row.getAnimations().forEach(a=>a.cancel()); row.style.opacity=''; row.style.pointerEvents=''; }
+  if(pbn){
+    try{
+      pbn.animate([{opacity:1},{opacity:0}],{duration:180,easing:'ease',fill:'forwards'})
+        .onfinish=()=>{ pbn.style.display='none'; pbn.style.opacity=''; };
+    }catch(e){ pbn.style.display='none'; }
+  }
+  // Si la propina estaba abierta o con datos, se apaga (no aplica a diferidos)
+  try{
+    _propinaVisible=false;
+    const pp=document.getElementById('propina-panel');
+    if(pp) pp.style.display='none';
+    if(typeof resetPropina==='function') resetPropina();
+    updateInlineBtn('inline-propina-btn', false, false);
+  }catch(e){}
 }
 
-// Crossfade inverso: el botón completo sale y los 3 botones reaparecen.
+// Al apagar Diferir, la Propina regresa
 function showPropinaBenButtons(){
-  const row=document.getElementById('inline-row-main');
+  const pbn=document.getElementById('inline-propina-btn');
   const full=document.getElementById('inline-diferir-full');
-  if(row && full){
-    row.getAnimations().forEach(a=>a.cancel());
-    full.getAnimations().forEach(a=>a.cancel());
-    // El botón completo se desvanece
-    full.animate([
-      {opacity:1,transform:'scale(1)'},
-      {opacity:0,transform:'scale(0.98)'}
-    ],{duration:220,easing:'cubic-bezier(0.4,0,0.2,1)',fill:'forwards'});
-    full.style.pointerEvents='none';
-    // Los 3 botones reaparecen
-    row.style.pointerEvents='auto';
-    row.animate([{opacity:0},{opacity:1}],{duration:220,easing:'cubic-bezier(0.22,0.61,0.36,1)',fill:'forwards'});
+  const row=document.getElementById('inline-row-main');
+  if(full){ full.getAnimations().forEach(a=>a.cancel()); full.style.opacity='0'; full.style.pointerEvents='none'; }
+  if(row){ row.getAnimations().forEach(a=>a.cancel()); row.style.opacity=''; row.style.pointerEvents=''; }
+  if(pbn){
+    pbn.style.display='';
+    try{ pbn.animate([{opacity:0},{opacity:1}],{duration:200,easing:'ease'}); }catch(e){}
   }
-  // Restaurar el botón Desglose abajo (si el tipo es egreso)
-  updateDesgloseButtonForDiferir();
 }
+
 
 // Renderiza los presets de meses (toggles individuales)
 function renderDiferirPresets(){
@@ -782,6 +807,7 @@ function toggleDiferirPreset(p){
   renderDiferirPresets();
   renderDiferirPreview();
   updateInlineBtn('inline-diferir-btn', true, diferirHasData());
+  try{ updateBenMonthSelector(); }catch(e){}
 }
 
 function onDiferirCustomInput(){
@@ -797,6 +823,7 @@ function onDiferirCustomInput(){
   renderDiferirPresets();
   renderDiferirPreview();
   updateInlineBtn('inline-diferir-btn', true, diferirHasData());
+  try{ updateBenMonthSelector(); }catch(e){}
 }
 
 // Quita el diferido por completo (vuelve a cero y reaparecen Propina/Beneficio/Desglose)
@@ -852,26 +879,13 @@ function diferirMonthlyDate(base, i){
 }
 
 // Oculta/muestra el botón Desglose según el estado de Diferir (Diferir abierto → sin Desglose)
+// El Desglose ya NO se oculta con Diferir (se prorratea entre las mensualidades)
 function updateDesgloseButtonForDiferir(){
-  const desgBtn=document.getElementById('desglose-toggle-btn');
-  const noteBtn=document.getElementById('note-toggle-btn');
-  if(!desgBtn || !noteBtn) return;
-  if(_diferirVisible || diferirHasData()){
-    // Cerrar desglose si estaba abierto
-    if(_desgloseVisible){
-      _desgloseVisible=false;
-      const sec=document.getElementById('desglose-section');
-      if(sec) sec.style.display='none';
-    }
-    desgloses=[];
-    desgBtn.style.display='none';
-    noteBtn.style.flex='1 1 100%';
-  } else if(curType==='egreso'){
-    desgBtn.style.display='';
-    noteBtn.style.flex='';
-  }
-  updateNoteMode();
+  const btn=document.getElementById('desglose-toggle-btn');
+  if(btn && curType==='egreso') btn.style.display='';
+  try{ updateBenMonthSelector(); }catch(e){}
 }
+
 
 
 // Close panels on outside click
