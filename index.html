@@ -222,16 +222,16 @@
         </div>
         <!-- Configuración del recordatorio manual (frecuencia y duración) -->
         <div id="rem-config" style="display:none;margin-top:10px">
-          <div class="rem-cfg-row">
+          <div class="rem-cfg-hint" id="rem-freq-hint"></div>
+          <div class="rem-cfg-row" style="margin-top:6px">
             <button type="button" class="chip" id="rem-freq-monthly" onclick="setRemFreq('monthly')">Cada mes</button>
             <button type="button" class="chip" id="rem-freq-weekly" onclick="setRemFreq('weekly')">Cada semana</button>
           </div>
-          <div class="rem-cfg-hint" id="rem-freq-hint"></div>
-          <div class="rem-cfg-row" style="margin-top:8px">
+          <div class="rem-cfg-hint" id="rem-until-hint" style="margin-top:12px"></div>
+          <div class="rem-cfg-row" style="margin-top:6px">
             <button type="button" class="chip" id="rem-until-inf" onclick="setRemUntil('inf')">Indefinido</button>
             <button type="button" class="chip" id="rem-until-date" onclick="setRemUntil('date')">Hasta fecha…</button>
           </div>
-          <div class="rem-cfg-hint" id="rem-until-hint"></div>
           <input type="hidden" id="rem-until-value">
         </div>
         <div id="note-field-wrap" style="display:none;margin-top:10px">
