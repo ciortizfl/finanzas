@@ -72,7 +72,8 @@ function animateDesgloseRemoval(card, isOnlyOne, applyRemoval){
 function updateDesglose(id, field, value){
   const d = desgloses.find(x=>x.id===id);
   if(!d) return;
-  if(field==='amount') d.amount = parseFloat(value)||0;
+  if(field==='amount'){ d.amount = parseFloat(value)||0; d._amtPred=false; }
+  if(field==='note') d._notePred=false;   // nota escrita a mano: la predicción ya no la toca
   else d[field] = value;
   if(field==='amount'){ updateDesgloseRemaining(); updateNoteDesgloseIndicators(); }
 
@@ -98,9 +99,47 @@ function updateDesglose(id, field, value){
           updateNoteDesgloseIndicators();
         }
       }
+      // Monto: misma regla de predicción (solo si el campo está vacío o lo puso ella)
+      const amtInp=card?card.querySelector('input[data-desg-amount]'):null;
+      const curSel=document.getElementById('currency')?.value||'MXN';
+      if(typeof predictAmountForDesc==='function'){
+        const vacio=!amtInp || String(amtInp.value||'').trim()==='';
+        if(vacio || d._amtPred){
+          const pa=predictAmountForDesc(value, curType, curSel);
+          if(pa!==null && pa!==d.amount){
+            d.amount=pa; d._amtPred=true;
+            if(amtInp) amtInp.value=(typeof formatAmountString==='function')?formatAmountString(String(pa)):String(pa);
+            updateDesgloseRemaining(); updateNoteDesgloseIndicators();
+          } else if(pa===null && d._amtPred){
+            d.amount=0; d._amtPred=false;
+            if(amtInp) amtInp.value='';
+            updateDesgloseRemaining(); updateNoteDesgloseIndicators();
+          }
+        }
+      }
+      // Nota del desglose: se autocompleta si ese nombre suele llevar la misma
+      // (nunca pisa lo que tú escribiste)
+      if(typeof predictNoteForDesc==='function'){
+        const nEl=card?card.querySelector('[data-desg-note]'):null;
+        const yaEscrita = (d.note||'').trim()!=='' && !d._notePred;
+        if(!yaEscrita){
+          const pn=predictNoteForDesc(value, curType);
+          if(pn && pn!==d.note){
+            d.note=pn; d._notePred=true;
+            if(nEl) nEl.value=pn;
+            updateNoteDesgloseIndicators();
+          } else if(!pn && d._notePred){
+            d.note=''; d._notePred=false;
+            if(nEl) nEl.value='';
+            updateNoteDesgloseIndicators();
+          }
+        }
+      }
       if(d._catPred && String(value||'').trim().length<3){
         // Se borró el nombre propio: deshacer SOLO lo que puso la predicción
         d.category=''; d.subcategory=''; d._catPred=false;
+        if(d._amtPred){ d.amount=0; d._amtPred=false; const _ai=card?card.querySelector('input[data-desg-amount]'):null; if(_ai) _ai.value=''; }
+        if(d._notePred){ d.note=''; d._notePred=false; const _ni=card?card.querySelector('[data-desg-note]'):null; if(_ni) _ni.value=''; }
         if(catSel) catSel.value='';
         refreshAllDesgloseSubcatDropdowns();
         revealDesgloseFields(d.id);
@@ -254,7 +293,7 @@ function renderDesgloses(animateNew){
       <!-- Nombre propio: vacío = hereda la descripción madre; con texto = ese será su nombre en el historial -->
       <input data-desg-owndesc type="text" placeholder="Nombre propio (opcional)" value="${(d.desc||'').replace(/"/g,'&quot;')}" oninput="updateDesglose(${d.id},'desc',this.value)" style="width:100%;margin-bottom:8px;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
       <div style="display:flex;gap:8px;margin-bottom:8px;">
-        <input type="text" inputmode="decimal" placeholder="Monto${curLabel}" value="${d.amount?formatAmountString(String(d.amount)):''}" oninput="handleAmountInput(this);updateDesglose(${d.id},'amount',rawAmount(this.value))" style="width:110px;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
+        <input data-desg-amount type="text" inputmode="decimal" placeholder="Monto${curLabel}" value="${d.amount?formatAmountString(String(d.amount)):''}" oninput="handleAmountInput(this);updateDesglose(${d.id},'amount',rawAmount(this.value))" style="width:110px;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
         <select onchange="setDesgloseCat(${d.id},this.value)" style="flex:1;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
           <option value="">Categoría...</option>${catOpts}
         </select>
@@ -450,7 +489,8 @@ function animateEditDesgloseRemoval(card, isOnlyOne, applyRemoval){
 function updateEditDesglose(id, field, value){
   const d = editDesgloses.find(x=>x.id===id);
   if(!d) return;
-  if(field==='amount') d.amount = parseFloat(value)||0;
+  if(field==='amount'){ d.amount = parseFloat(value)||0; d._amtPred=false; }
+  if(field==='note') d._notePred=false;   // nota escrita a mano: la predicción ya no la toca
   else d[field] = value;
   if(field==='amount'){ updateEditDesgloseRemaining(); updateEditNoteDesgloseIndicators(); }
 
@@ -476,9 +516,46 @@ function updateEditDesglose(id, field, value){
           updateEditNoteDesgloseIndicators();
         }
       }
+      // Monto: misma regla de predicción (solo si el campo está vacío o lo puso ella)
+      const eAmtInp=card?card.querySelector('input[data-desg-amount]'):null;
+      const eCurSel=document.getElementById('e-currency')?.value||'MXN';
+      if(typeof predictAmountForDesc==='function'){
+        const vacio=!eAmtInp || String(eAmtInp.value||'').trim()==='';
+        if(vacio || d._amtPred){
+          const pa=predictAmountForDesc(value, editType, eCurSel);
+          if(pa!==null && pa!==d.amount){
+            d.amount=pa; d._amtPred=true;
+            if(eAmtInp) eAmtInp.value=(typeof formatAmountString==='function')?formatAmountString(String(pa)):String(pa);
+            updateEditDesgloseRemaining(); updateEditNoteDesgloseIndicators();
+          } else if(pa===null && d._amtPred){
+            d.amount=0; d._amtPred=false;
+            if(eAmtInp) eAmtInp.value='';
+            updateEditDesgloseRemaining(); updateEditNoteDesgloseIndicators();
+          }
+        }
+      }
+      // Nota del desglose (mismas reglas que en el registro)
+      if(typeof predictNoteForDesc==='function'){
+        const nEl=card?card.querySelector('[data-desg-note]'):null;
+        const yaEscrita = (d.note||'').trim()!=='' && !d._notePred;
+        if(!yaEscrita){
+          const pn=predictNoteForDesc(value, editType);
+          if(pn && pn!==d.note){
+            d.note=pn; d._notePred=true;
+            if(nEl) nEl.value=pn;
+            updateEditNoteDesgloseIndicators();
+          } else if(!pn && d._notePred){
+            d.note=''; d._notePred=false;
+            if(nEl) nEl.value='';
+            updateEditNoteDesgloseIndicators();
+          }
+        }
+      }
       if(d._catPred && String(value||'').trim().length<3){
         // Se borró el nombre propio: deshacer SOLO lo que puso la predicción
         d.category=''; d.subcategory=''; d._catPred=false;
+        if(d._amtPred){ d.amount=0; d._amtPred=false; const _ai=card?card.querySelector('input[data-desg-amount]'):null; if(_ai) _ai.value=''; }
+        if(d._notePred){ d.note=''; d._notePred=false; const _ni=card?card.querySelector('[data-desg-note]'):null; if(_ni) _ni.value=''; }
         if(catSel) catSel.value='';
         refreshAllEditDesgloseSubcatDropdowns();
         revealEditDesgloseFields(d.id);
@@ -586,7 +663,7 @@ function renderEditDesgloses(){
       <!-- Nombre propio: vacío = hereda la descripción madre; con texto = ese será su nombre en el historial -->
       <input data-desg-owndesc type="text" placeholder="Nombre propio (opcional)" value="${(d.desc||'').replace(/"/g,'&quot;')}" oninput="updateEditDesglose(${d.id},'desc',this.value)" style="width:100%;margin-bottom:8px;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
       <div style="display:flex;gap:8px;margin-bottom:8px;">
-        <input type="text" inputmode="decimal" placeholder="Monto" value="${d.amount?formatAmountString(String(d.amount)):''}" oninput="handleAmountInput(this);updateEditDesglose(${d.id},'amount',rawAmount(this.value))" style="width:110px;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
+        <input data-desg-amount type="text" inputmode="decimal" placeholder="Monto" value="${d.amount?formatAmountString(String(d.amount)):''}" oninput="handleAmountInput(this);updateEditDesglose(${d.id},'amount',rawAmount(this.value))" style="width:110px;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
         <select onchange="setEditDesgloseCat(${d.id},this.value)" style="flex:1;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
           <option value="">Categoría...</option>${catOpts}
         </select>
@@ -680,7 +757,8 @@ function updateEditDesgloseVisibility(){
   const desgBtn=document.getElementById('e-desglose-toggle-btn');
   const noteBtn=document.getElementById('e-note-toggle-btn');
   if(desgBtn && noteBtn){
-    if(editType==='egreso' && !editDeferGroup){
+    // El desglose SÍ convive con diferidos (se prorratea entre las mensualidades)
+    if(editType==='egreso'){
       desgBtn.style.display='';
       noteBtn.style.flex='';
     } else {
