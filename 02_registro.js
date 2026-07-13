@@ -1062,6 +1062,12 @@ function predictCategory(){
       });
       _methodPredicted=false;
     }
+    if(_notePredicted){
+      const _n=document.getElementById('note');
+      if(_n) _n.value='';
+      _notePredicted=false;
+      try{ updateNoteDesgloseIndicators(); }catch(e){}
+    }
     if(_catPredicted || (vacio && (curCat || curSubcat))){
       curCat=''; curSubcat='';
       _catPredicted=false;
@@ -1214,6 +1220,24 @@ function predictCategory(){
   const hasSubs = subs && !(subs.length===1 && subs[0]==='—');
   curSubcat = (hasSubs && bestSub && subs.includes(bestSub)) ? bestSub : '';
   renderCatUI();
+
+  // ── NOTA: se autocompleta si ese comercio suele llevar la misma nota ──
+  // (p. ej. Kenchy's → "Uber Eats"). Nunca pisa lo que tú escribiste.
+  try{
+    const noteEl2=document.getElementById('note');
+    if(noteEl2 && typeof predictNoteForDesc==='function'){
+      const yaEscrita = noteEl2.value.trim()!=='' && !_notePredicted;
+      if(!yaEscrita){
+        const pn=predictNoteForDesc(desc, curType);
+        if(pn){
+          noteEl2.value=pn; _notePredicted=true;
+        } else if(_notePredicted){
+          noteEl2.value=''; _notePredicted=false;
+        }
+        updateNoteDesgloseIndicators();
+      }
+    }
+  }catch(e){}
 }
 
 function setMethod(m,el){
@@ -1304,4 +1328,11 @@ function onFxManualInput(){
   updateFxRow();
   // Recalcular vistas previas que dependen del TC
   try{ calcPropinaPreview(); calcBenPreview(); updateDesgloseRemaining(); renderDiferirPreview(); }catch(e){}
+}
+
+
+// Escribir la nota a mano cancela la predicción (deja de ser "automática")
+function onNoteInput(){
+  if(typeof _notePredicted!=='undefined') _notePredicted=false;
+  updateNoteDesgloseIndicators();
 }
