@@ -5,7 +5,7 @@
 let desgloses = []; // {id, amount, category, subcategory, note}
 
 function addDesglose(){
-  desgloses.push({ id: genId(), amount: 0, category: '', subcategory: '', note: '', ownDesc:false, desc:'' });
+  desgloses.push({ id: genId(), amount: 0, category: '', subcategory: '', note: '', desc:'' });
   renderDesgloses(true); // animar la nueva card
 }
 
@@ -217,6 +217,8 @@ function renderDesgloses(animateNew){
     card.innerHTML=`
       <button type="button" onclick="removeDesglose(${d.id})" style="position:absolute;top:8px;right:8px;background:none;border:none;cursor:pointer;color:var(--danger);font-size:16px;line-height:1;padding:2px;">✕</button>
       <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:8px;">Desglose ${idx+1}${curLabel}</div>
+      <!-- Nombre propio: vacío = hereda la descripción madre; con texto = ese será su nombre en el historial -->
+      <input data-desg-owndesc type="text" placeholder="Nombre propio (opcional)" value="${(d.desc||'').replace(/"/g,'&quot;')}" oninput="updateDesglose(${d.id},'desc',this.value)" style="width:100%;margin-bottom:8px;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
       <div style="display:flex;gap:8px;margin-bottom:8px;">
         <input type="text" inputmode="decimal" placeholder="Monto${curLabel}" value="${d.amount?formatAmountString(String(d.amount)):''}" oninput="handleAmountInput(this);updateDesglose(${d.id},'amount',rawAmount(this.value))" style="width:110px;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
         <select onchange="setDesgloseCat(${d.id},this.value)" style="flex:1;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
@@ -225,13 +227,6 @@ function renderDesgloses(animateNew){
       </div>
       ${showSubcat?`<select data-desg-subcat onchange="setDesgloseSubcat(${d.id},this.value)" style="width:100%;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;margin-bottom:8px;">${subOpts}</select>`:''}
       ${showNote?`<input data-desg-note type="text" placeholder="Nota (opcional)" value="${d.note||''}" oninput="updateDesglose(${d.id},'note',this.value)" style="width:100%;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:13px;outline:none;">`:''}
-      ${showNote?`<div style="margin-top:8px;">
-        <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text2);cursor:pointer;user-select:none;">
-          <input type="checkbox" ${d.ownDesc?'checked':''} onchange="toggleDesgloseOwnDesc(${d.id},this.checked)" style="width:15px;height:15px;accent-color:var(--accent);">
-          Nombre propio en el historial
-        </label>
-        ${d.ownDesc?`<input data-desg-owndesc type="text" placeholder="Ej. Netflix" value="${(d.desc||'').replace(/"/g,'&quot;')}" oninput="updateDesglose(${d.id},'desc',this.value)" style="width:100%;margin-top:6px;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">`:''}
-      </div>`:''}
     `;
     list.appendChild(card);
     // Animar solo si se pidió y esta card es nueva (no estaba antes)
@@ -363,7 +358,7 @@ function updateDesgloseVisibility(){
 let editDesgloses = []; // {id, amount, category, subcategory, note, existingId?}
 
 function addEditDesglose(){
-  editDesgloses.push({ id: genId(), amount: 0, category: '', subcategory: '', note: '', ownDesc:false, desc:'' });
+  editDesgloses.push({ id: genId(), amount: 0, category: '', subcategory: '', note: '', desc:'' });
   renderEditDesgloses();
 }
 function removeEditDesglose(id){
@@ -418,20 +413,6 @@ function animateEditDesgloseRemoval(card, isOnlyOne, applyRemoval){
     }
   }, 320);
 }
-// Nombre propio: rompe SOLO la herencia de descripción (linkedTo intacto)
-function toggleDesgloseOwnDesc(id, on){
-  const d=desgloses.find(x=>x.id===id);
-  if(!d) return;
-  d.ownDesc=!!on;
-  renderDesgloses(false);
-}
-function toggleEditDesgloseOwnDesc(id, on){
-  const d=editDesgloses.find(x=>x.id===id);
-  if(!d) return;
-  d.ownDesc=!!on;
-  renderEditDesgloses();
-}
-
 function updateEditDesglose(id, field, value){
   const d = editDesgloses.find(x=>x.id===id);
   if(!d) return;
@@ -534,6 +515,8 @@ function renderEditDesgloses(){
     card.innerHTML=`
       <button type="button" onclick="removeEditDesglose(${d.id})" style="position:absolute;top:8px;right:8px;background:none;border:none;cursor:pointer;color:var(--danger);font-size:16px;line-height:1;padding:2px;">✕</button>
       <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:8px;">Desglose ${idx+1}</div>
+      <!-- Nombre propio: vacío = hereda la descripción madre; con texto = ese será su nombre en el historial -->
+      <input data-desg-owndesc type="text" placeholder="Nombre propio (opcional)" value="${(d.desc||'').replace(/"/g,'&quot;')}" oninput="updateEditDesglose(${d.id},'desc',this.value)" style="width:100%;margin-bottom:8px;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
       <div style="display:flex;gap:8px;margin-bottom:8px;">
         <input type="text" inputmode="decimal" placeholder="Monto" value="${d.amount?formatAmountString(String(d.amount)):''}" oninput="handleAmountInput(this);updateEditDesglose(${d.id},'amount',rawAmount(this.value))" style="width:110px;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
         <select onchange="setEditDesgloseCat(${d.id},this.value)" style="flex:1;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
@@ -542,13 +525,6 @@ function renderEditDesgloses(){
       </div>
       ${showSubcat?`<select onchange="setEditDesgloseSubcat(${d.id},this.value)" style="width:100%;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;margin-bottom:8px;">${subOpts}</select>`:''}
       ${isComplete?`<input data-desg-note type="text" placeholder="Nota (opcional)" value="${d.note||''}" oninput="updateEditDesglose(${d.id},'note',this.value)" style="width:100%;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:13px;outline:none;">`:''}
-      ${isComplete?`<div style="margin-top:8px;">
-        <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text2);cursor:pointer;user-select:none;">
-          <input type="checkbox" ${d.ownDesc?'checked':''} onchange="toggleEditDesgloseOwnDesc(${d.id},this.checked)" style="width:15px;height:15px;accent-color:var(--accent);">
-          Nombre propio en el historial
-        </label>
-        ${d.ownDesc?`<input data-desg-owndesc type="text" placeholder="Ej. Netflix" value="${(d.desc||'').replace(/"/g,'&quot;')}" oninput="updateEditDesglose(${d.id},'desc',this.value)" style="width:100%;margin-top:6px;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">`:''}
-      </div>`:''}
     `;
     list.appendChild(card);
   });
