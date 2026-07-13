@@ -737,7 +737,26 @@ async function loadFromSheets(silent) {
       deferOriginal:e.deferOriginal?Number(e.deferOriginal):null
     })).sort((a,b)=>b.id-a.id));
     const changed = norm(merged) !== norm(data);
-    data = merged;
+
+    // ── R4: DETECCIÓN DE HUÉRFANOS AL CARGAR ──
+    // Un "hijo" (desglose/propina/beneficio) sin su registro madre no tiene
+    // sentido por sí solo — puede ocurrir si el padre se editó a mano en
+    // Sheets, o por una edición futura que aún no contempláramos. Se OCULTAN
+    // de la vista local (para no mostrar registros fantasma sin contexto),
+    // pero NUNCA se borran de Sheets automáticamente: esa decisión es tuya.
+    // Se avisa una sola vez, de forma discreta, para que sepas que existen.
+    const idsValidos = new Set(merged.map(e=>String(e.id)));
+    const huerfanos = merged.filter(e=>e.linkedTo && !idsValidos.has(String(e.linkedTo)));
+    const sano = merged.filter(e=>!(e.linkedTo && !idsValidos.has(String(e.linkedTo))));
+    if(huerfanos.length>0){
+      console.warn('Registros huérfanos detectados (ocultos localmente, no borrados de Sheets):',
+        huerfanos.map(h=>({id:h.id, desc:h.desc, linkedTo:h.linkedTo, date:h.date})));
+      try{
+        toast(`⚠️ ${huerfanos.length} registro${huerfanos.length>1?'s':''} sin su registro principal (revisa Sheets)`);
+      }catch(e){}
+    }
+
+    data = sano;
     localStorage.setItem(SK, JSON.stringify(data));
 
     // Sincronizar emojis personalizados desde Sheets (fuente de verdad entre dispositivos)
