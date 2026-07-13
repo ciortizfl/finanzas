@@ -132,14 +132,29 @@ function submitDeferredEntry({amount, desc, cur, date, note, subcat}){
   // (el regalo dentro de una compra a meses también se paga a plazos)
   const activeDesg=(typeof desgloses!=='undefined'?desgloses:[]).filter(d=>d.amount>0);
   const totalDesg=activeDesg.reduce((s,d)=>s+d.amount,0);
-  const principalTotal=+(amount-totalDesg).toFixed(2);
-  if(principalTotal<0) return toast('Los desgloses no pueden superar el gasto');
 
-  // ── BENEFICIO EN UN DIFERIDO: NO se prorratea. El cashback se acredita
-  //    completo en UNA mensualidad (la que elijas), como llega en la realidad.
+  // ── R5 · BENEFICIO EN UN DIFERIDO ──
+  // Dos comportamientos distintos según el tipo:
+  //  · DESCUENTO APLICADO (puntos, millas, promociones): redujo el precio de la
+  //    compra, así que reduce el TOTAL ANTES de prorratear → bajan TODAS las
+  //    mensualidades proporcionalmente. Si negociaste $1,800 en vez de $2,000
+  //    usando puntos, lo que se difiere a 6 meses es sobre $1,800.
+  //  · CRÉDITO RECIBIDO (cashback): el banco te cobra la mensualidad completa y
+  //    el dinero regresa después. NO toca las mensualidades; se acredita completo
+  //    en UNA de ellas (la que elijas), como llega en la realidad.
   const benAmt=(curType==='egreso'&&benOn)?getBenAmount():0;
   if(benAmt>0 && !curBenType) return toast('Elige el tipo de beneficio');
+  const benDescuento = (benAmt>0 && benReduceGasto(curBenType)) ? benAmt : 0;
+
+  const principalTotal=+(amount-totalDesg-benDescuento).toFixed(2);
+  if(principalTotal<0) return toast('Los desgloses y el beneficio no pueden superar el gasto');
+
   const benMonth=Math.min(Math.max(parseInt(document.getElementById('ben-month')?.value||'1',10)||1,1),n);
+
+  // Total REALMENTE diferido: si hubo descuento, es lo que quedó por pagar.
+  // (Se usa como "Monto original" del grupo, para que las mensualidades sumen
+  // exactamente ese total y el historial no muestre una cifra que no cuadra.)
+  const deferTotalAmount = +(amount - benDescuento).toFixed(2);
 
   const perMonth=Math.floor((principalTotal/n)*100)/100;
   let acc=0;
@@ -160,7 +175,7 @@ function submitDeferredEntry({amount, desc, cur, date, note, subcat}){
       amount:monthAmt, amountMXN:toMXN(monthAmt,cur), currency:cur,
       desc, category:curCat, subcategory:subcat,
       method:selMethod, date:dateStr, note,
-      deferGroup:groupId, deferIndex:i+1, deferTotal:n, deferOriginal:amount
+      deferGroup:groupId, deferIndex:i+1, deferTotal:n, deferOriginal:deferTotalAmount
     };
     data.unshift(entry);
 
@@ -282,13 +297,14 @@ function _submitEntry(){
     const propinaAmt = getPropinaAmount();
     if(propinaAmt > 0) mainAmount = +(mainAmount - propinaAmt).toFixed(2);
   }
-  // Beneficio: SIEMPRE se resta del monto registrado (representa lo que te ahorraste
-  // en ese pago) y se suma a la categoría de ahorro pasivo correspondiente.
+  // R5 · Beneficio: solo se resta si es un DESCUENTO APLICADO (puntos, millas,
+  // promociones...). El cashback NO se resta: es un crédito que llega después,
+  // así que la compra se registra completa. Ver benReduceGasto() en 02_registro.
   if(curType==='egreso' && benOn){
     const ba = getBenAmount();
     // Si hay monto de beneficio pero no se eligió tipo, pedirlo
     if(ba > 0 && !curBenType) return toast('Elige el tipo de beneficio');
-    if(ba > 0) mainAmount = +(mainAmount - ba).toFixed(2);
+    if(ba > 0 && benReduceGasto(curBenType)) mainAmount = +(mainAmount - ba).toFixed(2);
     if(mainAmount < 0) mainAmount = 0;
   }
   // Desgloses: cada uno se resta del monto principal
