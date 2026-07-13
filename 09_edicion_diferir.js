@@ -15,61 +15,47 @@ function setupEditDiferirPanel(){
     const grp=data.filter(x=>sameGroup(x.deferGroup,editDeferGroup));
     editDiferirMonths = grp.length>0 ? grp[0].deferTotal : 0;
     editDiferirCustom = !DIFERIR_PRESETS.includes(editDiferirMonths);
+    // El diferido abre su tab; Propina y Beneficio conservan sus datos y sus botones
     _eDiferirVisible=true;
     const ci=document.getElementById('e-diferir-custom');
     if(ci) ci.value = editDiferirCustom ? editDiferirMonths : '';
     panel.style.display='block';
-    // Estado final del crossfade SIN animación (el modal recién abre)
-    const row=document.getElementById('e-inline-row-main');
-    const full=document.getElementById('e-inline-diferir-full');
-    if(row){ row.getAnimations().forEach(a=>a.cancel()); row.style.opacity='0'; row.style.pointerEvents='none'; }
-    if(full){ full.getAnimations().forEach(a=>a.cancel()); full.style.opacity='1'; full.style.transform='none'; full.style.pointerEvents='auto'; }
-    updateInlineBtn('e-inline-diferir-btn', true, true);
     renderEditDiferirPresets();
     renderEditDiferirPreview();
-    editUpdateDesgloseForDiferir();
   } else {
-    // No diferido: panel oculto, botón normal, crossfade en estado inicial
     editDiferirMonths=0; editDiferirCustom=false; _eDiferirVisible=false;
     panel.style.display='none';
     const ci=document.getElementById('e-diferir-custom');
     if(ci) ci.value='';
-    updateInlineBtn('e-inline-diferir-btn', false, false);
-    // Restaurar crossfade: fila de 3 botones visible, botón completo oculto
-    const row=document.getElementById('e-inline-row-main');
-    const full=document.getElementById('e-inline-diferir-full');
-    if(row){ row.getAnimations().forEach(a=>a.cancel()); row.style.opacity=''; row.style.pointerEvents=''; }
-    if(full){ full.getAnimations().forEach(a=>a.cancel()); full.style.opacity='0'; full.style.transform=''; full.style.pointerEvents='none'; }
   }
+  try{ refreshEditTopTabs(); }catch(e){}
 }
 
-// Toggle del botón Diferir en edición (crossfade igual que registro)
+// Diferir como TERCER TAB del modal. Ya NO borra la propina ni el beneficio
+// (antes hacía editPropinaOn=false; editBenOn=false: eso destruía el cashback
+// de un diferido con solo abrir el panel).
 function editInlineToggleDiferir(){
-  if(_eDiferirVisible){
-    _eDiferirVisible=false;
-    document.getElementById('e-diferir-panel').style.display='none';
-    updateInlineBtn('e-inline-diferir-btn', editDiferirHasData(), editDiferirHasData());
-    if(!editDiferirHasData()){
-      editShowPropinaBenButtons();
+  const abrir = !_eDiferirVisible;
+  try{ _closeOtherEditTopTabs('diferir'); }catch(e){}
+  _eDiferirVisible = abrir;
+  const panel=document.getElementById('e-diferir-panel');
+  if(panel){
+    panel.style.display = abrir ? 'block' : 'none';
+    if(abrir){
+      revealAnimate(panel);
+      renderEditDiferirPresets();
+      renderEditDiferirPreview();
     }
-  } else {
-    _eDiferirVisible=true;
-    editPropinaOn=false; editBenOn=false;
-    const pp=document.getElementById('e-propina-panel'); if(pp) pp.style.display='none';
-    const bp=document.getElementById('e-ben-panel'); if(bp) bp.style.display='none';
-    const panel=document.getElementById('e-diferir-panel');
-    panel.style.display='block';
-    revealAnimate(panel);
-    updateInlineBtn('e-inline-diferir-btn', true, editDiferirHasData());
-    editHidePropinaBenButtons();
-    renderEditDiferirPresets();
-    renderEditDiferirPreview();
-    editUpdateDesgloseForDiferir();
   }
+  try{ refreshEditTopTabs(); }catch(e){}
 }
 
-// Crossfade: ocultar propina/beneficio, mostrar botón Diferir completo
-function editHidePropinaBenButtons(){
+// Delegan en el nuevo gestor de tabs (se conservan los nombres porque hay otros
+// flujos que las invocan; el crossfade viejo quedó retirado).
+function editHidePropinaBenButtons(){ try{ refreshEditTopTabs(); }catch(e){} }
+function editShowPropinaBenButtons(){ try{ refreshEditTopTabs(); }catch(e){} }
+
+function _editCrossfadeRetirado_hide(){
   const row=document.getElementById('e-inline-row-main');
   const full=document.getElementById('e-inline-diferir-full');
   if(!row || !full) return;
@@ -80,7 +66,7 @@ function editHidePropinaBenButtons(){
   full.style.pointerEvents='auto';
   full.animate([{opacity:0,transform:'scale(0.98)'},{opacity:1,transform:'scale(1)'}],{duration:220,easing:'cubic-bezier(0.22,0.61,0.36,1)',fill:'forwards'});
 }
-function editShowPropinaBenButtons(){
+function _editCrossfadeRetirado_show(){
   const row=document.getElementById('e-inline-row-main');
   const full=document.getElementById('e-inline-diferir-full');
   if(row && full){
