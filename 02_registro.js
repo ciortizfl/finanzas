@@ -1249,6 +1249,35 @@ function setMethod(m,el){
 
 const BEN_TYPES = ['Cashback','Puntos de lealtad','Puntos TDC','Millas aéreas','Descuentos y promociones','Otros beneficios'];
 
+// ════════════════════════════════════════════════════════════════════════
+// R5 · SEMÁNTICA DEL BENEFICIO — punto ÚNICO de verdad
+//
+// Antes, la decisión de "restar o no restar el beneficio" dependía de si el
+// gasto era diferido o no — un criterio equivocado que hacía que el mismo tipo
+// de beneficio se tratara distinto según el tipo de gasto.
+//
+// La regla correcta depende del TIPO de beneficio:
+//
+//   · DESCUENTO APLICADO (resta del egreso): pagaste menos en el momento porque
+//     usaste puntos, millas o una promoción. El dinero nunca salió de tu bolsa.
+//     Caso límite: un Starbucks pagado 100% con puntos → el egreso queda en $0 y
+//     el beneficio absorbe el total. En la práctica funciona como método de pago.
+//
+//   · CRÉDITO RECIBIDO (NO resta): el cashback. La compra se cobró completa y el
+//     dinero regresa después como crédito a favor, independiente de esa compra.
+//
+// Esta regla aplica IGUAL en gastos normales y diferidos. En un diferido, un
+// descuento reduce el total ANTES de prorratear (bajan todas las mensualidades);
+// el cashback se mantiene anclado al mes en que se acredita.
+// ════════════════════════════════════════════════════════════════════════
+const BEN_CREDITO_RECIBIDO = ['Cashback'];   // no reduce el gasto
+
+// ¿Este tipo de beneficio se descuenta del monto del egreso?
+function benReduceGasto(benType){
+  if(!benType) return false;
+  return !BEN_CREDITO_RECIBIDO.includes(benType);
+}
+
 // ── Estado del beneficio en edición (espejo del registro) ──
 let editBenType_mode = 'monto'; // 'pct' | 'monto'
 
