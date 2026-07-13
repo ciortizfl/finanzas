@@ -1176,7 +1176,11 @@ function txEl(e, showDelete){
           data=data.filter(x=>!sameGroup(x.deferGroup,groupId));
           save();
           showSyncing('⟳ Eliminando...');
-          Promise.all(groupIds.map(gid=>deleteEntryInSheets(gid))).then(()=>{ hideSyncing(); toast('Gasto diferido eliminado'); });
+          Promise.all(groupIds.map(gid=>deleteEntryInSheets(gid))).then(results=>{
+            hideSyncing();
+            if(_allOk(results)) toast('Gasto diferido eliminado');
+            else toastSyncFailed('Eliminado');
+          });
           renderHistorial({cascadeFromIndex:cascadeFrom}); renderBalance();
         });
         return;
@@ -1198,7 +1202,11 @@ function txEl(e, showDelete){
         data=data.filter(x=>x.id!==e.id&&x.linkedTo!==e.id);
         save();
         showSyncing('⟳ Eliminando...');
-        deleteEntryInSheets(e.id).then(()=>{ hideSyncing(); toast('Registro eliminado'); });
+        deleteEntryInSheets(e.id).then(r=>{
+          hideSyncing();
+          if(r && r.ok) toast('Registro eliminado');
+          else toastSyncFailed('Eliminado');
+        });
         renderHistorial({cascadeFromIndex:cascadeFrom}); renderBalance();
       });
     };
