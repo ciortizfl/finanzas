@@ -28,6 +28,14 @@ function eDesgloseHasData(){
 function updateEditNoteDesgloseIndicators(){
   updateInlineBtn('e-note-toggle-btn', _eNoteVisible, eNoteHasData());
   updateInlineBtn('e-desglose-toggle-btn', _eDesgloseVisible, eDesgloseHasData());
+  // Tercer tab: 🔔 Recordar (con-datos = recordatorio armado o regla ya existente)
+  try{
+    const { type, desc } = _eRemTarget();
+    const tieneRegla = (type==='egreso' && desc.length>=2 && !!getManualRule(type, desc));
+    updateInlineBtn('e-rem-toggle-btn',
+      typeof _eRemPanelVisible!=='undefined' && _eRemPanelVisible,
+      (typeof eRemHasData==='function' && eRemHasData()) || tieneRegla);
+  }catch(e){}
 }
 
 // Modo de la nota en EDICIÓN (análogo al registro):
@@ -69,6 +77,8 @@ function toggleENoteField(open){
       const dsec=document.getElementById('e-desglose-section');
       if(dsec) dsec.style.display='none';
     }
+    try{ if(typeof _eRemPanelVisible!=='undefined' && _eRemPanelVisible){ _eRemPanelVisible=false;
+      const rp=document.getElementById('e-rem-config'); if(rp) rp.style.display='none'; } }catch(_e){}
   }
   updateEditNoteDesgloseIndicators();
 }
@@ -110,6 +120,8 @@ function openEdit(id) {
   // Mostrar el estado del recordatorio de este comercio (si tiene regla)
   try{
     if(typeof resetEditRemState==='function') resetEditRemState();
+    if(typeof _eRemPanelVisible!=='undefined'){ _eRemPanelVisible=false;
+      const rp=document.getElementById('e-rem-config'); if(rp) rp.style.display='none'; }
     if(typeof renderEditReminderSection==='function') renderEditReminderSection();
   }catch(err){}
 
