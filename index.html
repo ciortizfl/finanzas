@@ -500,7 +500,7 @@
         <div class="field">
           <label>Descripción</label>
           <div style="display:flex;gap:8px;align-items:stretch;">
-            <input type="text" id="e-desc" placeholder="¿En qué fue?" oninput="refreshEditEmojiBtn()" style="flex:1;">
+            <input type="text" id="e-desc" placeholder="¿En qué fue?" oninput="refreshEditEmojiBtn();eRemSectionRefresh()" style="flex:1;">
             <button type="button" id="e-emoji-btn" onclick="openEmojiPicker()" title="Personalizar emoji" style="flex:0 0 auto;width:46px;border:none;border-radius:var(--radius-sm);background:var(--surface2);font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center;">📌</button>
           </div>
         </div>
