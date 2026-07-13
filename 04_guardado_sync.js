@@ -121,6 +121,10 @@ function restoreRegisterForm(){
 // solo cambian la fecha y el índice de mes. Se identifican por deferGroup.
 function submitDeferredEntry({amount, desc, cur, date, note, subcat}){
   const n=diferirMonths;
+  // TC manual: guardar el automático de ese momento (etiqueta de sistema)
+  if(cur!=='MXN' && _fxOverride && _fxOverride>0 && rates[cur]){
+    note=[note, `TCauto: ${rates[cur]}`].filter(Boolean).join(' | ');
+  }
   const groupId=genId();
   const base=parseDate(date)||new Date();
 
@@ -298,6 +302,11 @@ function _submitEntry(){
   // "Monto original" y etiquetas de propina/beneficio se muestran dinámicamente
   // en el listado (no se guardan en la nota editable del madre).
   let mainNote = note;
+  // Si el TC fue MANUAL, se guarda el automático de ese momento como etiqueta de
+  // sistema (invisible para ti) para poder revertir después desde la edición.
+  if(cur!=='MXN' && _fxOverride && _fxOverride>0 && rates[cur]){
+    mainNote=[mainNote, `TCauto: ${rates[cur]}`].filter(Boolean).join(' | ');
+  }
 
   const entry={
     id:genId(), type:curType, amount:mainAmount, amountMXN, currency:cur,
@@ -415,11 +424,26 @@ function _submitEntry(){
 }
 
 function resetForm(){
-  ['amount','desc','note','ben-amount','ben-pct'].forEach(id=>{const el=document.getElementById(id); if(el) el.value='';});
+  ['amount','desc','note','ben-amount','ben-pct','fx-manual'].forEach(id=>{const el=document.getElementById(id); if(el) el.value='';});
+  // Tras guardar, los tres botones superiores vuelven a su estado inicial. (El de
+  // Propina se ocultaba al activar Diferir y no regresaba tras el guardado.)
+  try{
+    _propinaVisible=false; _benVisible=false; _diferirVisible=false;
+    ['propina-panel','ben-panel','diferir-panel'].forEach(id=>{
+      const p=document.getElementById(id); if(p) p.style.display='none';
+    });
+    const _pbn=document.getElementById('inline-propina-btn');
+    const _dbn=document.getElementById('inline-diferir-btn');
+    if(_pbn){ _pbn.style.display=''; _pbn.style.opacity=''; }
+    if(_dbn){ _dbn.style.display=''; _dbn.style.opacity=''; }
+  }catch(e){}
+  if(typeof _fxOverride!=='undefined') _fxOverride=null;
+  try{ updateFxRow(); }catch(e){}
   if(typeof _amountPredicted!=='undefined') _amountPredicted=false;
   if(typeof _catPredicted!=='undefined') _catPredicted=false;
   if(typeof _methodPredicted!=='undefined') _methodPredicted=false;
   if(typeof _curPredicted!=='undefined') _curPredicted=false;
+  if(typeof _notePredicted!=='undefined') _notePredicted=false;
   try { if(typeof resetRemToggle==='function') resetRemToggle(); } catch(e){}
   document.getElementById('currency').value='MXN';
   const _today = localToday();
