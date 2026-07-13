@@ -167,7 +167,6 @@ function openEdit(id) {
     amount: d.amount,
     category: d.category,
     subcategory: d.subcategory||'',
-    ownDesc: ((d.desc||'').trim() !== (e.desc||'').trim()),
     desc: ((d.desc||'').trim() !== (e.desc||'').trim()) ? (d.desc||'') : '',
     note: (d.note||'').split(' | ').filter(p=>!p.startsWith('Desglose de:')&&!p.startsWith('Monto original:')).join(' | '),
     existingId: d.id
@@ -419,6 +418,8 @@ function onECurChange(){
   note.style.display='flex';
   document.getElementById('e-rate-text').textContent=
     `1 ${cur} = $${rates[cur].toLocaleString('es-MX',{minimumFractionDigits:2})} MXN${ratesLoaded?'':' (estimado)'}`;
+  // Refrescar tarjetas de desglose del modal (etiqueta de moneda)
+  try{ if(typeof renderEditDesgloses==='function') renderEditDesgloses(); }catch(e){}
 }
 
 
