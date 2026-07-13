@@ -651,6 +651,26 @@
           <button type="button" id="e-desglose-toggle-btn" class="inline-tgl" onclick="toggleEditDesgloseSection()">
             <span>🧾</span><span>Desglose</span>
           </button>
+          <button type="button" id="e-rem-toggle-btn" class="inline-tgl" onclick="toggleERemPanel()">
+            <span>🔔</span><span>Recordar</span>
+          </button>
+        </div>
+        <!-- Panel del recordatorio en edición/copia (gemelo del formulario) -->
+        <div id="e-rem-config" style="display:none;margin-top:10px">
+          <div id="e-rem-existing"></div>
+          <div id="e-rem-editor">
+            <div class="rem-cfg-hint" id="e-rem-freq-hint"></div>
+            <div class="rem-cfg-row" style="margin-top:6px">
+              <button type="button" class="chip" id="e-rem-freq-monthly" onclick="eSetRemFreq('monthly')">Cada mes</button>
+              <button type="button" class="chip" id="e-rem-freq-weekly" onclick="eSetRemFreq('weekly')">Cada semana</button>
+            </div>
+            <div class="rem-cfg-hint" id="e-rem-until-hint" style="margin-top:12px"></div>
+            <div class="rem-cfg-row" style="margin-top:6px">
+              <button type="button" class="chip" id="e-rem-until-inf" onclick="eSetRemUntil('inf')">Indefinido</button>
+              <button type="button" class="chip" id="e-rem-until-date" onclick="eSetRemUntil('date')">Hasta fecha…</button>
+            </div>
+            <input type="hidden" id="e-rem-until-value">
+          </div>
         </div>
         <div id="e-note-field-wrap" style="display:none;margin-top:10px">
           <textarea id="e-note" placeholder="Nota opcional" oninput="updateEditNoteDesgloseIndicators()" style="width:100%;padding:11px 13px;border:none;border-radius:var(--radius-sm);background:var(--surface2);color:var(--text);font-family:inherit;font-size:15px;outline:none;resize:none;height:64px;"></textarea>
