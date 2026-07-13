@@ -944,10 +944,15 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
 
 /* ── PRESETS DE BÚSQUEDA (comercios más comunes, un solo renglón) ── */
 .hist-presets {
-  display: flex; gap: 4px; margin-top: 6px;
+  display: flex; gap: 3px; margin-top: 6px;
+  /* Justificados: ocupan el renglón completo; el gap es el MÍNIMO para que
+     las sombritas de chips vecinos no se corten entre sí */
+  justify-content: space-between;
   flex-wrap: nowrap; overflow: hidden; white-space: nowrap;
-  /* Espacio interno para que la sombra de los chips no se recorte */
-  padding: 2px 3px 6px;
+  padding: 2px 2px 6px;
+}
+@media (max-width: 640px) {
+  .hist-presets { gap: 2px; }
 }
 .hist-presets:empty { display: none; }
 .preset-chip {
