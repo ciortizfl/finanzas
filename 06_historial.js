@@ -208,13 +208,22 @@ function renderSearchPresets(){
     box.appendChild(b);
   });
   // Recorte a UN renglón: quitar los menos comunes hasta que quepan completos.
-  // (Si el contenedor está oculto en este momento, no se puede medir: se omite.)
+  // OJO: la medición se hace con el layout NATURAL (flex-start). Con
+  // 'space-between' el último chip se estira hasta el borde y la medición
+  // sale siempre "no cabe" (bug que dejaba un solo chip). Por eso se mide
+  // primero y la justificación se aplica al final.
   if(box.clientWidth>0){
-    let guard=15;
-    while(box.lastElementChild && guard-->0 &&
-          (box.lastElementChild.offsetLeft + box.lastElementChild.offsetWidth) > box.clientWidth){
+    box.style.justifyContent='flex-start';
+    const fits=()=>{
+      const last=box.lastElementChild;
+      if(!last) return true;
+      return (last.offsetLeft + last.offsetWidth) <= box.clientWidth;
+    };
+    let guard=20;
+    while(box.lastElementChild && guard-->0 && !fits()){
       box.removeChild(box.lastElementChild);
     }
+    box.style.justifyContent='';   // vuelve al space-between del CSS
   }
 }
 
@@ -881,9 +890,15 @@ function txEl(e, showDelete){
   // La fecha ya no se muestra (el listado se agrupa por días) ni el método:
   // solo la subcategoría en la línea principal; el resto, cada uno en SU renglón.
   const sub=[e.subcategory||e.category].filter(Boolean).join('');
-  const curLine=e.currency!=='MXN'
-    ? `<div class="tx-note" style="opacity:0.7">${e.currency} ${e.amount.toLocaleString('es-MX',{minimumFractionDigits:2})}</div>`
-    : '';
+  // Moneda extranjera: monto original + TC en UN SOLO renglón
+  //   USD $19.99 (TC: $17.56 MXN)
+  let curLine='';
+  if(e.currency!=='MXN'){
+    const montoOrig=`${e.currency} $${e.amount.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})}`;
+    const tc=(e.amount>0 && e.amountMXN>0) ? (e.amountMXN/e.amount) : 0;
+    const tcTxt=tc>0 ? ` (TC: $${tc.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})} MXN)` : '';
+    curLine=`<div class="tx-note" style="opacity:0.7">${montoOrig}${tcTxt}</div>`;
+  }
   const sign={ingreso:'+',egreso:'−',ahorro:'→','ahorro-pasivo':'★'}[e.type]||'';
   const ico=emojiForEntry(e);
   // Los hijos vinculados (desglose/propina/beneficio) no se eliminan independientemente
@@ -912,7 +927,8 @@ function txEl(e, showDelete){
       if(p.startsWith('Monto original:')) return;
       if(p.startsWith('Vinculado a:')) return;
       // Detalles útiles que SÍ se muestran (% de $X, incluida/adicional, TC)
-      const isDetail = p.startsWith('TC:') || /^\d+%/.test(p)
+      if(p.startsWith('TC:')) return;   // el TC ya se muestra junto al monto original
+      const isDetail = /^\d+%/.test(p)
         || p==='incluida' || p==='adicional'
         || p.startsWith('incluida ') || p.startsWith('adicional ');
       if(isDetail) metaParts.push(p); else userParts.push(p);
@@ -927,7 +943,7 @@ function txEl(e, showDelete){
 
     // Etiqueta de gasto diferido: "Diferido · mes X/N · de $Total"
     if(e.deferGroup && e.deferTotal){
-      metaParts.push(`Diferido · mes ${e.deferIndex}/${e.deferTotal} · de ${sym}${(e.deferOriginal||0).toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})}`);
+      metaParts.push(`Diferido: mes ${e.deferIndex}/${e.deferTotal} (${sym}${(e.deferOriginal||0).toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})})`);
     }
 
     // Monto original = monto del madre + suma de reducciones (desgloses + beneficio)
@@ -940,14 +956,24 @@ function txEl(e, showDelete){
       metaParts.push(`Monto original: ${sym}${origAmount.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})}`);
     }
     // Resumen de hijos
-    if(childDesg.length>0) metaParts.push(`${childDesg.length} desglose${childDesg.length>1?'s':''}`);
+    if(childDesg.length>0){
+      // Detalle: si el desglose tiene nombre propio se muestra ese; si heredó
+      // el nombre de la madre, se muestra su subcategoría.
+      const nombres=childDesg.map(dg=>{
+        const propio=(dg.desc||'').trim();
+        const heredado=propio && propio.toLowerCase()===String(e.desc||'').trim().toLowerCase();
+        if(propio && !heredado) return propio;
+        return dg.subcategory || dg.category || 'Sin categoría';
+      });
+      metaParts.push(`${childDesg.length} desglose${childDesg.length>1?'s':''} (${nombres.join(' · ')})`);
+    }
     if(childProp) metaParts.push('Con propina');
     if(childBen) metaParts.push(`Beneficio: ${childBen.category}`);
 
     // Nota real del usuario: filtrar TODAS las etiquetas del sistema (se calculan
     // dinámicamente arriba). Solo se conservan el TC (meta) y la nota real del usuario.
     (e.note||'').split(' | ').map(p=>p.trim()).filter(Boolean).forEach(p=>{
-      if(p.startsWith('TC:')){ metaParts.push(p); return; }
+      if(p.startsWith('TC:')) return;   // el TC ya se muestra junto al monto original
       // Descartar etiquetas del sistema que pudieran haber quedado guardadas
       const isSystemLabel = p.startsWith('Monto original:')
         || p.startsWith('Desglose de:')
@@ -963,11 +989,13 @@ function txEl(e, showDelete){
 
   // Recordatorio del comercio (antes era un iconito junto al nombre): ahora es
   // un renglón propio, después de las etiquetas del sistema y antes de las notas.
+  let remIco='';
   try{
     if(typeof getManualRule==='function'){
       const _r=getManualRule(e.type, e.desc);
       if(_r && (!_r.until || _r.until>=localToday())){
-        metaParts.push(`🔔 Recordatorio ${_r.freq==='weekly'?'semanal':'mensual'}`);
+        remIco='<span class="tx-rem-ico">🔔</span>';   // junto a la descripción (como antes)
+        metaParts.push(`Recordatorio ${_r.freq==='weekly'?'semanal':'mensual'}`); // y su renglón
       }
     }
   }catch(_e){}
@@ -980,7 +1008,7 @@ function txEl(e, showDelete){
     <div class="tx-color-bar" style="background:${barColor}"></div>
     <div class="tx-ico ${e.type}" style="margin-left:8px">${ico}</div>
     <div class="tx-info">
-      <div class="tx-desc">${e.desc}</div>
+      <div class="tx-desc">${e.desc}${remIco}</div>
       <div class="tx-meta">${sub}</div>
       ${curLine}
       ${noteDisplay}
