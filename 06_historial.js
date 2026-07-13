@@ -3,6 +3,114 @@
 // La exportación a CSV usa exactamente esta lista.
 let lastFilteredEntries=[];
 
+
+// ══════════ BÚSQUEDA AMPLIADA ══════════
+// Además del texto (descripción, notas, categorías, método), el buscador entiende:
+//  · FECHAS escritas: "abril", "abril 1", "1 abril", "1 abril 2026", "abril 2026", "2026"
+//  · MONTOS exactos: "1009", "1,009.00", "$6054" — busca en el monto del registro,
+//    en su equivalente en pesos, en el total original del diferido, en el monto
+//    original (madre + hijos) y en cualquier número escrito dentro de las notas.
+const MESES_ES_BUSCADOR = {
+  enero:0, febrero:1, marzo:2, abril:3, mayo:4, junio:5, julio:6,
+  agosto:7, septiembre:8, setiembre:8, octubre:9, noviembre:10, diciembre:11
+};
+
+// Interpreta la consulta como fecha. Devuelve {day?, month?, year?} o null.
+function parseDateQuery(q){
+  const t=String(q||'').toLowerCase().trim().replace(/\s+de\s+/g,' ').replace(/[,]/g,' ');
+  if(!t) return null;
+  const tokens=t.split(/\s+/).filter(Boolean);
+  if(tokens.length===0 || tokens.length>3) return null;
+  let day=null, month=null, year=null;
+  for(const tk of tokens){
+    if(tk in MESES_ES_BUSCADOR){
+      if(month!==null) return null;
+      month=MESES_ES_BUSCADOR[tk];
+      continue;
+    }
+    // Mes abreviado (ene, feb, sep…), mínimo 3 letras
+    if(/^[a-záéíóú]{3,}$/.test(tk)){
+      const hit=Object.keys(MESES_ES_BUSCADOR).find(m=>m.startsWith(tk));
+      if(hit && month===null){ month=MESES_ES_BUSCADOR[hit]; continue; }
+      return null;
+    }
+    if(/^\d{4}$/.test(tk)){
+      const n=Number(tk);
+      if(n>=1990 && n<=2100){ if(year!==null) return null; year=n; continue; }
+      return null;
+    }
+    if(/^\d{1,2}$/.test(tk)){
+      const n=Number(tk);
+      if(n>=1 && n<=31){ if(day!==null) return null; day=n; continue; }
+      return null;
+    }
+    return null;
+  }
+  // Un año solo, o un mes solo, o combinaciones con mes. Un día suelto NO basta
+  // (sería ambiguo con un monto).
+  if(month===null && year===null) return null;
+  if(day!==null && month===null) return null;
+  return {day, month, year};
+}
+
+function entryMatchesDateQuery(e, dq){
+  const d=parseDate(e.date);
+  if(isNaN(d.getTime())) return false;
+  if(dq.year!==null && dq.year!==undefined && d.getFullYear()!==dq.year) return false;
+  if(dq.month!==null && dq.month!==undefined && d.getMonth()!==dq.month) return false;
+  if(dq.day!==null && dq.day!==undefined && d.getDate()!==dq.day) return false;
+  return true;
+}
+
+// Interpreta la consulta como monto. "1,009.00" / "$1009" / "1009" → 1009
+function parseAmountQuery(q){
+  const t=String(q||'').trim().replace(/[$\s]/g,'').replace(/,/g,'');
+  if(!/^\d+(\.\d{1,2})?$/.test(t)) return null;
+  const n=Number(t);
+  return isNaN(n) ? null : n;
+}
+
+// ¿Alguno de los montos relacionados con este registro coincide con el buscado?
+function entryMatchesAmount(e, target){
+  const eq=(v)=>v!==undefined && v!==null && Math.abs(Number(v)-target) < 0.005;
+  if(eq(e.amount) || eq(e.amountMXN)) return true;
+  if(e.deferOriginal && eq(e.deferOriginal)) return true;
+  // Monto original de la madre (ella + sus hijos que la redujeron)
+  if(!e.linkedTo){
+    const hijos=data.filter(x=>x.linkedTo===e.id);
+    if(hijos.length){
+      const desg=hijos.filter(h=>(h.note||'').includes('Desglose de:')).reduce((s,h)=>s+h.amount,0);
+      const ben=hijos.filter(h=>h.type==='ahorro-pasivo').reduce((s,h)=>s+h.amount,0);
+      // En un diferido, el beneficio NO redujo la mensualidad (se acredita aparte):
+      // el cargo del mes es madre + desgloses. En un gasto normal, el beneficio sí
+      // se restó, así que el monto original lo incluye. Se aceptan ambos.
+      if(eq(e.amount+desg)) return true;
+      if(eq(e.amount+desg+ben)) return true;
+    }
+  }
+  // Números escritos dentro de la nota (montos originales, porcentajes de $X…)
+  const nums=String(e.note||'').match(/\d[\d,]*(?:\.\d{1,2})?/g);
+  if(nums){
+    for(const raw of nums){
+      if(eq(Number(raw.replace(/,/g,'')))) return true;
+    }
+  }
+  return false;
+}
+
+// Filtro maestro: texto, fecha escrita o monto exacto
+function entryMatchesQuery(e, q){
+  const query=String(q||'').trim().toLowerCase();
+  if(!query) return true;
+  const hay=[e.desc||'', e.note||'', e.category||'', e.subcategory||'', e.method||''].join(' ').toLowerCase();
+  if(hay.includes(query)) return true;
+  const dq=parseDateQuery(query);
+  if(dq && entryMatchesDateQuery(e, dq)) return true;
+  const aq=parseAmountQuery(query);
+  if(aq!==null && entryMatchesAmount(e, aq)) return true;
+  return false;
+}
+
 // ── MODO CAMPANITA (🔔): solo registros con recordatorio MANUAL, en secciones ──
 let histBellMode=false;
 
@@ -73,10 +181,7 @@ function renderBellView(hl, hlReal, searchQuery, animate){
     return !!map[keyOf(e)];
   });
   if(searchQuery){
-    entries=entries.filter(e=>{
-      const hay=[e.desc||'',e.note||'',e.category||'',e.subcategory||'',e.method||''].join(' ').toLowerCase();
-      return hay.includes(searchQuery);
-    });
+    entries=entries.filter(e=>entryMatchesQuery(e, searchQuery));
   }
   if(entries.length===0){
     lastFilteredEntries=[];
@@ -277,18 +382,12 @@ function entriesInCurrentDateScope(type){
       if(from && d<from) return false;
       if(to && d>to) return false;
       // Aplicar búsqueda dentro del rango si hay texto
-      if(sq){
-        const hay=[e.desc||'',e.note||'',e.category||'',e.subcategory||'',e.method||''].join(' ').toLowerCase();
-        if(!hay.includes(sq)) return false;
-      }
+      if(sq && !entryMatchesQuery(e, sq)) return false;
       return true;
     }
     // Vista mensual: si hay búsqueda, el universo son las coincidencias en TODO
     // el tiempo (la búsqueda ignora el mes); si no, el mes/año seleccionado.
-    if(sq){
-      const hay=[e.desc||'',e.note||'',e.category||'',e.subcategory||'',e.method||''].join(' ').toLowerCase();
-      return hay.includes(sq);
-    }
+    if(sq) return entryMatchesQuery(e, sq);
     return d.getMonth()===selMonth&&d.getFullYear()===selYear;
   });
 }
@@ -622,18 +721,12 @@ function updateTypeChips(selMonth, selYear, isSearchMode){
       const to=toEl&&toEl.value?parseDate(toEl.value):null;
       if(from && d<from) return false;
       if(to && d>to) return false;
-      if(sq){
-        const hay=[e.desc||'',e.note||'',e.category||'',e.subcategory||'',e.method||''].join(' ').toLowerCase();
-        if(!hay.includes(sq)) return false;
-      }
+      if(sq && !entryMatchesQuery(e, sq)) return false;
       return true;
     }
     // Vista mensual: si hay búsqueda, el universo son las coincidencias en TODO
     // el tiempo (la búsqueda ignora el mes); si no, el mes/año seleccionado.
-    if(sq){
-      const hay=[e.desc||'',e.note||'',e.category||'',e.subcategory||'',e.method||''].join(' ').toLowerCase();
-      return hay.includes(sq);
-    }
+    if(sq) return entryMatchesQuery(e, sq);
     return d.getMonth()===selMonth&&d.getFullYear()===selYear;
   });
   const counts = {
@@ -751,10 +844,7 @@ function renderHistorial(animate){
     // sobre esta base, exactamente igual que en modo rango.
     filtered=data.filter(e=>{
       if(isFutureEntry(e)) return false;
-      const haystack=[
-        e.desc||'', e.note||'', e.category||'', e.subcategory||'', e.method||''
-      ].join(' ').toLowerCase();
-      return haystack.includes(searchQuery);
+      return entryMatchesQuery(e, searchQuery);
     });
   } else {
     // Modo rango activado pero AÚN NO aplicado: no mostrar nada.
@@ -782,12 +872,7 @@ function renderHistorial(animate){
     });
     // 1b) FILTRO POR BÚSQUEDA (si hay texto, dentro del rango)
     if(rangeActive && isSearchMode){
-      filtered=filtered.filter(e=>{
-        const haystack=[
-          e.desc||'', e.note||'', e.category||'', e.subcategory||'', e.method||''
-        ].join(' ').toLowerCase();
-        return haystack.includes(searchQuery);
-      });
+      filtered=filtered.filter(e=>entryMatchesQuery(e, searchQuery));
     }
   }
 
@@ -987,8 +1072,10 @@ function txEl(e, showDelete){
     // (la propina adicional no reduce el monto madre; la incluida sí formaba parte del cobro)
     let origAmount = e.amount;
     childDesg.forEach(d=>{ origAmount += d.amount; });
-    if(childBen) origAmount += childBen.amount;
-    const hasReductions = childDesg.length>0 || !!childBen;
+    // En un diferido el beneficio se acredita aparte (no redujo la mensualidad),
+    // así que no forma parte del "monto original" del cargo de ese mes.
+    if(childBen && !e.deferGroup) origAmount += childBen.amount;
+    const hasReductions = childDesg.length>0 || (!!childBen && !e.deferGroup);
     if(hasReductions){
       metaParts.push(`Monto original: ${sym}${origAmount.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})}`);
     }
