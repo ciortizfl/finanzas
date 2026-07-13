@@ -328,6 +328,9 @@ function saveEdit(){
   if(!editCat) return toast('Selecciona una categoría');
   if(eHasSubs && !subcat) return toast('Selecciona una subcategoría');
   if(!date) return toast('Selecciona una fecha');
+  // Desgloses a medio llenar → no se guarda nada
+  const _dErr=(typeof firstIncompleteDesglose==='function') ? firstIncompleteDesglose(editDesgloses, editType) : null;
+  if(_dErr) return toast(_dErr);
 
   // Persistir emoji personalizado por comercio+subcategoría (si el usuario eligió uno)
   if(editEmojiOverride){
