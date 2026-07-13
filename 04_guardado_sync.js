@@ -213,9 +213,10 @@ function submitDeferredEntry({amount, desc, cur, date, note, subcat}){
   const groupEntries=data.filter(x=>sameGroup(x.deferGroup,groupId));
   const groupIds=new Set(groupEntries.map(x=>x.id));
   const allToSave=[...groupEntries, ...data.filter(x=>x.linkedTo && groupIds.has(x.linkedTo))];
-  saveBatchToSheets(allToSave).then(()=>{
+  saveBatchToSheets(allToSave).then(r=>{
     hideSyncing();
-    toast(`✓ Gasto diferido en ${n} meses`);
+    if(r && r.ok) toast(`✓ Gasto diferido en ${n} meses`);
+    else toastSyncFailed('Diferido guardado');
   });
 
   playRegisterSaveAnimation(()=>{
@@ -403,11 +404,12 @@ function _submitEntry(){
   }
   if(propinaEntry) saves.push(saveEntryToSheets(propinaEntry));
   desgloseEntries.forEach(de=>saves.push(saveEntryToSheets(de)));
-  // El "✓ guardado" sale cuando la escritura REALMENTE terminó, no por timer:
-  // el spinner "Guardando…" se queda visible mientras tanto, pidiendo esperar.
-  Promise.all(saves).then(()=>{
+  // R2: el "✓ guardado" solo sale si la nube CONFIRMÓ la escritura. Si falló,
+  // el registro sigue a salvo en el teléfono, pero se dice la verdad.
+  Promise.all(saves).then(results=>{
     hideSyncing();
-    toast('✓ Registro guardado');
+    if(_allOk(results)) toast('✓ Registro guardado');
+    else toastSyncFailed('Guardado');
   });
 
   // Si el usuario activó 🔔 Recordar, crear la regla del recordatorio manual
@@ -538,15 +540,53 @@ function hideSyncing() {
 const _pendingSaves = new Set();   // IDs guardados/actualizados aún no confirmados
 const _pendingDeletes = new Set(); // IDs borrados aún no confirmados
 
+// ════════════════════════════════════════════════════════════════
+// R2 · PERSISTENCIA HONESTA
+// Antes: toda escritura hacía `await fetch(...)` y tragaba cualquier error, sin
+// leer jamás la respuesta. Como fetch resuelve incluso ante un error 500, la app
+// creía haber guardado SIEMPRE. Sobre esa ceguera se construyeron operaciones
+// destructivas: se borraba confiando en un guardado que quizá nunca ocurrió.
+//
+// Ahora cada escritura devuelve un resultado con tres estados posibles:
+//   { ok:true,  verified:true  } → el servidor confirmó la escritura
+//   { ok:false, verified:true  } → falló con certeza (sin red, HTTP != 200, o
+//                                   Apps Script respondió {ok:false})
+//   { ok:true,  verified:false } → HTTP 200 pero la respuesta no se pudo leer.
+//                                   La escritura casi con seguridad ocurrió
+//                                   (Apps Script solo responde 200 al terminar),
+//                                   pero no se pudo CONFIRMAR. Se asume buena y
+//                                   se deja rastro en consola.
+// Regla de oro: ninguna operación destructiva se ejecuta si ok===false.
+// ════════════════════════════════════════════════════════════════
+async function _sheetsPost(payload, label){
+  try {
+    const res = await fetch(SHEETS_URL, {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    });
+    if(!res.ok){
+      console.warn(`Sheets ${label} failed: HTTP ${res.status}`);
+      return { ok:false, verified:true, error:`HTTP ${res.status}` };
+    }
+    let body=null;
+    try { body = await res.json(); } catch(_e){ body=null; }
+    if(body && body.ok === false){
+      console.warn(`Sheets ${label} rejected by server:`, body.error);
+      return { ok:false, verified:true, error: body.error || 'rechazado por el servidor' };
+    }
+    if(body && body.ok === true) return { ok:true, verified:true };
+    console.warn(`Sheets ${label}: HTTP 200 sin respuesta legible (escritura no confirmada)`);
+    return { ok:true, verified:false };
+  } catch(e){
+    console.warn(`Sheets ${label} failed:`, e);
+    return { ok:false, verified:true, error:(e && e.message) || 'sin conexión' };
+  }
+}
+
 // ── SAVE TO SHEETS ──
 async function saveEntryToSheets(entry) {
   if(entry && entry.id!=null) _pendingSaves.add(String(entry.id));
-  try {
-    await fetch(SHEETS_URL, {
-      method: 'POST',
-      body: JSON.stringify({ action: 'save', entry })
-    });
-  } catch(e) { console.warn('Sheets save failed', e); }
+  return await _sheetsPost({ action: 'save', entry }, 'save');
 }
 
 // Guarda varias entradas en UNA sola petición (para gastos diferidos).
@@ -554,32 +594,28 @@ async function saveEntryToSheets(entry) {
 async function saveBatchToSheets(entries) {
   const ids=(entries||[]).map(e=>e&&e.id!=null?String(e.id):null).filter(Boolean);
   ids.forEach(id=>_pendingSaves.add(id));
-  try {
-    await fetch(SHEETS_URL, {
-      method: 'POST',
-      body: JSON.stringify({ action: 'saveBatch', entries })
-    });
-  } catch(e) { console.warn('Sheets batch save failed', e); }
+  return await _sheetsPost({ action: 'saveBatch', entries }, 'batch save');
 }
 
 async function updateEntryInSheets(entry) {
   if(entry && entry.id!=null) _pendingSaves.add(String(entry.id));
-  try {
-    await fetch(SHEETS_URL, {
-      method: 'POST',
-      body: JSON.stringify({ action: 'update', entry })
-    });
-  } catch(e) { console.warn('Sheets update failed', e); }
+  return await _sheetsPost({ action: 'update', entry }, 'update');
 }
 
 async function deleteEntryInSheets(id) {
   if(id!=null) _pendingDeletes.add(String(id));
-  try {
-    await fetch(SHEETS_URL, {
-      method: 'POST',
-      body: JSON.stringify({ action: 'delete', id })
-    });
-  } catch(e) { console.warn('Sheets delete failed', e); }
+  return await _sheetsPost({ action: 'delete', id }, 'delete');
+}
+
+// ¿Todas las operaciones de esta tanda salieron bien?
+function _allOk(results){
+  return (results||[]).every(r => r && r.ok);
+}
+// Aviso honesto cuando la nube no recibió lo que el teléfono ya guardó.
+// (Los datos NO se pierden: viven en el teléfono y quedan marcados como
+// pendientes, así que la recarga no los borra.)
+function toastSyncFailed(accion){
+  toast(`⚠️ ${accion} en el teléfono, pero no se sincronizó`);
 }
 
 // ── LOAD FROM SHEETS ──
