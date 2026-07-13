@@ -495,7 +495,7 @@ function saveEdit(){
       const dEntry={
         id: genId(), type:editType,
         amount:d.amount, amountMXN:dMXN, currency:cur,
-        desc:(d.ownDesc && (d.desc||'').trim()) ? d.desc.trim() : desc,
+        desc:((d.desc||'').trim()) ? d.desc.trim() : desc,
         category:d.category, subcategory: dHasSubs?d.subcategory:'',
         method:editType!=='ahorro-pasivo'?editMethod:null, date,
         note:dNote, linkedTo:_parentId
