@@ -184,12 +184,25 @@ function renderEditDiferirPreview(){
   if(clearBtn) clearBtn.style.display='block';
 }
 
-function saveEditDeferred({amount, desc, cur, note, subcat}){
+function saveEditDeferred({amount, desc, cur, note, subcat, date}){
   const group=data.filter(x=>sameGroup(x.deferGroup,editDeferGroup)).sort((a,b)=>a.deferIndex-b.deferIndex);
   if(group.length===0){ closeModal(); return; }
   // Nuevo número de meses (editable); si no es válido, conservar el original
   let n = (editDiferirMonths && editDiferirMonths>=2) ? editDiferirMonths : group[0].deferTotal;
-  const startDate=parseDate(group[0].date); // fecha del mes 1 (inicio)
+  // FECHA: la del modal manda. El campo muestra la fecha de la mensualidad que
+  // estás editando, así que la serie se re-ancla desde ahí: si editas el mes 1 y
+  // pones el 25 de mayo, el mes 2 cae el 25 de junio, y así. Si editas el mes 3,
+  // la serie entera se recorre para que ESE mes caiga en la fecha elegida.
+  // (Antes se ignoraba el campo y se reusaba la fecha vieja: cambiarla no hacía nada.)
+  let startDate;
+  const _nuevaFecha = date ? parseDate(date) : null;
+  if(_nuevaFecha && !isNaN(_nuevaFecha.getTime())){
+    const _editada = group.find(x=>String(x.id)===String(editId));
+    const _idx = _editada && _editada.deferIndex ? (_editada.deferIndex - 1) : 0;
+    startDate = diferirMonthlyDate(_nuevaFecha, -_idx);   // retroceder hasta el mes 1
+  } else {
+    startDate = parseDate(group[0].date);
+  }
   const method=group[0].method;
   const oldIds=group.map(x=>x.id);
   const groupId=genId();   // grupo NUEVO: los borrados del viejo no pueden tocarlo
@@ -361,10 +374,12 @@ function saveEditConvertToDefer({amount, desc, cur, note, subcat}){
 }
 
 // Quita el diferido: colapsa el grupo a un solo gasto único (de una vez).
-function saveEditRemoveDefer({amount, desc, cur, note, subcat}){
+function saveEditRemoveDefer({amount, desc, cur, note, subcat, date}){
   const group=data.filter(x=>sameGroup(x.deferGroup,editDeferGroup)).sort((a,b)=>a.deferIndex-b.deferIndex);
   if(group.length===0){ closeModal(); return; }
-  const startDate=parseDate(group[0].date); // conservar la fecha del mes 1
+  // Al colapsar en gasto único también manda la fecha del modal
+  let startDate = date ? parseDate(date) : null;
+  if(!startDate || isNaN(startDate.getTime())) startDate = parseDate(group[0].date);
   const method=group[0].method;
   const oldIds=group.map(x=>x.id);
   const dateStr=`${startDate.getFullYear()}-${String(startDate.getMonth()+1).padStart(2,'0')}-${String(startDate.getDate()).padStart(2,'0')}`;
@@ -433,11 +448,11 @@ function saveEdit(){
   const wasDeferred = !!editDeferGroup;
   const nowDeferred = editType==='egreso' && editDiferirHasData();
   if(wasDeferred && nowDeferred){
-    // Sigue diferido: recrear el grupo con nuevos valores/meses
-    return saveEditDeferred({amount, desc, cur, note, subcat});
+    // Sigue diferido: recrear el grupo con nuevos valores/meses/FECHA
+    return saveEditDeferred({amount, desc, cur, note, subcat, date});
   } else if(wasDeferred && !nowDeferred){
     // Quitó el diferido: colapsar el grupo a un solo gasto único
-    return saveEditRemoveDefer({amount, desc, cur, note, subcat});
+    return saveEditRemoveDefer({amount, desc, cur, note, subcat, date});
   } else if(!wasDeferred && nowDeferred){
     // Se volvió diferido: convertir el gasto único en grupo diferido
     return saveEditConvertToDefer({amount, desc, cur, note, subcat});
