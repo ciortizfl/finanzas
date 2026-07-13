@@ -207,9 +207,20 @@ function saveEditDeferred({amount, desc, cur, note, subcat}){
   const startDate=parseDate(group[0].date); // fecha del mes 1 (inicio)
   const method=group[0].method;
   const oldIds=group.map(x=>x.id);
-  const groupId=editDeferGroup;
+  const groupId=genId();   // grupo NUEVO: los borrados del viejo no pueden tocarlo
 
   const _origFx=data.find(x=>String(x.id)===String(editId))||null; // TC histórico
+  // TC manual en un diferido: recalcula TODAS las mensualidades y sus hijos
+  if(cur!=='MXN'){
+    if(_fxOverrideEdit && _fxOverrideEdit>0){
+      const _auto=(typeof _editFxAuto!=='undefined' && _editFxAuto) ? _editFxAuto : fxRateForEdit(_origFx,cur);
+      const _tag=(_auto>0)?`TCauto: ${_auto}`:'';
+      note=[String(note||'').split(' | ').filter(p=>!p.trim().startsWith('TCauto:')).join(' | '), _tag].filter(Boolean).join(' | ');
+    } else if(typeof _editFxAuto!=='undefined' && _editFxAuto){
+      _fxOverrideEdit=_editFxAuto;   // revertido
+      note=String(note||'').split(' | ').filter(p=>!p.trim().startsWith('TCauto:')).join(' | ');
+    }
+  }
 
   // Desgloses del diferido: se PRORRATEAN entre las N mensualidades
   const activeDesg=(typeof editDesgloses!=='undefined'?editDesgloses:[]).filter(d=>d.amount>0);
@@ -272,17 +283,23 @@ function saveEditDeferred({amount, desc, cur, note, subcat}){
       });
     }
   }
-  // Borrar el grupo viejo COMPLETO (mensualidades + sus hijos)
+  // ⛔ BLINDAJE: si por cualquier razón no se reconstruyó nada, NO se borra nada.
+  if(newEntries.length===0){ toast('No se pudo actualizar el diferido'); return; }
+
+  // Borrar el grupo viejo COMPLETO (mensualidades + sus hijos) del estado local
   const oldGroupIds=new Set(group.map(x=>x.id));
-  const oldChildIds=data.filter(x=>x.linkedTo && oldGroupIds.has(x.linkedTo)).map(x=>x.id);
-  data=data.filter(x=>!sameGroup(x.deferGroup,groupId) && !(x.linkedTo && oldGroupIds.has(x.linkedTo)));
+  data=data.filter(x=>!oldGroupIds.has(x.id) && !(x.linkedTo && oldGroupIds.has(x.linkedTo)));
   newEntries.forEach(e=>data.unshift(e));
   save();
   showSyncing('⟳ Guardando...');
   // Primero borrar los viejos (secuencial), luego guardar los nuevos en un batch
+  // ORDEN SEGURO: primero se CREA lo nuevo y solo después se borra lo viejo.
+  // (Borrar primero fue lo que permitió perder un registro completo si el
+  // guardado fallaba a medio camino. Además, el borrado en Sheets arrastra en
+  // cascada a los hijos vinculados, así que basta con borrar las mensualidades.)
   (async()=>{
-    for(const oid of [...oldIds, ...oldChildIds]){ await deleteEntryInSheets(oid); }
     await saveBatchToSheets(newEntries);
+    for(const oid of oldIds){ await deleteEntryInSheets(oid); }
     hideSyncing(); toast('✓ Gasto diferido actualizado');
   })();
   closeModalWithSlide();
@@ -449,7 +466,21 @@ function saveEdit(){
   // Nota principal: SOLO la nota del usuario (sin "Monto original", que se
   // muestra dinámicamente en el listado). Se conserva el TC si aplica.
   let mainNote=note;
-  const noteWithRate=[mainNote,rateNoteEdit(cur,_origFx)].filter(Boolean).join(' | ');
+  // Etiqueta de sistema del TC: si al guardar hay TC manual, se conserva/crea el
+  // "TCauto" (el automático original) para poder revertir después. Si el campo se
+  // vació (revertir), la etiqueta desaparece y todo vuelve al TC automático original.
+  let _fxTag='';
+  if(cur!=='MXN'){
+    if(_fxOverrideEdit && _fxOverrideEdit>0){
+      const _auto = (typeof _editFxAuto!=='undefined' && _editFxAuto) ? _editFxAuto : fxRateForEdit(_origFx,cur);
+      if(_auto>0) _fxTag=`TCauto: ${_auto}`;
+    } else if(typeof _editFxAuto!=='undefined' && _editFxAuto){
+      // Revertido: recalcular todo con el automático original
+      _fxOverrideEdit=_editFxAuto;
+      _fxTag='';
+    }
+  }
+  const noteWithRate=[mainNote,rateNoteEdit(cur,_origFx),_fxTag].filter(Boolean).join(' | ');
 
   let oldChildIds=[];
   let _copyParent=null;
@@ -567,19 +598,20 @@ function saveEdit(){
 
   save();
   showSyncing(_isCopy ? '⟳ Guardando copia...' : '⟳ Actualizando...');
-  let saves;
-  if(_isCopy){
-    // La copia es un alta: padre nuevo + hijos nuevos (nada que actualizar/borrar)
-    saves=[saveEntryToSheets({..._copyParent, benType:'', benAmount:0, benDesc:''})];
-  } else {
-    const updatedEntry = data.find(x=>x.id===editId);
-    saves=[updateEntryInSheets({...updatedEntry, benType:'', benAmount:0, benDesc:''})];
-    // Eliminar de Sheets los hijos viejos (beneficio/desgloses anteriores) para evitar duplicados
-    oldChildIds.forEach(oid=>saves.push(deleteEntryInSheets(oid)));
-  }
-  // Crear los nuevos hijos
-  newChildren.forEach(c=>saves.push(saveEntryToSheets({...c, benType:'', benAmount:0, benDesc:''})));
-  Promise.all(saves).then(()=>{ hideSyncing(); toast(_isCopy ? '✓ Copia guardada' : '✓ Registro actualizado'); });
+  // ORDEN SEGURO: crear/actualizar primero, borrar los hijos viejos al final.
+  (async()=>{
+    if(_isCopy){
+      await saveEntryToSheets({..._copyParent, benType:'', benAmount:0, benDesc:''});
+    } else {
+      const updatedEntry = data.find(x=>x.id===editId);
+      await updateEntryInSheets({...updatedEntry, benType:'', benAmount:0, benDesc:''});
+    }
+    await Promise.all(newChildren.map(c=>saveEntryToSheets({...c, benType:'', benAmount:0, benDesc:''})));
+    if(!_isCopy){
+      for(const oid of oldChildIds){ await deleteEntryInSheets(oid); }
+    }
+    hideSyncing(); toast(_isCopy ? '✓ Copia guardada' : '✓ Registro actualizado');
+  })();
 
   const _finalId = _parentId;
   if(_isCopy){ try{ resetCopyModeUI(); }catch(_e){} }
