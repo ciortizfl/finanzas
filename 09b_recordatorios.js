@@ -473,6 +473,16 @@ function toggleRemPanel(){
   if(panel) panel.style.display = open ? 'block' : 'none';
   if(open){
     try{ revealAnimate(panel); }catch(e){}
+    // Recordar y Diferir se EXCLUYEN: abrir Recordar cancela el diferido
+    try{
+      if(typeof _diferirVisible!=='undefined' && (_diferirVisible || diferirHasData())){
+        _diferirVisible=false;
+        const dp=document.getElementById('diferir-panel'); if(dp) dp.style.display='none';
+        diferirMonths=0; diferirCustom=false;
+        const dc=document.getElementById('diferir-custom'); if(dc) dc.value='';
+        if(typeof refreshTopTabsVisibility==='function') refreshTopTabsVisibility();
+      }
+    }catch(e){}
     // Mutuamente excluyente: cerrar Nota y Desglose (sus datos se conservan)
     try{
       if(typeof _noteVisible!=='undefined' && _noteVisible){
@@ -893,4 +903,86 @@ function predictCatForDesc(descRaw, type){
   const cat=bestKey.substring(0,sep);
   if(!cat) return null;
   return { category:cat, subcategory:bestKey.substring(sep+2) };
+}
+
+
+// ── PREDICCIÓN DE MONTO PARA DESGLOSES CON NOMBRE PROPIO ──
+// Misma regla que el formulario: entre los últimos 4 registros de ese comercio
+// (mismo tipo y misma moneda, sin contar mensualidades de diferidos), si un monto
+// exacto se repite al menos 2 veces y en al menos la mitad de ellos, se predice.
+// En empate gana el más reciente. Devuelve null si no hay evidencia suficiente.
+function predictAmountForDesc(descRaw, type, cur){
+  const desc=String(descRaw||'').trim().toLowerCase();
+  if(desc.length<3) return null;
+  const pool=data
+    .filter(e=>e.type===type)
+    .filter(e=>{
+      const d=(e.desc||'').trim().toLowerCase();
+      return d.length>=2 && (d.includes(desc) || desc.includes(d));
+    })
+    .filter(e=>!e.deferGroup)
+    .filter(e=>(e.currency||'MXN')===(cur||'MXN'))
+    .sort((a,b)=>parseDate(b.date)-parseDate(a.date))
+    .slice(0,4);
+  if(pool.length<2) return null;
+  const counts={};
+  pool.forEach(e=>{ const k=String(Number(e.amount)); counts[k]=(counts[k]||0)+1; });
+  let best=null, bestCount=0;
+  pool.forEach(e=>{   // del más reciente al más viejo: en empate gana el reciente
+    const k=String(Number(e.amount));
+    if(counts[k]>bestCount){ best=k; bestCount=counts[k]; }
+  });
+  if(best!==null && bestCount>=2 && bestCount>=Math.ceil(pool.length/2)) return Number(best);
+  return null;
+}
+
+
+// ── PREDICCIÓN DE NOTAS ──
+// Caso típico: pides Kenchy's por Uber Eats. La descripción es el restaurante y
+// la nota ("Uber Eats") queda buscable. Si esa nota se repite, se autocompleta.
+// Misma regla que el monto: entre los últimos 4 registros de ese comercio (mismo
+// tipo, sin mensualidades de diferidos), una nota exacta que aparezca al menos
+// 2 veces y en al menos la mitad de ellos. En empate gana la más reciente.
+const _NOTE_SYS_TAGS = ['TC:','TCauto:','Monto original:','Desglose de:','Propina de:',
+                        'Beneficio de:','Vinculado a:','Propina '];
+// Deja solo la nota real del usuario (sin etiquetas internas del sistema)
+function cleanUserNote(note){
+  return String(note||'').split(' | ').map(p=>p.trim()).filter(p=>{
+    if(!p) return false;
+    if(_NOTE_SYS_TAGS.some(t=>p.startsWith(t))) return false;
+    if(/^\d+%\s/.test(p)) return false;                       // "10% de $X"
+    if(/^acreditado en la mensualidad/i.test(p)) return false; // etiqueta del beneficio
+    return true;
+  }).join(' | ');
+}
+
+function predictNoteForDesc(descRaw, type){
+  const desc=String(descRaw||'').trim().toLowerCase();
+  if(desc.length<3) return null;
+  const pool=data
+    .filter(e=>e.type===type)
+    .filter(e=>{
+      const d=(e.desc||'').trim().toLowerCase();
+      return d.length>=2 && (d.includes(desc) || desc.includes(d));
+    })
+    .filter(e=>!e.deferGroup)
+    .sort((a,b)=>parseDate(b.date)-parseDate(a.date))
+    .slice(0,4);
+  if(pool.length<2) return null;
+  const counts={}, display={};
+  pool.forEach(e=>{
+    const n=cleanUserNote(e.note);
+    if(!n) return;
+    const k=n.toLowerCase();
+    counts[k]=(counts[k]||0)+1;
+    if(!display[k]) display[k]=n;   // pool va de reciente a viejo: gana el más nuevo
+  });
+  let best=null, bestCount=0;
+  pool.forEach(e=>{
+    const k=cleanUserNote(e.note).toLowerCase();
+    if(!k) return;
+    if(counts[k]>bestCount){ best=k; bestCount=counts[k]; }
+  });
+  if(best && bestCount>=2 && bestCount>=Math.ceil(pool.length/2)) return display[best];
+  return null;
 }
