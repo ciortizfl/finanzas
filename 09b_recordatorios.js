@@ -566,16 +566,53 @@ function createManualReminderFromEntry(entry){
 //    (renace indefinida, con la misma frecuencia y día; se le puede poner fecha
 //    fin de inmediato).
 // Las reglas nunca tocan los registros: editar aquí solo cambia la regla.
+// El comercio "objetivo" del modal: en modo copia (o al renombrar) es lo que
+// está ESCRITO en el campo, no lo guardado en el registro fuente.
+function _eRemTarget(){
+  const e = (typeof editId !== 'undefined' && editId != null)
+    ? data.find(x => String(x.id) === String(editId)) : null;
+  const type = (typeof editType !== 'undefined' && editType) ? editType : (e ? e.type : null);
+  const typed = (document.getElementById('e-desc')?.value || '').trim();
+  const desc = typed || (e ? (e.desc || '') : '');
+  return { e, type, desc };
+}
+
+function eRemSectionRefresh(){ try{ renderEditReminderSection(); }catch(e){} }
+
 function renderEditReminderSection(){
   const box = document.getElementById('e-rem-section');
   if (!box) return;
-  const e = (typeof editId !== 'undefined' && editId != null)
-    ? data.find(x => String(x.id) === String(editId)) : null;
-  if (!e || (e.type !== 'egreso' && e.type !== 'ingreso')) {
+  const { e, type, desc } = _eRemTarget();
+  if (!type || (type !== 'egreso' && type !== 'ingreso') || desc.length < 2) {
     box.style.display = 'none'; box.innerHTML = ''; return;
   }
-  const rule = getManualRule(e.type, e.desc);
-  if (!rule) { box.style.display = 'none'; box.innerHTML = ''; return; }
+  const rule = getManualRule(type, desc);
+  if (!rule) {
+    // Sin regla: ofrecer PROGRAMARLA aquí mismo (paridad con el formulario de
+    // registro; solo egresos y no diferidos). Mismas condiciones: frecuencia +
+    // vigencia elegidas, o no se guarda nada.
+    if (type !== 'egreso' || (e && e.deferGroup)) {
+      box.style.display = 'none'; box.innerHTML = ''; return;
+    }
+    box.innerHTML = `
+      <div class="e-rem-box">
+        <div class="e-rem-title">🔔 Recordatorio</div>
+        <div>"${desc}" no tiene recordatorio. Prográmalo aquí si quieres:</div>
+        <div class="rem-cfg-row" style="margin-top:10px">
+          <button type="button" class="chip" id="e-rem-freq-monthly" onclick="eSetRemFreq('monthly')">Cada mes</button>
+          <button type="button" class="chip" id="e-rem-freq-weekly" onclick="eSetRemFreq('weekly')">Cada semana</button>
+        </div>
+        <div class="rem-cfg-row" style="margin-top:8px">
+          <button type="button" class="chip" id="e-rem-until-inf" onclick="eSetRemUntil('inf')">Indefinido</button>
+          <button type="button" class="chip" id="e-rem-until-date" onclick="eSetRemUntil('date')">Hasta fecha…</button>
+        </div>
+        <div class="rem-cfg-hint" id="e-rem-hint"></div>
+        <input type="hidden" id="e-rem-until-value">
+      </div>`;
+    box.style.display = 'block';
+    _eRemPaint(); _eRemHint();
+    return;
+  }
 
   const activa = !rule.until || rule.until >= localToday();
   if (activa) {
@@ -599,9 +636,8 @@ function renderEditReminderSection(){
 
 // Poner o cambiar la fecha fin (solo fechas futuras; sin camino de vuelta a indefinido)
 function editRemUntil(){
-  const e = data.find(x => String(x.id) === String(editId));
-  if (!e) return;
-  const rule = getManualRule(e.type, e.desc);
+  const { type, desc } = _eRemTarget();
+  const rule = getManualRule(type, desc);
   if (!rule) return;
   openDatepicker({
     initial: rule.until ? parseDate(rule.until) : null,
@@ -618,17 +654,101 @@ function editRemUntil(){
 
 // Recrear una regla vencida: renace indefinida, misma frecuencia y día
 function recreateRemFromEdit(){
-  const e = data.find(x => String(x.id) === String(editId));
-  if (!e) return;
-  const key = _remKey(e.type, e.desc);
+  const { e, type, desc } = _eRemTarget();
+  if (!type || !desc) return;
+  const key = _remKey(type, desc);
   const old = (reminderConfig.manual || []).find(m => _remKey(m.type, m.desc) === key) || null;
   const freq = old ? old.freq : 'monthly';
-  const day  = old ? old.day  : parseDate(e.date).getDate();
+  const day  = old ? old.day  : parseDate((e && e.date) || localToday()).getDate();
   reminderConfig.manual = (reminderConfig.manual || []).filter(m => _remKey(m.type, m.desc) !== key);
-  reminderConfig.manual.push({ id: Date.now(), desc: String(e.desc).trim(), type: e.type,
+  reminderConfig.manual.push({ id: Date.now(), desc: desc, type: type,
                                freq, day, until: null, created: localToday() });
   reminderConfig.muted = (reminderConfig.muted || []).filter(k => k !== key);
   saveRemindersToSheets();
   renderEditReminderSection();
   try { updateReminderCard(); } catch(err){}
+}
+
+
+// ── Creador de recordatorio DENTRO del modal (edición y copia) ──
+let _eRemFreq = null;
+let _eRemUntilMode = null;
+
+function resetEditRemState(){ _eRemFreq=null; _eRemUntilMode=null; }
+
+function eRemHasData(){
+  if(!_eRemFreq || !_eRemUntilMode) return false;
+  if(_eRemUntilMode==='date' && !(document.getElementById('e-rem-until-value')?.value)) return false;
+  return true;
+}
+
+function _eRemPaint(){
+  document.getElementById('e-rem-freq-monthly')?.classList.toggle('active', _eRemFreq==='monthly');
+  document.getElementById('e-rem-freq-weekly')?.classList.toggle('active', _eRemFreq==='weekly');
+  document.getElementById('e-rem-until-inf')?.classList.toggle('active', _eRemUntilMode==='inf');
+  document.getElementById('e-rem-until-date')?.classList.toggle('active', _eRemUntilMode==='date');
+}
+
+function _eRemHint(){
+  const h=document.getElementById('e-rem-hint');
+  if(!h) return;
+  if(!_eRemFreq){ h.textContent='Elige la frecuencia para programarlo.'; return; }
+  const f=_eRemFreq==='weekly'?'cada semana':'cada mes';
+  if(_eRemUntilMode==='date'){
+    const v=document.getElementById('e-rem-until-value')?.value;
+    h.textContent=v?`Te recordaré ${f} (día según la fecha del registro), hasta el ${v}.`:'Elige la fecha límite…';
+  } else if(_eRemUntilMode==='inf'){
+    h.textContent=`Te recordaré ${f} (día según la fecha del registro), sin fecha de término.`;
+  } else {
+    h.textContent=`Elige la vigencia: indefinido o hasta una fecha.`;
+  }
+}
+
+function eSetRemFreq(f){
+  _eRemFreq=(_eRemFreq===f)?null:f;   // retap deselecciona
+  _eRemPaint(); _eRemHint();
+}
+
+function eSetRemUntil(mode){
+  if(_eRemUntilMode===mode){
+    _eRemUntilMode=null;
+    if(mode==='date'){ const v=document.getElementById('e-rem-until-value'); if(v) v.value=''; }
+  } else {
+    _eRemUntilMode=mode;
+    if(mode==='date'){
+      const cur=document.getElementById('e-rem-until-value')?.value;
+      openDatepicker({
+        initial: cur?parseDate(cur):null,
+        min: parseDate(localToday()),
+        presets:false,
+        onPick:(d)=>{
+          const v=document.getElementById('e-rem-until-value');
+          if(v) v.value=_remFmt(d);
+          _eRemHint();
+        }
+      });
+    }
+  }
+  _eRemPaint(); _eRemHint();
+}
+
+// Crear la regla al GUARDAR la edición/copia (llamado desde saveEdit)
+function createManualReminderFromEditModal(desc, type, dateStr){
+  if(!desc || type!=='egreso' || !eRemHasData()) return;
+  const d=parseDate(dateStr||localToday());
+  const rule={
+    id: Date.now(),
+    desc: String(desc).trim(),
+    type: type,
+    freq: _eRemFreq,
+    day: _eRemFreq==='weekly' ? d.getDay() : d.getDate(),
+    until: (_eRemUntilMode==='date' && document.getElementById('e-rem-until-value')?.value) || null,
+    created: localToday()
+  };
+  const key=_remKey(rule.type, rule.desc);
+  reminderConfig.manual=(reminderConfig.manual||[]).filter(m=>_remKey(m.type,m.desc)!==key);
+  reminderConfig.manual.push(rule);
+  reminderConfig.muted=(reminderConfig.muted||[]).filter(k=>k!==key);
+  saveRemindersToSheets();
+  resetEditRemState();
 }
