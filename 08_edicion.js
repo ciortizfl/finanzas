@@ -111,6 +111,7 @@ function openEdit(id) {
   editType = e.type;
   updateEditMethodLabel();
   try{ resetCopyModeUI(); }catch(_e){}
+  _ePropinaVisible=false; _eBenVisible=false;
   try{ updateEditBenMonthSelector(); }catch(_e){}
   // TC manual: leer la etiqueta de sistema TCauto (si el registro se guardó con TC manual)
   try{
@@ -304,10 +305,27 @@ function openEdit(id) {
   document.body.style.overflow='hidden';
   refreshEditEmojiBtn();
   setupEditDiferirPanel();
+  // TAB INICIAL del renglón superior: si es diferido, se muestra el diferido;
+  // si no, el beneficio o la propina que ya tenga. Los demás quedan cerrados
+  // pero con su indicador de "contiene datos".
+  try{
+    if(!editDeferGroup){
+      _eDiferirVisible=false;
+      if(eBenHasData()){
+        _eBenVisible=true;
+        const bp=document.getElementById('e-ben-panel'); if(bp) bp.style.display='block';
+      } else if(ePropinaHasData()){
+        _ePropinaVisible=true;
+        const pp=document.getElementById('e-propina-panel'); if(pp) pp.style.display='block';
+      }
+    }
+    refreshEditTopTabs();
+  }catch(_e){}
 }
 
 function closeModal(){
   try{ resetCopyModeUI(); }catch(_e){}
+  _ePropinaVisible=false; _eBenVisible=false;
   document.getElementById('edit-modal').classList.remove('open');
   document.body.style.overflow='';
   editId=null;
@@ -453,18 +471,31 @@ function setEditMethod(m,el){
 }
 
 function toggleEBen(){
-  editBenOn=!editBenOn;
-  updateEBenUI();
-  if(editBenOn){
-    // Empezar sin selección para mostrar todos los tipos (como las categorías)
-    editBenType='';
-    buildBenTypeBlocks('e-ben-type-blocks', '', t=>{ editBenType=t; });
+  const abrir = !_eBenVisible;
+  _closeOtherEditTopTabs('ben');
+  _eBenVisible = abrir;
+  const panel=document.getElementById('e-ben-panel');
+  if(panel){
+    panel.style.display = abrir ? 'block' : 'none';
+    if(abrir) revealAnimate(panel);
   }
+  if(abrir){
+    // Solo al ABRIR por primera vez (sin beneficio previo) se limpia el tipo,
+    // para que se muestren todos como en las categorías.
+    if(!editBenOn){
+      editBenOn=true;
+      editBenType='';
+      buildBenTypeBlocks('e-ben-type-blocks', '', t=>{ editBenType=t; });
+    }
+  }
+  refreshEditTopTabs();
 }
+// Se conserva el nombre porque otros flujos la llaman (cambio de tipo, reset).
 function updateEBenUI(){
   const panel=document.getElementById('e-ben-panel');
-  updateInlineBtn('e-inline-ben-btn', editBenOn, editBenOn);
-  if(panel) panel.style.display = editBenOn?'block':'none';
+  if(!editBenOn){ _eBenVisible=false; }
+  if(panel) panel.style.display = _eBenVisible ? 'block' : 'none';
+  try{ refreshEditTopTabs(); }catch(e){}
 }
 
 function onECurChange(){
@@ -680,12 +711,68 @@ let editPropinaIncluida = false;     // false = adicional
 let editPropinaMethod = null;
 let editPropinaExistingId = null;    // id del registro de propina existente (si lo hay)
 
+// ── TABS SUPERIORES DEL MODAL (espejo del formulario de registro) ──
+// Antes: estos botones eran interruptores de DATO (colapsar el panel BORRABA la
+// propina o el beneficio) y el diferido escondía a los otros dos. Ahora son tabs:
+// comparten el mismo espacio, colapsar solo cierra, y el botón queda marcado si
+// contiene datos. Para quitar una propina o un beneficio se vacía su monto,
+// igual que en el registro.
+let _ePropinaVisible=false, _eBenVisible=false;
+
+function ePropinaHasData(){
+  try{ return editPropinaOn && getEditPropinaAmount()>0; }catch(e){ return false; }
+}
+function eBenHasData(){
+  try{ return editType==='egreso' && editBenOn && getEditBenAmount()>0; }catch(e){ return false; }
+}
+
+// Cierra los paneles de los otros dos tabs, SIN tocar sus datos
+function _closeOtherEditTopTabs(keep){
+  if(keep!=='propina' && _ePropinaVisible){
+    _ePropinaVisible=false;
+    const p=document.getElementById('e-propina-panel'); if(p) p.style.display='none';
+  }
+  if(keep!=='ben' && _eBenVisible){
+    _eBenVisible=false;
+    const b=document.getElementById('e-ben-panel'); if(b) b.style.display='none';
+  }
+  if(keep!=='diferir' && typeof _eDiferirVisible!=='undefined' && _eDiferirVisible){
+    _eDiferirVisible=false;
+    const d=document.getElementById('e-diferir-panel'); if(d) d.style.display='none';
+  }
+}
+
+// Exclusiones: Propina ↔ Diferir se esconden entre sí. Beneficio convive con todo.
+function refreshEditTopTabs(){
+  const pbn=document.getElementById('e-inline-propina-btn');
+  const dbn=document.getElementById('e-inline-diferir-btn');
+  const full=document.getElementById('e-inline-diferir-full');
+  const row=document.getElementById('e-inline-row-main');
+  // El botón ancho del crossfade viejo queda retirado: la fila de tabs manda
+  if(full){ try{ full.getAnimations().forEach(a=>a.cancel()); }catch(e){} full.style.opacity='0'; full.style.pointerEvents='none'; }
+  if(row){ try{ row.getAnimations().forEach(a=>a.cancel()); }catch(e){} row.style.opacity=''; row.style.pointerEvents=''; }
+  const propinaActiva = _ePropinaVisible || ePropinaHasData();
+  const diferirActivo = (typeof _eDiferirVisible!=='undefined' && _eDiferirVisible) || editDiferirHasData();
+  if(pbn) pbn.style.display = diferirActivo ? 'none' : '';
+  if(dbn) dbn.style.display = propinaActiva ? 'none' : '';
+  updateInlineBtn('e-inline-propina-btn', _ePropinaVisible, ePropinaHasData() && !_ePropinaVisible);
+  updateInlineBtn('e-inline-ben-btn', _eBenVisible, eBenHasData() && !_eBenVisible);
+  updateInlineBtn('e-inline-diferir-btn', (typeof _eDiferirVisible!=='undefined' && _eDiferirVisible), editDiferirHasData() && !(typeof _eDiferirVisible!=='undefined' && _eDiferirVisible));
+  try{ updateEditBenMonthSelector(); }catch(e){}
+  try{ editUpdateDesgloseForDiferir(); }catch(e){}
+}
+
 function toggleEPropina(){
-  editPropinaOn = !editPropinaOn;
+  const abrir = !_ePropinaVisible;
+  _closeOtherEditTopTabs('propina');
+  _ePropinaVisible = abrir;
   const panel=document.getElementById('e-propina-panel');
-  if(panel) panel.style.display = editPropinaOn ? 'block' : 'none';
-  updateInlineBtn('e-inline-propina-btn', editPropinaOn, editPropinaOn);
-  if(editPropinaOn) revealAnimate(panel);
+  if(panel){
+    panel.style.display = abrir ? 'block' : 'none';
+    if(abrir) revealAnimate(panel);
+  }
+  if(abrir) editPropinaOn = true;   // abrir el tab arma la propina; vaciar el monto la quita
+  refreshEditTopTabs();
 }
 
 function setEditPropinaType(t){
