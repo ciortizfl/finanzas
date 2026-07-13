@@ -878,10 +878,12 @@ function sum(arr,t){return arr.filter(e=>e.type===t).reduce((s,e)=>s+e.amountMXN
 function txEl(e, showDelete){
   const el=document.createElement('div');
   el.className='tx-item';
-  const d=parseDate(e.date);
-  const ds=d.toLocaleDateString('es-MX',{day:'numeric',month:'short'});
-  const sub=[e.subcategory||e.category,ds,e.method].filter(Boolean).join(' · ');
-  const cur=e.currency!=='MXN'?` (${e.currency} ${e.amount.toLocaleString('es-MX',{minimumFractionDigits:2})})`:'';
+  // La fecha ya no se muestra (el listado se agrupa por días) ni el método:
+  // solo la subcategoría en la línea principal; el resto, cada uno en SU renglón.
+  const sub=[e.subcategory||e.category].filter(Boolean).join('');
+  const curLine=e.currency!=='MXN'
+    ? `<div class="tx-note" style="opacity:0.7">${e.currency} ${e.amount.toLocaleString('es-MX',{minimumFractionDigits:2})}</div>`
+    : '';
   const sign={ingreso:'+',egreso:'−',ahorro:'→','ahorro-pasivo':'★'}[e.type]||'';
   const ico=emojiForEntry(e);
   // Los hijos vinculados (desglose/propina/beneficio) no se eliminan independientemente
@@ -959,18 +961,28 @@ function txEl(e, showDelete){
     });
   }
 
+  // Recordatorio del comercio (antes era un iconito junto al nombre): ahora es
+  // un renglón propio, después de las etiquetas del sistema y antes de las notas.
+  try{
+    if(typeof getManualRule==='function'){
+      const _r=getManualRule(e.type, e.desc);
+      if(_r && (!_r.until || _r.until>=localToday())){
+        metaParts.push(`🔔 Recordatorio ${_r.freq==='weekly'?'semanal':'mensual'}`);
+      }
+    }
+  }catch(_e){}
+
+  // Cada elemento vive en su PROPIO renglón (sin separadores · ni |)
   let noteDisplay = '';
-  if(metaParts.length) noteDisplay += `<div class="tx-note" style="opacity:0.7">${metaParts.join(' | ')}</div>`;
-  if(userParts.length) noteDisplay += `<div class="tx-note">${userParts.join(' | ')}</div>`;
-  // 🔔 discreto si este comercio tiene un recordatorio manual ACTIVO
-  const remIco=(typeof hasActiveManualReminder==='function' && hasActiveManualReminder(e.type, e.desc))
-    ? '<span class="tx-rem-ico">🔔</span>' : '';
+  metaParts.forEach(p=>{ noteDisplay += `<div class="tx-note" style="opacity:0.7">${p}</div>`; });
+  userParts.forEach(p=>{ noteDisplay += `<div class="tx-note">${p}</div>`; });
   el.innerHTML=`
     <div class="tx-color-bar" style="background:${barColor}"></div>
     <div class="tx-ico ${e.type}" style="margin-left:8px">${ico}</div>
     <div class="tx-info">
-      <div class="tx-desc">${e.desc}${remIco}</div>
-      <div class="tx-meta">${sub}${cur}</div>
+      <div class="tx-desc">${e.desc}</div>
+      <div class="tx-meta">${sub}</div>
+      ${curLine}
       ${noteDisplay}
     </div>
     <div class="tx-amt ${e.type}">${sign}${fmt(e.amountMXN)}</div>
