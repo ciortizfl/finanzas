@@ -311,7 +311,7 @@ function _submitEntry(){
       const dEntry={
         id: genId(), type:curType,
         amount:d.amount, amountMXN:dMXN, currency:cur,
-        desc:(d.ownDesc && (d.desc||'').trim()) ? d.desc.trim() : desc,
+        desc:((d.desc||'').trim()) ? d.desc.trim() : desc,
         category:d.category, subcategory: dHasSubs?d.subcategory:'',
         method:curType!=='ahorro-pasivo'?selMethod:null, date,
         note:dNote, linkedTo:entry.id
@@ -339,7 +339,7 @@ function _submitEntry(){
   });
 
   // Si el usuario activó 🔔 Recordar, crear la regla del recordatorio manual
-  try { if (typeof _remToggleOn !== 'undefined' && _remToggleOn) createManualReminderFromEntry(entry); } catch(e){}
+  try { if (typeof remHasData === 'function' && remHasData()) createManualReminderFromEntry(entry); } catch(e){}
 
   // Reproducir animación de guardado: absorción + palomita, luego reset y cascada.
   playRegisterSaveAnimation(()=>{
