@@ -245,6 +245,7 @@ function openEdit(id) {
         && !/^\d+%\s/.test(t);              // "10% de $X"
   }).join(' | ');
   document.getElementById('e-note').value = cleanNote;
+  try{ _eNotePredicted=false; }catch(_e){}
   // Nota y Desglose son mutuamente excluyentes. Si el registro tiene desgloses,
   // se muestra el desglose por defecto; la nota queda disponible en su botón.
   const hasEditDesgloses = editDesgloses.length>0;
@@ -980,4 +981,27 @@ function revertFxToHistoric(){
   _fxOverrideEdit=null;
   updateEditFxRow();
   try{ toast('Al guardar se recalculará con el TC histórico'); }catch(e){}
+}
+
+
+// ── NOTA PREDICHA EN EL MODAL (edición y copia) ──
+// Solo actúa si la nota está VACÍA: nunca pisa la nota que ya tenía el registro.
+let _eNotePredicted=false;
+function predictEditNote(){
+  try{
+    const noteEl=document.getElementById('e-note');
+    if(!noteEl || typeof predictNoteForDesc!=='function') return;
+    const desc=(document.getElementById('e-desc')?.value||'').trim();
+    const yaEscrita = noteEl.value.trim()!=='' && !_eNotePredicted;
+    if(yaEscrita) return;
+    const pn=predictNoteForDesc(desc, editType);
+    if(pn){ noteEl.value=pn; _eNotePredicted=true; }
+    else if(_eNotePredicted){ noteEl.value=''; _eNotePredicted=false; }
+    updateEditNoteDesgloseIndicators();
+  }catch(e){}
+}
+// Escribirla a mano cancela la predicción
+function onENoteInput(){
+  _eNotePredicted=false;
+  updateEditNoteDesgloseIndicators();
 }
