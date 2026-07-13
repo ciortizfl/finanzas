@@ -447,8 +447,8 @@ function _remHintUpdate(){
         ? (_remFreq==='weekly' ? `los ${WEEKDAYS_ES[_remExistingRule.day]}` : `el día ${_remExistingRule.day} de cada mes`)
         : (_remFreq==='weekly' ? `los ${WEEKDAYS_ES[d.getDay()]}` : `el día ${d.getDate()} de cada mes`);
       hint.textContent=usaRegla
-        ? `Te recordaré ${base} — se actualizará el recordatorio existente al guardar.`
-        : `Te recordaré ${base} (según la fecha del registro).`;
+        ? `Te recordaré ${base} — se actualizará el recordatorio existente al guardar`
+        : `Te recordaré ${base}`;
     }
   }
   const uh=document.getElementById('rem-until-hint');
@@ -505,7 +505,15 @@ function _remPaintChips(){
 function setRemFreq(f){
   // Tocar el chip activo lo DESELECCIONA (vuelve a null): sin ambas condiciones
   // elegidas, no se guarda ningún recordatorio.
+  const prev=_remFreq;
   _remFreq = (_remFreq===f) ? null : f;
+  // Al CAMBIAR de frecuencia, la fecha exacta elegida deja de ser válida (está
+  // atada al ciclo: solo domingos, o solo el día 12) → se resetea. "Indefinido"
+  // no depende del ciclo, así que sobrevive al cambio.
+  if(prev!==_remFreq && _remUntilMode==='date'){
+    _remUntilMode=null;
+    const v=document.getElementById('rem-until-value'); if(v) v.value='';
+  }
   _remPaintChips();
   _remHintUpdate();
   try{ updateNoteDesgloseIndicators(); }catch(e){}
@@ -525,7 +533,7 @@ function setRemUntil(mode){
         _remUntilMode=null;
         _remPaintChips();
         const h=document.getElementById('rem-freq-hint');
-        if(h) h.textContent='Primero elige la frecuencia (cada mes o cada semana)';
+        if(h) h.textContent='Primero elige la frecuencia (semanal o mensual)';
         return;
       }
       const minD=_remMinUntil(_remFreq);
@@ -626,52 +634,44 @@ function _eRemTarget(){
   return { e, type, desc };
 }
 
-function eRemSectionRefresh(){ try{ renderEditReminderSection(); }catch(e){} }
+function eRemSectionRefresh(){ try{ if(_eRemPanelVisible) renderEditReminderSection(); }catch(e){} }
 
 function renderEditReminderSection(){
-  const box = document.getElementById('e-rem-section');
-  if (!box) return;
+  // Ahora la información vive DENTRO del panel del tab 🔔 (no desplegada suelta).
+  const btn = document.getElementById('e-rem-toggle-btn');
+  const box = document.getElementById('e-rem-existing');
+  const editor = document.getElementById('e-rem-editor');
   const { e, type, desc } = _eRemTarget();
-  if (!type || (type !== 'egreso' && type !== 'ingreso') || desc.length < 2) {
-    box.style.display = 'none'; box.innerHTML = ''; return;
+
+  // El botón 🔔 vive solo en egresos y no convive con diferidos
+  const oculto = (type !== 'egreso') || !!(e && e.deferGroup) || !!(typeof editDeferGroup!=='undefined' && editDeferGroup);
+  if (btn) btn.style.display = oculto ? 'none' : '';
+  if (oculto){
+    if (_eRemPanelVisible) toggleERemPanel();
+    return;
   }
-  const rule = getManualRule(type, desc);
-  if (!rule) {
-    // Sin regla: ofrecer PROGRAMARLA aquí mismo (paridad con el formulario de
-    // registro; solo egresos y no diferidos). Mismas condiciones: frecuencia +
-    // vigencia elegidas, o no se guarda nada.
-    if (type !== 'egreso' || (e && e.deferGroup)) {
-      box.style.display = 'none'; box.innerHTML = ''; return;
-    }
-    box.innerHTML = `
-      <div class="e-rem-box">
-        <div class="e-rem-title">🔔 Recordatorio</div>
-        <div>"${desc}" no tiene recordatorio. Prográmalo aquí si quieres:</div>
-        <div class="rem-cfg-hint" id="e-rem-freq-hint" style="margin-top:10px"></div>
-        <div class="rem-cfg-row" style="margin-top:6px">
-          <button type="button" class="chip" id="e-rem-freq-monthly" onclick="eSetRemFreq('monthly')">Cada mes</button>
-          <button type="button" class="chip" id="e-rem-freq-weekly" onclick="eSetRemFreq('weekly')">Cada semana</button>
-        </div>
-        <div class="rem-cfg-hint" id="e-rem-until-hint" style="margin-top:12px"></div>
-        <div class="rem-cfg-row" style="margin-top:6px">
-          <button type="button" class="chip" id="e-rem-until-inf" onclick="eSetRemUntil('inf')">Indefinido</button>
-          <button type="button" class="chip" id="e-rem-until-date" onclick="eSetRemUntil('date')">Hasta fecha…</button>
-        </div>
-        <input type="hidden" id="e-rem-until-value">
-      </div>`;
-    box.style.display = 'block';
+  if (!box || !editor) return;
+
+  const rule = (desc.length >= 2) ? getManualRule(type, desc) : null;
+  if (!rule){
+    box.innerHTML = '';
+    box.style.display = 'none';
+    editor.style.display = 'block';
     _eRemPaint(); _eRemHint();
+    try{ updateEditNoteDesgloseIndicators(); }catch(_e){}
     return;
   }
 
+  // Con regla: se muestra su estado y las acciones (sin el editor de alta)
   const activa = !rule.until || rule.until >= localToday();
-  if (activa) {
+  if (activa){
     const vigencia = rule.until ? `hasta el ${_remLongDate(rule.until)}` : 'indefinido';
     box.innerHTML = `
       <div class="e-rem-box">
         <div class="e-rem-title">🔔 Recordatorio ${_remRuleLabel(rule)}</div>
         <div>Vigencia: ${vigencia}.</div>
         <button type="button" class="e-rem-link" onclick="editRemUntil()">${rule.until ? 'Cambiar fecha final' : 'Ponerle fecha final'}</button>
+        <button type="button" class="e-rem-link" style="color:var(--danger)" onclick="removeRemFromEdit()">Quitar el recordatorio</button>
       </div>`;
   } else {
     box.innerHTML = `
@@ -679,9 +679,45 @@ function renderEditReminderSection(){
         <div class="e-rem-title">🔔 Recordatorio ${_remRuleLabel(rule)}</div>
         <div>Los recordatorios pararon el ${_remLongDate(rule.until)}.</div>
         <button type="button" class="e-rem-link" onclick="recreateRemFromEdit()">Crear el recordatorio de nuevo</button>
+        <button type="button" class="e-rem-link" style="color:var(--danger)" onclick="removeRemFromEdit()">Quitar el recordatorio</button>
       </div>`;
   }
   box.style.display = 'block';
+  editor.style.display = 'none';
+  try{ updateEditNoteDesgloseIndicators(); }catch(_e){}
+}
+
+// Tab 🔔 del modal (comparte espacio con Nota y Desglose)
+let _eRemPanelVisible = false;
+function toggleERemPanel(){
+  const panel = document.getElementById('e-rem-config');
+  const open = !_eRemPanelVisible;
+  _eRemPanelVisible = open;
+  if (panel) panel.style.display = open ? 'block' : 'none';
+  if (open){
+    try{ revealAnimate(panel); }catch(e){}
+    try{ if(typeof _eNoteVisible!=='undefined' && _eNoteVisible){ _eNoteVisible=false;
+      const w=document.getElementById('e-note-field-wrap'); if(w) w.style.display='none'; } }catch(e){}
+    try{ if(typeof _eDesgloseVisible!=='undefined' && _eDesgloseVisible){ _eDesgloseVisible=false;
+      const s=document.getElementById('e-desglose-section'); if(s) s.style.display='none'; } }catch(e){}
+    renderEditReminderSection();
+  }
+  try{ updateEditNoteDesgloseIndicators(); }catch(e){}
+}
+
+// Quitar por completo el recordatorio vigente (o vencido) de este comercio
+function removeRemFromEdit(){
+  const { type, desc } = _eRemTarget();
+  if (!type || !desc) return;
+  const key = _remKey(type, desc);
+  reminderConfig.manual = (reminderConfig.manual || []).filter(m => _remKey(m.type, m.desc) !== key);
+  reminderConfig.snoozes = (reminderConfig.snoozes || []).filter(s => s.key !== key);
+  saveRemindersToSheets();
+  resetEditRemState();
+  renderEditReminderSection();
+  try{ updateReminderCard(); }catch(e){}
+  try{ renderHistorial(); }catch(e){}
+  try{ toast('✓ Recordatorio quitado'); }catch(e){}
 }
 
 // Poner o cambiar la fecha fin (solo fechas futuras; sin camino de vuelta a indefinido)
@@ -726,6 +762,8 @@ let _eRemUntilMode = null;
 
 function resetEditRemState(){ _eRemFreq=null; _eRemUntilMode=null; }
 
+// ¿El panel 🔔 del modal tiene datos que se guardarán? (solo cuando el comercio
+// NO tiene regla y se eligieron ambas condiciones)
 function eRemHasData(){
   if(!_eRemFreq || !_eRemUntilMode) return false;
   if(_eRemUntilMode==='date' && !(document.getElementById('e-rem-until-value')?.value)) return false;
@@ -741,10 +779,15 @@ function _eRemPaint(){
 
 function _eRemHint(){
   const hf=document.getElementById('e-rem-freq-hint');
-  if(hf) hf.textContent = _eRemFreq
-    ? (_eRemFreq==='weekly' ? 'Te recordaré cada semana (día según la fecha del registro)'
-                            : 'Te recordaré cada mes (día según la fecha del registro)')
-    : 'Elige la frecuencia para programarlo';
+  if(hf){
+    if(!_eRemFreq){ hf.textContent='Elige la frecuencia para programarlo'; }
+    else {
+      const a=parseDate(document.getElementById('e-date')?.value || localToday());
+      hf.textContent = (_eRemFreq==='weekly')
+        ? `Te recordaré los ${WEEKDAYS_ES[a.getDay()]}`
+        : `Te recordaré el día ${a.getDate()} de cada mes`;
+    }
+  }
   const hu=document.getElementById('e-rem-until-hint');
   if(hu){
     if(_eRemUntilMode==='date'){
@@ -759,7 +802,13 @@ function _eRemHint(){
 }
 
 function eSetRemFreq(f){
+  const prev=_eRemFreq;
   _eRemFreq=(_eRemFreq===f)?null:f;   // retap deselecciona
+  // Cambiar de frecuencia invalida la fecha exacta (atada al ciclo); "Indefinido" no
+  if(prev!==_eRemFreq && _eRemUntilMode==='date'){
+    _eRemUntilMode=null;
+    const v=document.getElementById('e-rem-until-value'); if(v) v.value='';
+  }
   _eRemPaint(); _eRemHint();
 }
 
@@ -774,7 +823,7 @@ function eSetRemUntil(mode){
         _eRemUntilMode=null;
         _eRemPaint();
         const h=document.getElementById('e-rem-freq-hint');
-        if(h) h.textContent='Primero elige la frecuencia (cada mes o cada semana)';
+        if(h) h.textContent='Primero elige la frecuencia (semanal o mensual)';
         return;
       }
       const cur=document.getElementById('e-rem-until-value')?.value;
@@ -815,4 +864,33 @@ function createManualReminderFromEditModal(desc, type, dateStr){
   reminderConfig.muted=(reminderConfig.muted||[]).filter(k=>k!==key);
   saveRemindersToSheets();
   resetEditRemState();
+}
+
+
+// ── PREDICCIÓN PARA DESGLOSES CON NOMBRE PROPIO ──
+// Reutiliza la misma regla que el formulario: entre registros del mismo tipo con
+// descripción similar (últimos 365 días, ponderados por recencia), la
+// combinación categoría+subcategoría más frecuente. Devuelve null si no hay
+// historia suficiente (entonces no se toca lo que el usuario ya eligió).
+function predictCatForDesc(descRaw, type){
+  const desc=String(descRaw||'').trim().toLowerCase();
+  if(desc.length<3) return null;
+  const freq={};
+  data.forEach(e=>{
+    if(e.type!==type) return;
+    const d=(e.desc||'').toLowerCase();
+    if(d.length<2) return;
+    if(!(d.includes(desc) || desc.includes(d))) return;
+    const w=(typeof recencyWeight==='function')?recencyWeight(e.date):1;
+    if(!w) return;
+    const key=(e.category||'')+'||'+(e.subcategory||'');
+    freq[key]=(freq[key]||0)+w;
+  });
+  const entries=Object.entries(freq);
+  if(entries.length===0) return null;
+  const [bestKey]=entries.sort((a,b)=>b[1]-a[1])[0];
+  const sep=bestKey.indexOf('||');
+  const cat=bestKey.substring(0,sep);
+  if(!cat) return null;
+  return { category:cat, subcategory:bestKey.substring(sep+2) };
 }
