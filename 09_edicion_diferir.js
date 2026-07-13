@@ -209,31 +209,79 @@ function saveEditDeferred({amount, desc, cur, note, subcat}){
   const oldIds=group.map(x=>x.id);
   const groupId=editDeferGroup;
 
-  const perMonth=Math.floor((amount/n)*100)/100;
+  const _origFx=data.find(x=>String(x.id)===String(editId))||null; // TC histórico
+
+  // Desgloses del diferido: se PRORRATEAN entre las N mensualidades
+  const activeDesg=(typeof editDesgloses!=='undefined'?editDesgloses:[]).filter(d=>d.amount>0);
+  const totalDesg=activeDesg.reduce((s,d)=>s+d.amount,0);
+  const principalTotal=+(amount-totalDesg).toFixed(2);
+  if(principalTotal<0){ toast('Los desgloses no pueden superar el gasto'); return; }
+
+  // Beneficio del diferido: se acredita COMPLETO en la mensualidad elegida
+  const benAmt=(editType==='egreso'&&editBenOn)?getEditBenAmount():0;
+  if(benAmt>0 && !editBenType){ toast('Elige el tipo de beneficio'); return; }
+  const benMonth=Math.min(Math.max(parseInt(document.getElementById('e-ben-month')?.value||'1',10)||1,1),n);
+
+  const perMonth=Math.floor((principalTotal/n)*100)/100;
   let acc=0;
   const newEntries=[];
-  const _origFx=data.find(x=>String(x.id)===String(editId))||null; // TC histórico
+  const desgAcc=activeDesg.map(()=>0);
+  const desgPer=activeDesg.map(d=>Math.floor((d.amount/n)*100)/100);
+
   for(let i=0;i<n;i++){
     let monthAmt=perMonth;
-    if(i===n-1) monthAmt=+(amount-acc).toFixed(2);
+    if(i===n-1) monthAmt=+(principalTotal-acc).toFixed(2);
     acc+=perMonth;
     const d=diferirMonthlyDate(startDate,i);
     const dateStr=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-    newEntries.push({
+    const madre={
       id: genId(), type:'egreso',
       amount:monthAmt, amountMXN:toMXNEdit(monthAmt,cur,_origFx), currency:cur,
       desc, category:editCat, subcategory:subcat,
       method, date:dateStr, note,
       deferGroup:groupId, deferIndex:i+1, deferTotal:n, deferOriginal:amount
+    };
+    newEntries.push(madre);
+
+    activeDesg.forEach((dg,k)=>{
+      let dAmt=desgPer[k];
+      if(i===n-1) dAmt=+(dg.amount-desgAcc[k]).toFixed(2);
+      desgAcc[k]+=desgPer[k];
+      if(dAmt<=0) return;
+      const dsubs=sortedSubcats(editType, dg.category);
+      const dHasSubs=dsubs && !(dsubs.length===1 && dsubs[0]==='—');
+      newEntries.push({
+        id:genId(), type:editType,
+        amount:dAmt, amountMXN:toMXNEdit(dAmt,cur,_origFx), currency:cur,
+        desc:((dg.desc||'').trim()) ? dg.desc.trim() : desc,
+        category:dg.category, subcategory: dHasSubs?dg.subcategory:'',
+        method, date:dateStr,
+        note:[`Desglose de: ${desc}`, dg.note||''].filter(Boolean).join(' | '),
+        linkedTo:madre.id
+      });
     });
+
+    if(benAmt>0 && (i+1)===benMonth){
+      newEntries.push({
+        id:genId(), type:'ahorro-pasivo',
+        amount:benAmt, amountMXN:toMXNEdit(benAmt,cur,_origFx), currency:cur,
+        desc:desc, category:editBenType, subcategory:'',
+        method:null, date:dateStr,
+        note:`Beneficio de: ${desc} | acreditado en la mensualidad ${benMonth} de ${n}`,
+        linkedTo:madre.id
+      });
+    }
   }
-  data=data.filter(x=>!sameGroup(x.deferGroup,groupId));
+  // Borrar el grupo viejo COMPLETO (mensualidades + sus hijos)
+  const oldGroupIds=new Set(group.map(x=>x.id));
+  const oldChildIds=data.filter(x=>x.linkedTo && oldGroupIds.has(x.linkedTo)).map(x=>x.id);
+  data=data.filter(x=>!sameGroup(x.deferGroup,groupId) && !(x.linkedTo && oldGroupIds.has(x.linkedTo)));
   newEntries.forEach(e=>data.unshift(e));
   save();
   showSyncing('⟳ Guardando...');
   // Primero borrar los viejos (secuencial), luego guardar los nuevos en un batch
   (async()=>{
-    for(const oid of oldIds){ await deleteEntryInSheets(oid); }
+    for(const oid of [...oldIds, ...oldChildIds]){ await deleteEntryInSheets(oid); }
     await saveBatchToSheets(newEntries);
     hideSyncing(); toast('✓ Gasto diferido actualizado');
   })();
