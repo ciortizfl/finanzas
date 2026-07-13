@@ -182,6 +182,9 @@ function _submitEntry(){
   if(_hasSubs && !subcat) return toast('Selecciona una subcategoría');
   if(!date) return toast('Selecciona una fecha');
   if(curType!=='ahorro-pasivo'&&!selMethod) return toast('Selecciona un método de pago');
+  // Desgloses a medio llenar → no se guarda nada (evita perder datos en silencio)
+  const _dErr = (typeof firstIncompleteDesglose==='function') ? firstIncompleteDesglose(desgloses, curType) : null;
+  if(_dErr) return toast(_dErr);
 
   // ── DIFERIR: si está activo, crear N registros mensuales vinculados ──
   if(curType==='egreso' && diferirHasData()){
