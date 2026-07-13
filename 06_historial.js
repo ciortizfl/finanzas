@@ -88,7 +88,7 @@ function renderBellView(hl, hlReal, searchQuery, animate){
   entries.sort((a,b)=>{
     const sa=map[keyOf(a)].sec, sb=map[keyOf(b)].sec;
     if(sa!==sb) return sa-sb;
-    return parseDate(b.date)-parseDate(a.date) || b.id-a.id;
+    return parseDate(b.date)-parseDate(a.date) || (b.amountMXN||0)-(a.amountMXN||0);
   });
   lastFilteredEntries=entries;
 
@@ -223,6 +223,37 @@ function renderSearchPresets(){
       box.removeChild(box.lastElementChild);
     }
   }
+}
+
+// ── ORDEN DENTRO DE UN DÍA ──
+// 1) Ingresos, de mayor a menor
+// 2) Egresos, de mayor a menor
+// 3) Beneficios sueltos (sin madre), de mayor a menor
+// Los hijos (desgloses, propinas, beneficios vinculados) van SIEMPRE pegados a
+// su madre, justo debajo, ordenados entre ellos de mayor a menor. La posición en
+// el ranking la define el monto FINAL de la madre.
+function orderDayEntries(entries){
+  const byId={};
+  entries.forEach(e=>{ byId[e.id]=e; });
+  const madres=entries.filter(e=>!e.linkedTo);
+  const hijosDe={};
+  entries.forEach(e=>{
+    if(!e.linkedTo) return;
+    (hijosDe[e.linkedTo]=hijosDe[e.linkedTo]||[]).push(e);
+  });
+  const desc=(a,b)=>(b.amountMXN||0)-(a.amountMXN||0);
+  const grupo=(rank)=>rank.sort(desc).flatMap(m=>{
+    const hijos=(hijosDe[m.id]||[]).sort(desc);
+    return [m, ...hijos];
+  });
+  const ingresos = grupo(madres.filter(e=>e.type==='ingreso'));
+  const egresos  = grupo(madres.filter(e=>e.type==='egreso'));
+  const benef    = grupo(madres.filter(e=>e.type!=='ingreso' && e.type!=='egreso'));
+  const out=[...ingresos, ...egresos, ...benef];
+  // Salvavidas: si algún hijo quedó huérfano (su madre no está en este día,
+  // p. ej. filtrada), se agrega al final para no perderlo de la vista.
+  entries.forEach(e=>{ if(!out.includes(e)) out.push(e); });
+  return out;
 }
 
 function entriesInCurrentDateScope(type){
@@ -836,7 +867,7 @@ function renderHistorial(animate){
     const listWrap=document.createElement('div');
     listWrap.className='tx-list';
     listWrap.style.marginBottom='4px';
-    groups[dateKey].forEach(e=>{
+    orderDayEntries(groups[dateKey]).forEach(e=>{
       const el=txEl(e,true);
       el.classList.add('tappable');
       // Guardar tanto el id propio como el del madre (para resaltar tras editar)
