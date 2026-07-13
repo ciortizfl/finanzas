@@ -33,7 +33,7 @@ function setBellMode(on){
 function toggleBellFilter(){
   setBellMode(!histBellMode);
   try{ updateResetButton(); }catch(e){}
-  renderHistorial();
+  renderHistorial(true); // misma cascada de entrada que el listado principal/rango
 }
 
 // Clasificación de una regla manual en su sección de la vista campanita:
@@ -48,7 +48,7 @@ function bellSectionOf(rule){
 // Render de la vista campanita: secciones en el orden acordado, con las filas
 // normales (tocables para abrir la edición). La búsqueda por palabra clave y
 // los chips de presets siguen funcionando dentro de esta vista.
-function renderBellView(hl, hlReal, searchQuery){
+function renderBellView(hl, hlReal, searchQuery, animate){
   const BELL_SECS=[
     '🔁 Indefinidos · semanales',
     '📆 Indefinidos · mensuales',
@@ -64,15 +64,13 @@ function renderBellView(hl, hlReal, searchQuery){
     renderPie([]);
     return;
   }
-  // Mapa comercio(+tipo) → {regla, sección}
+  const keyOf=e=>e.type+'||'+String(e.desc||'').trim().toLowerCase();
   const map={};
   rules.forEach(r=>{ map[(r.type+'||'+String(r.desc||'').trim().toLowerCase())]={rule:r, sec:bellSectionOf(r)}; });
 
-  // Universo: registros (no vinculados) cuyos comercio+tipo tienen regla manual
   let entries=data.filter(e=>{
     if(e.linkedTo) return false;
-    const k=e.type+'||'+String(e.desc||'').trim().toLowerCase();
-    return !!map[k];
+    return !!map[keyOf(e)];
   });
   if(searchQuery){
     entries=entries.filter(e=>{
@@ -87,33 +85,57 @@ function renderBellView(hl, hlReal, searchQuery){
     renderPie([]);
     return;
   }
-  // Ordenar: sección → fecha descendente
   entries.sort((a,b)=>{
-    const sa=map[a.type+'||'+String(a.desc||'').trim().toLowerCase()].sec;
-    const sb=map[b.type+'||'+String(b.desc||'').trim().toLowerCase()].sec;
+    const sa=map[keyOf(a)].sec, sb=map[keyOf(b)].sec;
     if(sa!==sb) return sa-sb;
     return parseDate(b.date)-parseDate(a.date) || b.id-a.id;
   });
   lastFilteredEntries=entries;
 
-  hl.innerHTML='';
-  let curSec=-1;
+  // MISMA estructura visual que el listado principal: encabezado de día +
+  // tarjeta .tx-list con las filas (tocables, con botón de borrar), agrupadas
+  // dentro de cada sección de recordatorio.
+  const container=document.createElement('div');
+  container.style.paddingBottom='8px';
+  let curSec=-1, curDay='', listWrap=null;
   entries.forEach(e=>{
-    const sec=map[e.type+'||'+String(e.desc||'').trim().toLowerCase()].sec;
+    const sec=map[keyOf(e)].sec;
     if(sec!==curSec){
-      curSec=sec;
-      const n=entries.filter(x=>map[x.type+'||'+String(x.desc||'').trim().toLowerCase()].sec===sec).length;
+      curSec=sec; curDay='';
+      const n=entries.filter(x=>map[keyOf(x)].sec===sec).length;
       const h=document.createElement('div');
       h.className='bell-sec-hdr';
       h.innerHTML=`${BELL_SECS[sec]} <span class="bell-sec-count">· ${n}</span>`;
-      hl.appendChild(h);
+      container.appendChild(h);
     }
-    const el=txEl(e,false);
+    const dayKey=String(e.date).slice(0,10);
+    if(dayKey!==curDay){
+      curDay=dayKey;
+      const d=parseDate(dayKey);
+      const hdr=document.createElement('div');
+      hdr.className='day-group-hdr';
+      hdr.innerHTML=`<span>${d.toLocaleDateString('es-MX',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}</span>`;
+      hdr.style.display='flex';
+      hdr.style.alignItems='center';
+      container.appendChild(hdr);
+      listWrap=document.createElement('div');
+      listWrap.className='tx-list';
+      listWrap.style.marginBottom='4px';
+      container.appendChild(listWrap);
+    }
+    const el=txEl(e,true);
     el.classList.add('tappable');
-    el.onclick=()=>openEdit(e.id);
-    hl.appendChild(el);
+    el._entryId=e.id;
+    el._parentId=e.linkedTo?e.linkedTo:e.id;
+    el.onclick=(ev)=>{
+      if(ev.target.classList.contains('tx-delete-btn')) return;
+      openEdit(e.linkedTo?e.linkedTo:e.id);
+    };
+    listWrap.appendChild(el);
   });
+  hl.appendChild(container);
   hlReal.replaceChildren(...hl.childNodes);
+  if(animate===true){ revealAnimate(container, true); }
   renderPie([]);
 }
 
@@ -158,7 +180,7 @@ function renderSearchPresets(){
   const box=document.getElementById('hist-presets');
   if(!box) return;
   const names=computeSearchPresets();
-  const cap=(window.innerWidth<=640)?5:10;   // móvil: máx 5 · web: máx 10
+  const cap=(window.innerWidth<=640)?5:15;   // móvil: máx 5 · web: máx 15
   const current=(document.getElementById('hist-search')?.value||'').trim().toLowerCase();
   box.innerHTML='';
   names.slice(0,cap).forEach(name=>{
@@ -681,7 +703,7 @@ function renderHistorial(animate){
     if(fbB) fbB.style.display='none';
     const brB=document.getElementById('hist-bell-row');
     if(brB) brB.style.display='flex';
-    renderBellView(hl, hlReal, isSearchMode?searchQuery:'');
+    renderBellView(hl, hlReal, isSearchMode?searchQuery:'', animate===true);
     return;
   }
 
