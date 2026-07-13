@@ -916,11 +916,19 @@ function txEl(e, showDelete){
   const userParts = [];
 
   if(isLinkedChild){
-    // HIJO (desglose/propina/beneficio): mostrar etiqueta limpia sin el nombre
-    // del comercio (ya está en el título) ni el "Monto original" (inútil aquí).
+    // HIJO (desglose/propina/beneficio): etiqueta limpia, sin el "Monto original".
+    // Si el hijo tiene NOMBRE PROPIO (su descripción difiere de la madre), la
+    // etiqueta conserva el ancla: "Desglose de Izzi". Si heredó el nombre, basta
+    // con "Desglose" (el nombre de la madre ya está en el título).
+    const _madre = data.find(x=>x.id===e.linkedTo) || null;
+    const _madreDesc = _madre ? String(_madre.desc||'').trim() : '';
+    const _tieneNombrePropio = _madreDesc &&
+      String(e.desc||'').trim().toLowerCase() !== _madreDesc.toLowerCase();
     (e.note||'').split(' | ').map(p=>p.trim()).filter(Boolean).forEach(p=>{
-      // "Desglose de: X" → "Desglose" (el nombre ya está en el título)
-      if(p.startsWith('Desglose de:')){ metaParts.push('Desglose'); return; }
+      if(p.startsWith('Desglose de:')){
+        metaParts.push(_tieneNombrePropio ? `Desglose de ${_madreDesc}` : 'Desglose');
+        return;
+      }
       if(p.startsWith('Propina de:')){ metaParts.push('Propina'); return; }
       if(p.startsWith('Beneficio de:')){ metaParts.push('Beneficio'); return; }
       // "Monto original" es inútil en un hijo → descartar
