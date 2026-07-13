@@ -75,12 +75,35 @@ function updateDesglose(id, field, value){
   if(field==='amount') d.amount = parseFloat(value)||0;
   else d[field] = value;
   if(field==='amount'){ updateDesgloseRemaining(); updateNoteDesgloseIndicators(); }
+
+  // Nombre propio → predecir su categoría/subcategoría (misma regla del formulario),
+  // solo si aún no se ha elegido categoría a mano en este desglose.
+  if(field==='desc'){
+    try{
+      if(!d.category && typeof predictCatForDesc==='function'){
+        const p=predictCatForDesc(value, curType);
+        if(p){
+          d.category=p.category;
+          const subs=sortedSubcats(curType, p.category);
+          const hasSubs=subs && !(subs.length===1 && subs[0]==='—');
+          d.subcategory=(hasSubs && p.subcategory && subs.includes(p.subcategory)) ? p.subcategory : '';
+          d._catPred=true;
+          renderDesgloses(false);
+        }
+      } else if(d._catPred && String(value||'').trim().length<3){
+        // Se borró el nombre propio: deshacer SOLO lo que puso la predicción
+        d.category=''; d.subcategory=''; d._catPred=false;
+        renderDesgloses(false);
+      }
+    }catch(e){}
+  }
 }
 
 // Selección de categoría de un desglose — revela la subcategoría progresivamente
 function setDesgloseCat(id, cat){
   const d=desgloses.find(x=>x.id===id);
   if(!d) return;
+  d._catPred=false;   // elección manual: la predicción ya no la deshace
   d.category=cat; d.subcategory='';
   refreshAllDesgloseSubcatDropdowns();
   revealDesgloseFields(id);
@@ -419,10 +442,33 @@ function updateEditDesglose(id, field, value){
   if(field==='amount') d.amount = parseFloat(value)||0;
   else d[field] = value;
   if(field==='amount'){ updateEditDesgloseRemaining(); updateEditNoteDesgloseIndicators(); }
+
+  // Nombre propio → predecir su categoría/subcategoría (misma regla del formulario),
+  // solo si aún no se ha elegido categoría a mano en este desglose.
+  if(field==='desc'){
+    try{
+      if(!d.category && typeof predictCatForDesc==='function'){
+        const p=predictCatForDesc(value, editType);
+        if(p){
+          d.category=p.category;
+          const subs=sortedSubcats(editType, p.category);
+          const hasSubs=subs && !(subs.length===1 && subs[0]==='—');
+          d.subcategory=(hasSubs && p.subcategory && subs.includes(p.subcategory)) ? p.subcategory : '';
+          d._catPred=true;
+          renderEditDesgloses();
+        }
+      } else if(d._catPred && String(value||'').trim().length<3){
+        // Se borró el nombre propio: deshacer SOLO lo que puso la predicción
+        d.category=''; d.subcategory=''; d._catPred=false;
+        renderEditDesgloses();
+      }
+    }catch(e){}
+  }
 }
 function setEditDesgloseCat(id, cat){
   const d=editDesgloses.find(x=>x.id===id);
   if(!d) return;
+  d._catPred=false;   // elección manual: la predicción ya no la deshace
   d.category=cat; d.subcategory='';
   refreshAllEditDesgloseSubcatDropdowns();
   revealEditDesgloseFields(id);
