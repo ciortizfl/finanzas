@@ -94,24 +94,23 @@ function editShowPropinaBenButtons(){
   editUpdateDesgloseForDiferir();
 }
 
-// Ocultar Desglose abajo cuando Diferir está activo en edición
+// HOTFIX (post-R2, fuera de alcance de persistencia): esta función es un
+// residuo de cuando Diferido y Desglose se excluían mutuamente en el modal de
+// edición. La regla cambió (ahora conviven, igual que en el registro) pero
+// aquí seguía vaciando `editDesgloses` cada vez que el panel de diferido
+// estaba activo — por eso un diferido con desglose perdía su desglose al
+// editarse. El equivalente del lado del REGISTRO (updateDesgloseButtonForDiferir
+// en 02_registro.js) ya no borra nada; esta versión ahora hace lo mismo:
+// solo reparte el ancho del renglón, nunca toca los datos.
 function editUpdateDesgloseForDiferir(){
   const desgBtn=document.getElementById('e-desglose-toggle-btn');
   const noteBtn=document.getElementById('e-note-toggle-btn');
+  const remBtn=document.getElementById('e-rem-toggle-btn');
   if(!desgBtn || !noteBtn) return;
-  if(_eDiferirVisible || editDiferirHasData()){
-    if(_eDesgloseVisible){
-      _eDesgloseVisible=false;
-      const sec=document.getElementById('e-desglose-section');
-      if(sec) sec.style.display='none';
-    }
-    editDesgloses=[];
-    desgBtn.style.display='none';
-    noteBtn.style.flex='1 1 100%';
-  } else if(editType==='egreso'){
-    desgBtn.style.display='';
-    noteBtn.style.flex='';
-  }
+  desgBtn.style.display = (editType==='egreso') ? '' : 'none';
+  const visibles=[noteBtn,desgBtn,remBtn].filter(b=>b && b.style.display!=='none');
+  visibles.forEach(b=>{ b.style.flex='1 1 0'; });
+  if(visibles.length===1) noteBtn.style.flex='1 1 100%';
   updateEditNoteMode();
 }
 
