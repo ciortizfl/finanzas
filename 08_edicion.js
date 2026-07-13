@@ -108,7 +108,10 @@ function openEdit(id) {
   editMethod = e.method||'Tarjeta de crédito';
   editBenOn  = false;
   // Mostrar el estado del recordatorio de este comercio (si tiene regla)
-  try{ if(typeof renderEditReminderSection==='function') renderEditReminderSection(); }catch(err){}
+  try{
+    if(typeof resetEditRemState==='function') resetEditRemState();
+    if(typeof renderEditReminderSection==='function') renderEditReminderSection();
+  }catch(err){}
 
   // --- Tipo ---
   // Quitar active de todos los botones de tipo
@@ -770,7 +773,9 @@ function startCopy(){
     const t=document.getElementById('edit-modal-title'); if(t) t.textContent='Copia del registro';
     const del=document.querySelector('#edit-modal .btn-delete'); if(del) del.style.display='none';
     const cb=document.getElementById('e-copy-btn'); if(cb) cb.style.display='none';
-    const rs=document.getElementById('e-rem-section'); if(rs) rs.style.display='none';
+    // La sección de recordatorio SÍ se muestra en modo copia (la copia es
+    // idéntica); además es "viva": sigue al nombre que escribas.
+    try{ renderEditReminderSection(); }catch(_e){}
   };
   if(!sheet){ enterCopy(); return; }
   // Animación "fantasma que se asienta" (opción 2 elegida): la hoja se eleva
