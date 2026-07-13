@@ -298,9 +298,22 @@ function saveEditDeferred({amount, desc, cur, note, subcat}){
   // guardado fallaba a medio camino. Además, el borrado en Sheets arrastra en
   // cascada a los hijos vinculados, así que basta con borrar las mensualidades.)
   (async()=>{
-    await saveBatchToSheets(newEntries);
-    for(const oid of oldIds){ await deleteEntryInSheets(oid); }
-    hideSyncing(); toast('✓ Gasto diferido actualizado');
+    const r = await saveBatchToSheets(newEntries);
+    if(!r.ok){
+      // R2: la escritura falló → NO se borra nada. Quedan las mensualidades
+      // viejas en la nube (duplicado recuperable) en vez de perderlo todo.
+      hideSyncing();
+      toast('⚠️ No se pudo sincronizar: no se borró nada');
+      return;
+    }
+    let delOk = true;
+    for(const oid of oldIds){
+      const dr = await deleteEntryInSheets(oid);
+      if(!dr.ok) delOk = false;
+    }
+    hideSyncing();
+    if(delOk) toast('✓ Gasto diferido actualizado');
+    else toast('⚠️ Se guardó, pero quedaron mensualidades viejas sin borrar');
   })();
   closeModalWithSlide();
   renderHistorial(); renderBalance();
@@ -338,10 +351,25 @@ function saveEditConvertToDefer({amount, desc, cur, note, subcat}){
   save();
   showSyncing('⟳ Guardando...');
   (async()=>{
-    await deleteEntryInSheets(editId);
-    for(const cid of oldChildIds){ await deleteEntryInSheets(cid); }
-    await saveBatchToSheets(newEntries);
-    hideSyncing(); toast(`✓ Gasto diferido en ${n} meses`);
+    // R2 · ORDEN SEGURO: este flujo BORRABA el registro original ANTES de guardar
+    // las mensualidades nuevas — el mismo patrón que causó la pérdida de datos.
+    // Ahora se crea primero, se verifica, y solo entonces se borra lo viejo.
+    const r = await saveBatchToSheets(newEntries);
+    if(!r.ok){
+      hideSyncing();
+      toast('⚠️ No se pudo sincronizar: no se borró nada');
+      return;
+    }
+    let delOk = true;
+    const dr = await deleteEntryInSheets(editId);
+    if(!dr.ok) delOk = false;
+    for(const cid of oldChildIds){
+      const dc = await deleteEntryInSheets(cid);
+      if(!dc.ok) delOk = false;
+    }
+    hideSyncing();
+    if(delOk) toast(`✓ Gasto diferido en ${n} meses`);
+    else toast('⚠️ Se guardó, pero el registro viejo no se borró');
   })();
   closeModalWithSlide();
   renderHistorial(); renderBalance();
@@ -367,11 +395,25 @@ function saveEditRemoveDefer({amount, desc, cur, note, subcat}){
   data.unshift(single);
   save();
   showSyncing('⟳ Guardando...');
-  const saves=[
-    ...oldIds.map(oid=>deleteEntryInSheets(oid)),
-    saveEntryToSheets(single)
-  ];
-  Promise.all(saves).then(()=>{ hideSyncing(); toast('✓ Diferido convertido en gasto único'); });
+  // R2 · ORDEN SEGURO: antes los borrados del grupo y el guardado del registro
+  // nuevo salían EN PARALELO; si el guardado fallaba y los borrados triunfaban,
+  // se perdía todo. Ahora: guardar → verificar → borrar.
+  (async()=>{
+    const r = await saveEntryToSheets(single);
+    if(!r.ok){
+      hideSyncing();
+      toast('⚠️ No se pudo sincronizar: no se borró nada');
+      return;
+    }
+    let delOk = true;
+    for(const oid of oldIds){
+      const dr = await deleteEntryInSheets(oid);
+      if(!dr.ok) delOk = false;
+    }
+    hideSyncing();
+    if(delOk) toast('✓ Diferido convertido en gasto único');
+    else toast('⚠️ Se guardó, pero quedaron mensualidades viejas sin borrar');
+  })();
   closeModalWithSlide();
   renderHistorial(); renderBalance();
 }
@@ -600,17 +642,31 @@ function saveEdit(){
   showSyncing(_isCopy ? '⟳ Guardando copia...' : '⟳ Actualizando...');
   // ORDEN SEGURO: crear/actualizar primero, borrar los hijos viejos al final.
   (async()=>{
+    let rPadre;
     if(_isCopy){
-      await saveEntryToSheets({..._copyParent, benType:'', benAmount:0, benDesc:''});
+      rPadre = await saveEntryToSheets({..._copyParent, benType:'', benAmount:0, benDesc:''});
     } else {
       const updatedEntry = data.find(x=>x.id===editId);
-      await updateEntryInSheets({...updatedEntry, benType:'', benAmount:0, benDesc:''});
+      rPadre = await updateEntryInSheets({...updatedEntry, benType:'', benAmount:0, benDesc:''});
     }
-    await Promise.all(newChildren.map(c=>saveEntryToSheets({...c, benType:'', benAmount:0, benDesc:''})));
+    const rHijos = await Promise.all(newChildren.map(c=>saveEntryToSheets({...c, benType:'', benAmount:0, benDesc:''})));
+    // R2: si la escritura no se confirmó, NO se borran los hijos viejos.
+    if(!rPadre.ok || !_allOk(rHijos)){
+      hideSyncing();
+      toast(_isCopy ? '⚠️ Copia guardada en el teléfono, pero no se sincronizó'
+                    : '⚠️ No se pudo sincronizar: no se borró nada');
+      return;
+    }
+    let delOk = true;
     if(!_isCopy){
-      for(const oid of oldChildIds){ await deleteEntryInSheets(oid); }
+      for(const oid of oldChildIds){
+        const dr = await deleteEntryInSheets(oid);
+        if(!dr.ok) delOk = false;
+      }
     }
-    hideSyncing(); toast(_isCopy ? '✓ Copia guardada' : '✓ Registro actualizado');
+    hideSyncing();
+    if(delOk) toast(_isCopy ? '✓ Copia guardada' : '✓ Registro actualizado');
+    else toast('⚠️ Se guardó, pero quedaron desgloses viejos sin borrar');
   })();
 
   const _finalId = _parentId;
@@ -692,7 +748,13 @@ function deleteEntry(){
       data=data.filter(x=>!sameGroup(x.deferGroup,groupId));
       save();
       showSyncing('⟳ Eliminando...');
-      Promise.all(groupIds.map(gid=>deleteEntryInSheets(gid))).then(()=>{ hideSyncing(); toast('Gasto diferido eliminado'); });
+      Promise.all(groupIds.map(gid=>deleteEntryInSheets(gid))).then(results=>{
+        hideSyncing();
+        // R2: el borrado local ya ocurrió y está protegido; se dice la verdad
+        // sobre si la nube lo recibió o no.
+        if(_allOk(results)) toast('Gasto diferido eliminado');
+        else toastSyncFailed('Eliminado');
+      });
       renderHistorial(); renderBalance();
     }, 520);
     return;
@@ -722,7 +784,11 @@ function deleteEntry(){
       data=data.filter(x=>x.id!==_delId&&x.linkedTo!==_delId);
       save();
       showSyncing('⟳ Eliminando...');
-      deleteEntryInSheets(_delId).then(()=>{ hideSyncing(); toast('Registro eliminado'); });
+      deleteEntryInSheets(_delId).then(r=>{
+        hideSyncing();
+        if(r && r.ok) toast('Registro eliminado');
+        else toastSyncFailed('Eliminado');
+      });
       renderHistorial({cascadeFromIndex:cascadeFrom}); renderBalance();
     });
   }, 520); // esperar a que el modal termine de bajar
