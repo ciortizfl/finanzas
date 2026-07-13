@@ -505,6 +505,15 @@ function saveEdit(){
     });
   }
 
+  // Recordatorio programado desde el modal (paridad con el formulario):
+  // solo si se cumplieron ambas condiciones (frecuencia + vigencia).
+  try{
+    if(typeof eRemHasData==='function' && eRemHasData()){
+      createManualReminderFromEditModal(desc, editType, date);
+      try{ updateReminderCard(); }catch(_e){}
+    }
+  }catch(_e){}
+
   save();
   showSyncing(_isCopy ? '⟳ Guardando copia...' : '⟳ Actualizando...');
   let saves;
