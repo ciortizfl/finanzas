@@ -271,12 +271,23 @@ async function saveEditDeferred({amount, desc, cur, note, subcat, date}){
     });
 
     if(benAmt>0 && (i+1)===benMonth){
+      // R5: agregar la etiqueta "X% de $Y" cuando se capturó como porcentaje —
+      // esta función no la escribía, así que una segunda edición perdía la
+      // posibilidad de reconstruir el % original (aunque la primera vez sí
+      // se hubiera guardado bien desde el registro).
+      let _benNote=`Beneficio de: ${desc}`;
+      if(editBenType_mode==='pct'){
+        const _pct=parseFloat(document.getElementById('e-ben-pct')?.value)||0;
+        const _sym=cur==='MXN'?'$':`${cur} `;
+        _benNote += ` | ${_pct}% de ${_sym}${amount.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})}`;
+      }
+      _benNote += ` | acreditado en la mensualidad ${benMonth} de ${n}`;
       newEntries.push({
         id:genId(), type:'ahorro-pasivo',
         amount:benAmt, amountMXN:toMXNEdit(benAmt,cur,_origFx), currency:cur,
         desc:desc, category:editBenType, subcategory:'',
         method:null, date:dateStr,
-        note:`Beneficio de: ${desc} | acreditado en la mensualidad ${benMonth} de ${n}`,
+        note:_benNote,
         linkedTo:madre.id
       });
     }
@@ -371,12 +382,19 @@ async function saveEditConvertToDefer({amount, desc, cur, note, subcat}){
     newEntries.push(madre);
     // El beneficio se acredita completo en la mensualidad elegida
     if(benAmt>0 && (i+1)===benMonth){
+      let _benNote=`Beneficio de: ${desc}`;
+      if(editBenType_mode==='pct'){
+        const _pct=parseFloat(document.getElementById('e-ben-pct')?.value)||0;
+        const _sym=cur==='MXN'?'$':`${cur} `;
+        _benNote += ` | ${_pct}% de ${_sym}${amount.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})}`;
+      }
+      _benNote += ` | acreditado en la mensualidad ${benMonth} de ${n}`;
       newEntries.push({
         id: genId(), type:'ahorro-pasivo',
         amount:benAmt, amountMXN:toMXNEdit(benAmt,cur,_origFx), currency:cur,
         desc, category:editBenType, subcategory:'',
         date:dateStr,
-        note:`Beneficio de: ${desc} | acreditado en la mensualidad ${benMonth} de ${n}`,
+        note:_benNote,
         linkedTo:madre.id
       });
     }
