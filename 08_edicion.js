@@ -200,15 +200,26 @@ function openEdit(id) {
   const _linkedPropina = e.type==='egreso' ? data.find(x=>x.linkedTo===id&&x.subcategory==='Propinas'&&(x.note||'').includes('Propina de:')) : null;
   const _propinaIncluida = _linkedPropina && (_linkedPropina.note||'').includes('incluida');
 
+  // R5: el beneficio solo se suma de vuelta si ese tipo SÍ redujo el monto
+  // (descuento aplicado). El cashback nunca lo redujo, así que e.amount YA es
+  // el original completo — sumarlo aquí lo inflaba (el bug de "690").
+  const _benReduce = _linkedBen && typeof benReduceGasto==='function' && benReduceGasto(_linkedBen.category);
   let _origAmount = e.amount;
-  if(_linkedBen) _origAmount += _linkedBen.amount;
+  if(_linkedBen && _benReduce) _origAmount += _linkedBen.amount;
   _realDesgloses.forEach(d=>{ _origAmount += d.amount; });
   if(_propinaIncluida) _origAmount += _linkedPropina.amount;
   _origAmount = +(_origAmount).toFixed(2);
 
-  // Si es un gasto diferido, el monto a editar es el TOTAL original, no la mensualidad
+  // Si es un gasto diferido, el monto a editar es el TOTAL original, no la
+  // mensualidad. `deferOriginal` (R5) ya refleja cualquier descuento aplicado
+  // ANTES de prorratear — hay que sumar ese descuento de vuelta para mostrar lo
+  // que realmente escribiste. El cashback nunca tocó ese total, así que no se
+  // suma nada en ese caso (deferOriginal ya es el original completo).
   if(e.deferGroup && e.deferOriginal){
     _origAmount = e.deferOriginal;
+    if(_linkedBen && _benReduce){
+      _origAmount = +(_origAmount + _linkedBen.amount).toFixed(2);
+    }
   }
 
   document.getElementById('e-amount').value   = formatAmountString(String(_origAmount));
@@ -271,20 +282,36 @@ function openEdit(id) {
   document.getElementById('e-inline-toggles').style.display = (e.type==='egreso')?'block':'none';
 
   // --- Beneficio ---
-  const linked = e.type==='egreso' ? data.find(x=>x.linkedTo===id&&x.type==='ahorro-pasivo') : null;
-  if(linked){
-    editBenOn=true; editBenType=linked.category;
-    document.getElementById('e-ben-amount').value = formatAmountString(String(linked.amount));
+  // R5: reutilizamos _linkedBen (ya buscado arriba en TODO el grupo diferido)
+  // en vez de buscar solo en este id. Antes, si abrías un mes DISTINTO al que
+  // tiene el beneficio acreditado, esta búsqueda más estrecha no lo encontraba
+  // y el beneficio parecía no existir al editar ese mes.
+  if(_linkedBen){
+    editBenOn=true; editBenType=_linkedBen.category;
+    document.getElementById('e-ben-amount').value = formatAmountString(String(_linkedBen.amount));
+    // R5: reconstruir si se capturó como % (y con qué valor), leyendo la
+    // etiqueta "X% de $Y" que el guardado ya escribe en la nota del beneficio.
+    // Sin esto, la edición siempre mostraba modo "$" con el resultado ya
+    // calculado, perdiendo la forma en que realmente lo capturaste.
+    const _pctMatch = (_linkedBen.note||'').match(/(\d+(?:\.\d+)?)%\s+de\s+/);
+    const ePctInput = document.getElementById('e-ben-pct');
+    if(_pctMatch){
+      editBenType_mode='pct';
+      if(ePctInput) ePctInput.value = _pctMatch[1];
+    } else {
+      editBenType_mode='monto';
+      if(ePctInput) ePctInput.value='';
+    }
   } else {
     editBenOn=false; editBenType='Cashback';
     document.getElementById('e-ben-amount').value='';
+    editBenType_mode='monto';
+    const ePctInput=document.getElementById('e-ben-pct'); if(ePctInput) ePctInput.value='';
   }
-  // El beneficio se guarda como monto MXN final; al editar siempre se muestra como monto directo
-  editBenType_mode='monto';
-  const ePctInput=document.getElementById('e-ben-pct'); if(ePctInput) ePctInput.value='';
-  setEditBenType('monto');
-  buildBenTypeBlocks('e-ben-type-blocks', editBenType, t=>{ editBenType=t; });
+  setEditBenType(editBenType_mode);
+  buildBenTypeBlocks('e-ben-type-blocks', editBenType, t=>{ editBenType=t; try{ updateEditBenMonthSelector(); }catch(e){} });
   updateEBenUI();
+  try{ updateEditBenMonthSelector(); }catch(e){}
   onECurChange();
 
   // --- Propina (solo egreso) ---
@@ -991,6 +1018,11 @@ function updateEditBenMonthSelector(){
     ? editDiferirMonths
     : (grupo.length ? (grupo[0].deferTotal||grupo.length) : 0);
   if(!n || n<2){ row.style.display='none'; return; }
+  // R5: solo aplica a beneficios tipo crédito recibido (Cashback). Un descuento
+  // aplicado ya redujo el total antes de prorratear; no se "acredita" en un mes.
+  if(!editBenType || (typeof benReduceGasto==='function' && benReduceGasto(editBenType))){
+    row.style.display='none'; return;
+  }
   // Mes donde está hoy el beneficio (si ya existe)
   let actual=1;
   const madres=grupo.slice().sort((a,b)=>a.deferIndex-b.deferIndex);
