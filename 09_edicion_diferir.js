@@ -208,15 +208,14 @@ async function saveEditDeferred({amount, desc, cur, note, subcat, date}){
   const groupId=genId();   // grupo NUEVO: los borrados del viejo no pueden tocarlo
 
   const _origFx=data.find(x=>String(x.id)===String(editId))||null; // TC histórico
+  const _metaBase={};   // R6: TC automático del momento → meta, no la nota
   // TC manual en un diferido: recalcula TODAS las mensualidades y sus hijos
   if(cur!=='MXN'){
     if(_fxOverrideEdit && _fxOverrideEdit>0){
       const _auto=(typeof _editFxAuto!=='undefined' && _editFxAuto) ? _editFxAuto : fxRateForEdit(_origFx,cur);
-      const _tag=(_auto>0)?`TCauto: ${_auto}`:'';
-      note=[String(note||'').split(' | ').filter(p=>!p.trim().startsWith('TCauto:')).join(' | '), _tag].filter(Boolean).join(' | ');
+      if(_auto>0) _metaBase.fxAuto=_auto;
     } else if(typeof _editFxAuto!=='undefined' && _editFxAuto){
-      _fxOverrideEdit=_editFxAuto;   // revertido
-      note=String(note||'').split(' | ').filter(p=>!p.trim().startsWith('TCauto:')).join(' | ');
+      _fxOverrideEdit=_editFxAuto;   // revertido: vuelve al TC automático
     }
   }
 
@@ -260,6 +259,7 @@ async function saveEditDeferred({amount, desc, cur, note, subcat, date}){
       amount:monthAmt, amountMXN:toMXNEdit(monthAmt,cur,_origFx), currency:cur,
       desc, category:editCat, subcategory:subcat,
       method, date:dateStr, note,
+      meta:{..._metaBase},
       deferGroup:groupId, deferIndex:i+1, deferTotal:n, deferOriginal:deferTotalAmount
     };
     newEntries.push(madre);
@@ -277,7 +277,8 @@ async function saveEditDeferred({amount, desc, cur, note, subcat, date}){
         desc:((dg.desc||'').trim()) ? dg.desc.trim() : desc,
         category:dg.category, subcategory: dHasSubs?dg.subcategory:'',
         method, date:dateStr,
-        note:[`Desglose de: ${desc}`, dg.note||''].filter(Boolean).join(' | '),
+        note: dg.note||'',
+        meta:{rel:'desglose'},
         linkedTo:madre.id
       });
     });
@@ -287,19 +288,18 @@ async function saveEditDeferred({amount, desc, cur, note, subcat, date}){
       // esta función no la escribía, así que una segunda edición perdía la
       // posibilidad de reconstruir el % original (aunque la primera vez sí
       // se hubiera guardado bien desde el registro).
-      let _benNote=`Beneficio de: ${desc}`;
+      const _bm={rel:'beneficio', benMonth:{i:benMonth, n:n}};
       if(editBenType_mode==='pct'){
         const _pct=parseFloat(document.getElementById('e-ben-pct')?.value)||0;
-        const _sym=cur==='MXN'?'$':`${cur} `;
-        _benNote += ` | ${_pct}% de ${_sym}${amount.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})}`;
+        _bm.ben={pct:_pct, base:amount};
       }
-      _benNote += ` | acreditado en la mensualidad ${benMonth} de ${n}`;
+      const _benNote='';
       newEntries.push({
         id:genId(), type:'ahorro-pasivo',
         amount:benAmt, amountMXN:toMXNEdit(benAmt,cur,_origFx), currency:cur,
         desc:desc, category:editBenType, subcategory:'',
         method:null, date:dateStr,
-        note:_benNote,
+        note:_benNote, meta:_bm,
         linkedTo:madre.id
       });
     }
@@ -389,24 +389,24 @@ async function saveEditConvertToDefer({amount, desc, cur, note, subcat}){
       amount:monthAmt, amountMXN:toMXNEdit(monthAmt,cur,_origFx), currency:cur,
       desc, category:editCat, subcategory:subcat,
       method, date:dateStr, note,
+      meta:{..._metaBase},
       deferGroup:groupId, deferIndex:i+1, deferTotal:n, deferOriginal:deferTotalAmount
     };
     newEntries.push(madre);
     // El beneficio se acredita completo en la mensualidad elegida
     if(benAmt>0 && (i+1)===benMonth){
-      let _benNote=`Beneficio de: ${desc}`;
+      const _bm={rel:'beneficio', benMonth:{i:benMonth, n:n}};
       if(editBenType_mode==='pct'){
         const _pct=parseFloat(document.getElementById('e-ben-pct')?.value)||0;
-        const _sym=cur==='MXN'?'$':`${cur} `;
-        _benNote += ` | ${_pct}% de ${_sym}${amount.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})}`;
+        _bm.ben={pct:_pct, base:amount};
       }
-      _benNote += ` | acreditado en la mensualidad ${benMonth} de ${n}`;
+      const _benNote='';
       newEntries.push({
         id: genId(), type:'ahorro-pasivo',
         amount:benAmt, amountMXN:toMXNEdit(benAmt,cur,_origFx), currency:cur,
         desc, category:editBenType, subcategory:'',
         date:dateStr,
-        note:_benNote,
+        note:_benNote, meta:_bm,
         linkedTo:madre.id
       });
     }
@@ -465,7 +465,7 @@ async function saveEditRemoveDefer({amount, desc, cur, note, subcat, date}){
     id: genId(), type:'egreso',
     amount:amount, amountMXN:toMXNEdit(amount,cur,group[0]), currency:cur,
     desc, category:editCat, subcategory:subcat,
-    method, date:dateStr, note, linkedTo:null
+    method, date:dateStr, note, meta:{..._metaBase}, linkedTo:null
   };
   data.unshift(single);
   save();
@@ -582,22 +582,21 @@ async function saveEdit(){
 
   // Nota principal: SOLO la nota del usuario (sin "Monto original", que se
   // muestra dinámicamente en el listado). Se conserva el TC si aplica.
-  let mainNote=note;
+  const mainNote=note;
+  const _mainMeta={};   // R6: fxAuto va aquí, no en la nota
   // Etiqueta de sistema del TC: si al guardar hay TC manual, se conserva/crea el
   // "TCauto" (el automático original) para poder revertir después. Si el campo se
   // vació (revertir), la etiqueta desaparece y todo vuelve al TC automático original.
-  let _fxTag='';
   if(cur!=='MXN'){
     if(_fxOverrideEdit && _fxOverrideEdit>0){
       const _auto = (typeof _editFxAuto!=='undefined' && _editFxAuto) ? _editFxAuto : fxRateForEdit(_origFx,cur);
-      if(_auto>0) _fxTag=`TCauto: ${_auto}`;
+      if(_auto>0) _mainMeta.fxAuto=_auto;
     } else if(typeof _editFxAuto!=='undefined' && _editFxAuto){
-      // Revertido: recalcular todo con el automático original
-      _fxOverrideEdit=_editFxAuto;
-      _fxTag='';
+      _fxOverrideEdit=_editFxAuto;   // revertido
     }
   }
-  const noteWithRate=[mainNote,rateNoteEdit(cur,_origFx),_fxTag].filter(Boolean).join(' | ');
+  // R6: el "TC:" ya no se escribe — el listado lo calcula desde amountMXN/amount.
+  const noteWithRate=mainNote;
 
   const idx=data.findIndex(x=>x.id===editId);
   if(idx===-1) return;
@@ -617,7 +616,7 @@ async function saveEdit(){
     type:editType, amount:mainAmount, amountMXN, currency:cur,
     desc, category:editCat, subcategory:subcat,
     method:editType!=='ahorro-pasivo'?editMethod:null,
-    date, note:noteWithRate
+    date, note:noteWithRate, meta:_mainMeta
   };
 
   const newChildren=[];
@@ -627,21 +626,17 @@ async function saveEdit(){
     const propinaAmt=getEditPropinaAmount();
     if(propinaAmt>0){
       const propinaAmtMXN=toMXNEdit(propinaAmt,cur,_origFx);
-      const sym=cur==='MXN'?'$':`${cur} `;
-      const propinaNoteparts=[`Propina de: ${desc}`];
+      const _tm={rel:'propina', tip:{inc:!!editPropinaIncluida}};
       if(editPropinaType==='pct'){
         const pct=parseFloat(document.getElementById('e-propina-pct').value)||0;
-        const label=editPropinaIncluida?`incluida en ${sym}${amount.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})}`:`adicional a ${sym}${amount.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})}`;
-        propinaNoteparts.push(`${pct}% ${label}`);
-      } else {
-        propinaNoteparts.push(editPropinaIncluida?'incluida':'adicional');
+        _tm.tip.pct=pct; _tm.tip.base=amount;
       }
       const propinaEntry={
         id:genId(), type:'egreso',
         amount:propinaAmt, amountMXN:propinaAmtMXN, currency:cur,
         desc:desc, category:'Generosidad', subcategory:'Propinas',
         method:editPropinaMethod||editMethod, date,
-        note:propinaNoteparts.join(' | '), linkedTo:_parentId
+        note:'', meta:_tm, linkedTo:_parentId
       };
       data.unshift(propinaEntry);
       newChildren.push(propinaEntry);
@@ -652,18 +647,17 @@ async function saveEdit(){
   if(editType==='egreso'&&editBenOn&&benAmt>0){
     const bt=editBenType;
     const baMXN=toMXNEdit(benAmt,cur,_origFx);
-    let benNote=`Beneficio de: ${desc}`;
+    const _bmN={rel:'beneficio'};
     if(editBenType_mode==='pct'){
       const pct=parseFloat(document.getElementById('e-ben-pct').value)||0;
-      const sym=cur==='MXN'?'$':`${cur} `;
-      benNote += ` | ${pct}% de ${sym}${amount.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})}`;
+      _bmN.ben={pct:pct, base:amount};
     }
     const benEntry={
       id:genId(), type:'ahorro-pasivo',
       amount:benAmt, amountMXN:baMXN, currency:cur,
       desc:desc, category:bt, subcategory:'',
       method:null, date,
-      note:benNote, linkedTo:_parentId
+      note:'', meta:_bmN, linkedTo:_parentId
     };
     data.unshift(benEntry);
     newChildren.push(benEntry);
@@ -675,16 +669,13 @@ async function saveEdit(){
       const dMXN=toMXNEdit(d.amount, cur, _origFx);
       const dsubs=sortedSubcats(editType, d.category);
       const dHasSubs=dsubs && !(dsubs.length===1 && dsubs[0]==='—');
-      // El desglose solo lleva "Desglose de: X" (sin monto original)
-      let dNote=`Desglose de: ${desc}`;
-      if(d.note) dNote=`${d.note} | ${dNote}`;
       const dEntry={
         id: genId(), type:editType,
         amount:d.amount, amountMXN:dMXN, currency:cur,
         desc:((d.desc||'').trim()) ? d.desc.trim() : desc,
         category:d.category, subcategory: dHasSubs?d.subcategory:'',
         method:editType!=='ahorro-pasivo'?editMethod:null, date,
-        note:dNote, linkedTo:_parentId
+        note:d.note||'', meta:{rel:'desglose'}, linkedTo:_parentId
       };
       data.unshift(dEntry);
       newChildren.push(dEntry);

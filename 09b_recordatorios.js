@@ -946,18 +946,8 @@ function predictAmountForDesc(descRaw, type, cur){
 // Misma regla que el monto: entre los últimos 4 registros de ese comercio (mismo
 // tipo, sin mensualidades de diferidos), una nota exacta que aparezca al menos
 // 2 veces y en al menos la mitad de ellos. En empate gana la más reciente.
-const _NOTE_SYS_TAGS = ['TC:','TCauto:','Monto original:','Desglose de:','Propina de:',
-                        'Beneficio de:','Vinculado a:','Propina '];
-// Deja solo la nota real del usuario (sin etiquetas internas del sistema)
-function cleanUserNote(note){
-  return String(note||'').split(' | ').map(p=>p.trim()).filter(p=>{
-    if(!p) return false;
-    if(_NOTE_SYS_TAGS.some(t=>p.startsWith(t))) return false;
-    if(/^\d+%\s/.test(p)) return false;                       // "10% de $X"
-    if(/^acreditado en la mensualidad/i.test(p)) return false; // etiqueta del beneficio
-    return true;
-  }).join(' | ');
-}
+// Deja solo la nota real del usuario. R6: delega en la capa metaOf (01_nucleo).
+function cleanUserNote(note){ return cleanNoteStr(note); }
 
 function predictNoteForDesc(descRaw, type){
   const desc=String(descRaw||'').trim().toLowerCase();

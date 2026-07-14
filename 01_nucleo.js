@@ -100,8 +100,17 @@ function _deriveMeta(e){
 }
 
 // metaOf(e) — cachea por objeto; se recalcula si la nota cambió.
+// R6/B: si el registro YA trae `meta` (formato nuevo), se usa tal cual y NUNCA
+// se parsea texto. Las etiquetas solo se derivan para registros legacy que
+// todavía no pasaron por la migración.
 function metaOf(e){
   if(!e || typeof e!=='object') return {};
+  if(e.meta && typeof e.meta==='object'){
+    const m={...e.meta};
+    if(e.deferGroup) m.defer={g:e.deferGroup, i:e.deferIndex, n:e.deferTotal, orig:e.deferOriginal};
+    m.userNote=String(e.note||'').trim();
+    return m;
+  }
   const cached=_META_CACHE.get(e);
   if(cached && cached._src===e.note) return cached;
   const m=_deriveMeta(e);

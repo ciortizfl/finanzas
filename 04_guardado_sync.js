@@ -121,10 +121,9 @@ function restoreRegisterForm(){
 // solo cambian la fecha y el índice de mes. Se identifican por deferGroup.
 function submitDeferredEntry({amount, desc, cur, date, note, subcat}){
   const n=diferirMonths;
-  // TC manual: guardar el automático de ese momento (etiqueta de sistema)
-  if(cur!=='MXN' && _fxOverride && _fxOverride>0 && rates[cur]){
-    note=[note, `TCauto: ${rates[cur]}`].filter(Boolean).join(' | ');
-  }
+  // R6: el TC automático del momento va en meta, NO escondido en la nota.
+  const _metaBase={};
+  if(cur!=='MXN' && _fxOverride && _fxOverride>0 && rates[cur]) _metaBase.fxAuto=rates[cur];
   const groupId=genId();
   const base=parseDate(date)||new Date();
 
@@ -175,6 +174,7 @@ function submitDeferredEntry({amount, desc, cur, date, note, subcat}){
       amount:monthAmt, amountMXN:toMXN(monthAmt,cur), currency:cur,
       desc, category:curCat, subcategory:subcat,
       method:selMethod, date:dateStr, note,
+      meta:{..._metaBase},
       deferGroup:groupId, deferIndex:i+1, deferTotal:n, deferOriginal:deferTotalAmount
     };
     data.unshift(entry);
@@ -193,7 +193,8 @@ function submitDeferredEntry({amount, desc, cur, date, note, subcat}){
         desc:((dg.desc||'').trim()) ? dg.desc.trim() : desc,
         category:dg.category, subcategory: dHasSubs?dg.subcategory:'',
         method:selMethod, date:dateStr,
-        note:[`Desglose de: ${desc}`, dg.note||''].filter(Boolean).join(' | '),
+        note: dg.note||'',
+        meta:{rel:'desglose'},
         linkedTo:entry.id
       };
       data.unshift(child); childrenAll.push(child);
@@ -201,19 +202,17 @@ function submitDeferredEntry({amount, desc, cur, date, note, subcat}){
 
     // Beneficio: solo en la mensualidad elegida, por el monto COMPLETO
     if(benAmt>0 && (i+1)===benMonth){
-      const sym=cur==='MXN'?'$':`${cur} `;
-      let benNote=`Beneficio de: ${desc}`;
+      const _bm={rel:'beneficio', benMonth:{i:benMonth, n:n}};
       if(benType==='pct'){
         const pct=parseFloat(document.getElementById('ben-pct').value)||0;
-        benNote += ` | ${pct}% de ${sym}${amount.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})}`;
+        _bm.ben={pct:pct, base:amount};
       }
-      benNote += ` | acreditado en la mensualidad ${benMonth} de ${n}`;
       const benChild={
         id:genId(), type:'ahorro-pasivo',
         amount:benAmt, amountMXN:toMXN(benAmt,cur), currency:cur,
         desc:desc, category:curBenType, subcategory:'',
         method:null, date:dateStr,
-        note:benNote, linkedTo:entry.id
+        note:'', meta:_bm, linkedTo:entry.id
       };
       data.unshift(benChild); childrenAll.push(benChild);
     }
@@ -318,18 +317,17 @@ function _submitEntry(){
   // Nota principal del registro: SOLO la nota del usuario.
   // "Monto original" y etiquetas de propina/beneficio se muestran dinámicamente
   // en el listado (no se guardan en la nota editable del madre).
-  let mainNote = note;
-  // Si el TC fue MANUAL, se guarda el automático de ese momento como etiqueta de
-  // sistema (invisible para ti) para poder revertir después desde la edición.
-  if(cur!=='MXN' && _fxOverride && _fxOverride>0 && rates[cur]){
-    mainNote=[mainNote, `TCauto: ${rates[cur]}`].filter(Boolean).join(' | ');
-  }
+  const mainNote = note;
+  // R6: si el TC fue MANUAL, el automático de ese momento se guarda en meta
+  // (no escondido en la nota), para poder revertir después desde la edición.
+  const _mainMeta={};
+  if(cur!=='MXN' && _fxOverride && _fxOverride>0 && rates[cur]) _mainMeta.fxAuto=rates[cur];
 
   const entry={
     id:genId(), type:curType, amount:mainAmount, amountMXN, currency:cur,
     desc, category:curCat, subcategory:subcat,
     method:curType!=='ahorro-pasivo'?selMethod:null,
-    date, note:mainNote
+    date, note:mainNote, meta:_mainMeta
   };
   data.unshift(entry);
 
@@ -338,19 +336,17 @@ function _submitEntry(){
     const bt=curBenType;
     if(ba>0){
       const baMXN=toMXN(ba,cur);
-      const sym=cur==='MXN'?'$':`${cur} `;
-      // Nota del beneficio: "Beneficio de: X" + detalle (% si aplica)
-      let benNote=`Beneficio de: ${desc}`;
+      const _bm={rel:'beneficio'};
       if(benType==='pct'){
         const pct=parseFloat(document.getElementById('ben-pct').value)||0;
-        benNote += ` | ${pct}% de ${sym}${amount.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})}`;
+        _bm.ben={pct:pct, base:amount};
       }
       data.unshift({
         id:genId(), type:'ahorro-pasivo',
         amount:ba, amountMXN:baMXN, currency:cur,
         desc:desc, category:bt, subcategory:'',
         method:null, date,
-        note:benNote, linkedTo:entry.id
+        note:'', meta:_bm, linkedTo:entry.id
       });
     }
   }
@@ -361,26 +357,18 @@ function _submitEntry(){
     const propinaAmt=getPropinaAmount();
     if(propinaAmt>0){
       const propinaAmtMXN=toMXN(propinaAmt,cur);
-      const sym=cur==='MXN'?'$':`${cur} `;
-      const propinaNoteparts=[`Propina de: ${desc}`];
+      const _tm={rel:'propina', tip:{inc:!!propinaIncluida}};
       if(propinaType==='pct'){
         const pct=parseFloat(document.getElementById('propina-pct').value)||0;
-        const label=propinaIncluida?`incluida en ${sym}${amount.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})}`:`adicional a ${sym}${amount.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})}`;
-        propinaNoteparts.push(`${pct}% ${label}`);
-      } else {
-        propinaNoteparts.push(propinaIncluida?'incluida':'adicional');
-      }
-      // Include TC note from the already-injected rate if foreign currency
-      if(cur!=='MXN'){
-        const r=rates[cur];
-        if(r) propinaNoteparts.push(`TC: 1 ${cur} = $${r.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})} MXN`);
+        _tm.tip.pct=pct;
+        _tm.tip.base=amount;
       }
       propinaEntry={
         id:genId(), type:'egreso',
         amount:propinaAmt, amountMXN:propinaAmtMXN, currency:cur,
         desc:desc, category:'Generosidad', subcategory:'Propinas',
         method:getPropinaMethod(), date,
-        note:propinaNoteparts.join(' | '), linkedTo:entry.id
+        note:'', meta:_tm, linkedTo:entry.id
       };
       data.unshift(propinaEntry);
     }
@@ -394,16 +382,13 @@ function _submitEntry(){
       const dMXN=toMXN(d.amount, cur);
       const dsubs=sortedSubcats(curType, d.category);
       const dHasSubs=dsubs && !(dsubs.length===1 && dsubs[0]==='—');
-      // El desglose solo lleva "Desglose de: X" (su monto ya es menor; el original es inútil aquí)
-      let dNote=`Desglose de: ${desc}`;
-      if(d.note) dNote=`${d.note} | ${dNote}`;
       const dEntry={
         id: genId(), type:curType,
         amount:d.amount, amountMXN:dMXN, currency:cur,
         desc:((d.desc||'').trim()) ? d.desc.trim() : desc,
         category:d.category, subcategory: dHasSubs?d.subcategory:'',
         method:curType!=='ahorro-pasivo'?selMethod:null, date,
-        note:dNote, linkedTo:entry.id
+        note:d.note||'', meta:{rel:'desglose'}, linkedTo:entry.id
       };
       data.unshift(dEntry);
       desgloseEntries.push(dEntry);
@@ -642,6 +627,9 @@ async function loadFromSheets(silent) {
     const json = await r.json();
     hideSyncing();
     if (!json.ok || !json.rows || json.rows.length < 2) return;
+    // ── R6: detectar el esquema por el encabezado ──
+    const _hdr = json.rows[0] || [];
+    const _esquemaNuevo = _hdr.length <= 13 || String(_hdr[12]||'').toLowerCase()==='meta';
     const rows = json.rows.slice(1); // skip header
     const newData = rows.map(r => {
       let dateVal = r[1];
@@ -697,17 +685,35 @@ async function loadFromSheets(silent) {
         amountMXN:  Number(r[8]),
         method:     r[9]||null,
         note:       r[10]||'',
-        benType:    r[11]||'',
-        benAmount:  r[12]?Number(r[12]):0,
-        benDesc:    r[13]||'',
-        linkedTo:   r[14]?cleanNum(r[14]):null,
       };
-      // Campos de gasto diferido (columnas 15-18), solo si vienen con datos
-      if(r[15]){
-        obj.deferGroup   = cleanNum(r[15]);
-        obj.deferIndex   = r[16]?Number(r[16]):1;
-        obj.deferTotal   = r[17]?Number(r[17]):1;
-        obj.deferOriginal= r[18]?Number(r[18]):obj.amount;
+      // ── R6: dos esquemas. NUEVO (13 col, con `meta`) o LEGACY (19 col). ──
+      if(_esquemaNuevo){
+        obj.linkedTo = r[11]?cleanNum(r[11]):null;
+        let m=null;
+        if(r[12]){
+          try{ m=JSON.parse(String(r[12])); }
+          catch(_e){ console.warn('meta ilegible en id', r[0], r[12]); m=null; }
+        }
+        if(m && typeof m==='object'){
+          obj.meta = m;
+          if(m.defer){
+            obj.deferGroup    = cleanNum(m.defer.g);
+            obj.deferIndex    = Number(m.defer.i)||1;
+            obj.deferTotal    = Number(m.defer.n)||1;
+            obj.deferOriginal = Number(m.defer.orig)||obj.amount;
+          }
+        } else {
+          obj.meta = {};
+        }
+      } else {
+        obj.linkedTo = r[14]?cleanNum(r[14]):null;
+        if(r[15]){
+          obj.deferGroup   = cleanNum(r[15]);
+          obj.deferIndex   = r[16]?Number(r[16]):1;
+          obj.deferTotal   = r[17]?Number(r[17]):1;
+          obj.deferOriginal= r[18]?Number(r[18]):obj.amount;
+        }
+        // sin `meta`: metaOf() cae al parseo de etiquetas (legacy)
       }
       return obj;
     }).sort((a,b)=>b.id-a.id);
