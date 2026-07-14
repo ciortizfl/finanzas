@@ -124,6 +124,11 @@ function submitDeferredEntry({amount, desc, cur, date, note, subcat}){
   // R6: el TC automático del momento va en meta, NO escondido en la nota.
   const _metaBase={};
   if(cur!=='MXN' && _fxOverride && _fxOverride>0 && rates[cur]) _metaBase.fxAuto=rates[cur];
+  // R7 · sin TC automático real y sin TC manual: el registro se guarda igual
+  // (con el valor de respaldo), pero queda MARCADO para que puedas encontrarlo
+  // y corregirlo cuando consigas el dato. Sin esta marca, un amountMXN calculado
+  // con un 12.6 quemado se vuelve indistinguible de uno correcto.
+  if(cur!=='MXN' && !(_fxOverride>0) && !fxAutoRate(cur)) _metaBase.fxPendiente=true;
   const groupId=genId();
   const base=parseDate(date)||new Date();
 
@@ -227,10 +232,12 @@ function submitDeferredEntry({amount, desc, cur, date, note, subcat}){
   const groupEntries=data.filter(x=>sameGroup(x.deferGroup,groupId));
   const groupIds=new Set(groupEntries.map(x=>x.id));
   const allToSave=[...groupEntries, ...data.filter(x=>x.linkedTo && groupIds.has(x.linkedTo))];
+  // R7 · el enlace apunta a la mensualidad 1: esa "es" la compra
+  const _ancla=(groupEntries.slice().sort((a,b)=>(a.deferIndex||1)-(b.deferIndex||1))[0]||groupEntries[0]);
   saveBatchToSheets(allToSave).then(r=>{
     hideSyncing();
-    if(r && r.ok) toast(`✓ Gasto diferido en ${n} meses`);
-    else toastSyncFailed('Diferido guardado');
+    if(r && r.ok) toast(`✓ Gasto diferido en ${n} meses`, {gotoId:_ancla.id});
+    else toastSyncFailed('Diferido guardado', _ancla.id);
   });
 
   playRegisterSaveAnimation(()=>{
@@ -322,6 +329,7 @@ function _submitEntry(){
   // (no escondido en la nota), para poder revertir después desde la edición.
   const _mainMeta={};
   if(cur!=='MXN' && _fxOverride && _fxOverride>0 && rates[cur]) _mainMeta.fxAuto=rates[cur];
+  if(cur!=='MXN' && !(_fxOverride>0) && !fxAutoRate(cur)) _mainMeta.fxPendiente=true;   // R7
 
   const entry={
     id:genId(), type:curType, amount:mainAmount, amountMXN, currency:cur,
@@ -409,8 +417,8 @@ function _submitEntry(){
   // el registro sigue a salvo en el teléfono, pero se dice la verdad.
   Promise.all(saves).then(results=>{
     hideSyncing();
-    if(_allOk(results)) toast('✓ Registro guardado');
-    else toastSyncFailed('Guardado');
+    if(_allOk(results)) toast('✓ Registro guardado', {gotoId:entry.id});
+    else toastSyncFailed('Guardado', entry.id);
   });
 
   // Si el usuario activó 🔔 Recordar, crear la regla del recordatorio manual
@@ -617,8 +625,10 @@ function _allOk(results){
 // Aviso honesto cuando la nube no recibió lo que el teléfono ya guardó.
 // (Los datos NO se pierden: viven en el teléfono y quedan marcados como
 // pendientes, así que la recarga no los borra.)
-function toastSyncFailed(accion){
-  toast(`⚠️ ${accion} en el teléfono, pero no se sincronizó`);
+// R7 · aunque la nube haya fallado, el registro SÍ existe en el teléfono: el
+// enlace es válido y sigue llevando a él.
+function toastSyncFailed(accion, gotoId){
+  toast(`⚠️ ${accion} en el teléfono, pero no se sincronizó`, gotoId!=null?{gotoId}:undefined);
 }
 
 // ── LOAD FROM SHEETS ──

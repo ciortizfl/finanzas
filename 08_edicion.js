@@ -116,6 +116,10 @@ function openEdit(id) {
   try{
     _fxOverrideEdit=null;
     _editFxAuto=null;
+    // R7 · el campo arranca oculto en cada apertura: así la transición de entrada
+    // corre desde cero en vez de heredar el estado del registro anterior.
+    _eFxRowVisible=false;
+    const _efr=document.getElementById('e-fx-row'); if(_efr) _efr.style.display='none';
     const _fxAuto=metaOf(e).fxAuto;
     if(isFinite(_fxAuto) && _fxAuto>0) _editFxAuto=_fxAuto;
     const _fxInp=document.getElementById('e-fx-manual');
@@ -492,11 +496,9 @@ function onECurChange(){
   try{ updateEditFxRow(); }catch(e){}
 
   const cur=document.getElementById('e-currency').value;
-  const note=document.getElementById('e-rate-note');
-  if(cur==='MXN'){note.style.display='none';return;}
-  note.style.display='flex';
-  document.getElementById('e-rate-text').textContent=
-    `1 ${cur} = $${rates[cur].toLocaleString('es-MX',{minimumFractionDigits:2})} MXN${ratesLoaded?'':' (estimado)'}`;
+  // R7 · punto 3: el badge "1 CAD = $12.60 MXN" del modal ya no existe; ese dato
+  // es ahora el placeholder del campo de TC (updateEditFxRow).
+  if(cur==='MXN') return;
   // Refrescar tarjetas de desglose del modal (etiqueta de moneda)
   try{ if(typeof renderEditDesgloses==='function') renderEditDesgloses(); }catch(e){}
 }
@@ -952,31 +954,47 @@ function _editHistoricRate(){
   const a=Number(e.amount), m=Number(e.amountMXN);
   return (a>0 && m>0) ? m/a : 0;
 }
+// R7 · punto 3 en EDICIÓN (mismo rediseño que el formulario, con una diferencia
+// que importa: aquí el "automático" NO es el TC de hoy, es el TC HISTÓRICO del
+// registro — el que se derivó de amountMXN/amount cuando lo capturaste. Por eso
+// el "MXN" de al lado dice "MXN · histórico": el placeholder ya no cabe esa
+// palabra, pero el dato no se pierde.
+let _eFxRowVisible = false;
 function updateEditFxRow(){
   const cur=document.getElementById('e-currency')?.value||'MXN';
   const row=document.getElementById('e-fx-row');
   const inp=document.getElementById('e-fx-manual');
   const hint=document.getElementById('e-fx-hint');
+  const unit=document.getElementById('e-fx-unit');
   const revert=document.getElementById('e-fx-revert');
   if(!row||!inp) return;
   if(cur==='MXN'){
-    row.style.display='none';
     if(revert) revert.style.display='none';
     inp.value=''; _fxOverrideEdit=null;
+    if(_eFxRowVisible){ _eFxRowVisible=false; hideAnimate(row); }
+    else row.style.display='none';
     return;
   }
-  // Placeholder: si hubo TC manual, el automático guardado; si no, el histórico
-  const base = _editFxAuto || _editHistoricRate() || rates[cur] || 0;
-  inp.placeholder = base ? `${base.toFixed(2)} (histórico)` : 'automático';
+  // El histórico del registro manda. Si cambiaste la moneda dentro del modal (o
+  // es un registro nuevo copiado), no hay histórico: cae al automático real.
+  const historico = _editFxAuto || _editHistoricRate() || 0;
+  const base = historico || fxAutoRate(cur);
+  const esHistorico = !!historico;
+  inp.placeholder = base ? fxPlaceholder(cur, base) : `${curSym(cur)} 1 = ?`;
+  if(unit) unit.textContent = (base && esHistorico) ? 'MXN · histórico' : 'MXN';
   _fxOverrideEdit=_eFxParse(inp.value);
   if(hint){
-    hint.textContent = _fxOverrideEdit
-      ? `1 ${cur} = $${_fxOverrideEdit.toFixed(2)} MXN`
-      : (base ? `Vacío = conservar $${base.toFixed(2)}` : 'Vacío = automático');
+    const mostrar = !base && !_fxOverrideEdit;
+    hint.textContent = mostrar ? FX_SIN_AUTO : '';
+    hint.style.display = mostrar ? '' : 'none';
   }
   // El enlace de revertir solo tiene sentido si el registro tiene TC manual guardado
   if(revert) revert.style.display = (_editFxAuto && inp.value.trim()!=='') ? 'block' : 'none';
-  row.style.display='flex';
+  if(!_eFxRowVisible){
+    _eFxRowVisible=true;
+    row.style.display='flex';
+    try{ revealAnimate(row); }catch(e){}
+  }
 }
 function onEFxManualInput(){
   _fxOverrideEdit=_eFxParse(document.getElementById('e-fx-manual')?.value);

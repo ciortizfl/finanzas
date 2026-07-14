@@ -393,15 +393,36 @@ function handleAmountInput(el){
 
 
 let _toastTimer=null;
-function toast(msg){
+// R7 · punto 5 — toast con enlace opcional.
+//   toast('✓ Registro guardado', { gotoId: entry.id })
+// Al tocar "Ver", goToEntry() abre el Historial, limpia los filtros, salta al mes
+// del registro, hace scroll hasta él y lo resalta. El segundo argumento es
+// opcional: todas las llamadas viejas siguen funcionando igual.
+const TOAST_MS = 3000;
+function toast(msg, opts){
   const t=document.getElementById('toast');
   if(!t) return;
   const icoEl=document.getElementById('toast-ico');
   const titleEl=document.getElementById('toast-title');
   const subEl=document.getElementById('toast-sub');
+  const linkEl=document.getElementById('toast-link');
+  const gotoId=(opts && opts.gotoId!=null) ? opts.gotoId : null;
+  if(linkEl){
+    if(gotoId!=null){
+      linkEl.style.display='';
+      linkEl.onclick=()=>{
+        clearTimeout(_toastTimer);
+        t.classList.remove('show');
+        try{ goToEntry(gotoId); }catch(e){}
+      };
+    } else {
+      linkEl.style.display='none';
+      linkEl.onclick=null;
+    }
+  }
   if(!icoEl||!titleEl||!subEl){ // respaldo por si el HTML no tiene la estructura
     t.textContent=msg; t.classList.add('show');
-    clearTimeout(_toastTimer); _toastTimer=setTimeout(()=>t.classList.remove('show'),2600);
+    clearTimeout(_toastTimer); _toastTimer=setTimeout(()=>t.classList.remove('show'),TOAST_MS);
     return;
   }
 
@@ -439,7 +460,7 @@ function toast(msg){
   clearTimeout(_toastTimer);
   t.classList.remove('show'); void t.offsetWidth;
   t.classList.add('show');
-  _toastTimer=setTimeout(()=>t.classList.remove('show'), 2600);
+  _toastTimer=setTimeout(()=>t.classList.remove('show'), TOAST_MS);
 }
 
 

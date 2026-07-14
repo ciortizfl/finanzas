@@ -172,17 +172,10 @@ function onCurChange() {
   _fxOverride=null;
   try{ updateFxRow(); }catch(e){}
   const cur = document.getElementById('currency').value;
-  const badge = document.getElementById('rate-note');
-  // R6.6: el TC ya NO se inyecta en la nota. Antes, al cambiar de moneda, esto
-  // escribía "TC: 1 CAD = $12.60 MXN" DENTRO del textarea del usuario (y le abría
-  // el panel de Nota a la fuerza). Esa etiqueta viajaba tal cual a la columna Nota
-  // del Sheet — justo lo que R6 vino a eliminar. El TC ya vive donde debe: se
-  // deriva de amountMXN/amount, y el manual se guarda en meta.fxAuto.
-  if(cur==='MXN'){ if(badge) badge.style.display='none'; return; }
-  if(badge) badge.style.display='flex';
-  const r = rates[cur]||1;
-  const rateStr = `TC: 1 ${cur} = $${r.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})} MXN${ratesLoaded?'':' (est.)'}`;
-  document.getElementById('rate-text').textContent = rateStr;
+  // R6.6: el TC ya no se inyecta en la nota.
+  // R7 (punto 3): y el badge superior "TC: 1 CAD = $12.60 MXN" ya no existe —
+  // ese contenido es ahora el placeholder del propio campo de TC (updateFxRow).
+  if(cur==='MXN') return;
   calcBenPreview();
   calcPropinaPreview();
   if(typeof renderDesgloses==='function' && desgloses.length>0) renderDesgloses();
@@ -451,8 +444,6 @@ function setType(t) {
   if(noteIcon) noteIcon.textContent='＋';
   const noteLbl=document.getElementById('note-toggle-lbl');
   if(noteLbl) noteLbl.textContent=' Agregar nota';
-  const badge=document.getElementById('rate-note');
-  if(badge) badge.style.display='none';
   document.getElementById('method-field').style.display=t==='beneficio'?'none':'block';
   // Efecto de despliegue en el formulario al cambiar de tipo
   revealAnimate(document.getElementById('register-form-card'));
@@ -1329,6 +1320,23 @@ function predictCategory(){
   }catch(e){}
 }
 
+// R7 · El REVERSO de revealAnimate. La app solo tenía entrada; el punto 3 pide
+// que el campo de TC aparezca Y desaparezca "con el MISMO efecto de transición
+// que ya usamos". Mismo easing, misma distancia, al revés, y luego display:none.
+function hideAnimate(el, done){
+  const fin=()=>{ if(el) el.style.display='none'; if(typeof done==='function') done(); };
+  if(!el){ fin(); return; }
+  if(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches){ fin(); return; }
+  if(typeof el.animate !== 'function'){ fin(); return; }
+  const easing='cubic-bezier(0.22, 0.61, 0.36, 1)';
+  const from={ opacity: 1, transform: 'translate3d(0, 0, 0)' };
+  const to={ opacity: 0, transform: 'translate3d(0, -24px, 0)' };
+  try{
+    const a=el.animate([from, to], { duration: 260, easing, fill: 'forwards' });
+    a.onfinish=()=>{ fin(); try{ a.cancel(); }catch(e){} };
+  }catch(e){ fin(); }
+}
+
 function setMethod(m,el){
   _methodPredicted=false; // elección manual del usuario
   selMethod=m;
@@ -1424,6 +1432,28 @@ function _fxParse(v){
   const n=parseFloat(String(v||'').replace(/[^\d.]/g,''));
   return (isFinite(n) && n>0) ? n : null;
 }
+// ══════════════════════════════════════════════════════════════════════════
+// R7 · TIPO DE CAMBIO — símbolo de la moneda y qué cuenta como "automático"
+//
+// El placeholder dice "$ 1 = $12.60": el 1 se refiere a la moneda elegida (que
+// está en el selector, justo al lado) y el resultado siempre es en pesos. El
+// "MXN" vive afuera del campo, discreto — todo convierte a MXN, siempre.
+//
+// QUÉ ES "AUTOMÁTICO": solo lo que trajo el fetch de exchangerate-api. Los
+// valores quemados en 01_nucleo (USD 17.2 / CAD 12.6 / EUR 18.5) NO son un TC:
+// son un respaldo para no dividir entre cero. Antes se mostraban como "el
+// automático" con un "(est.)" al lado — un 12.6 de hace meses disfrazado de dato.
+// Ahora, si el fetch no cargó, la app lo admite y te pide capturarlo.
+// ══════════════════════════════════════════════════════════════════════════
+const CUR_SYM = { MXN:'$', USD:'$', CAD:'$', EUR:'€' };
+function curSym(c){ return CUR_SYM[c] || c; }
+// El TC automático REAL (0 si el fetch no cargó)
+function fxAutoRate(cur){ return (ratesLoaded && rates[cur] > 0) ? rates[cur] : 0; }
+function fxPlaceholder(cur, rate){ return `${curSym(cur)} 1 = $${Number(rate).toFixed(2)}`; }
+const FX_SIN_AUTO = 'Sin tipo de cambio automático. Captúralo tú — podrás editarlo después, cuando consigas el dato.';
+
+let _fxRowVisible = false;   // para animar solo en el cambio de estado, no en cada tecla
+
 function updateFxRow(){
   const cur=document.getElementById('currency')?.value||'MXN';
   const row=document.getElementById('fx-row');
@@ -1431,15 +1461,26 @@ function updateFxRow(){
   const hint=document.getElementById('fx-hint');
   if(!row||!inp) return;
   if(cur==='MXN'){
-    row.style.display='none';
     inp.value=''; _fxOverride=null;
+    if(_fxRowVisible){ _fxRowVisible=false; hideAnimate(row); }
+    else row.style.display='none';
     return;
   }
-  const auto=rates[cur]||0;
-  inp.placeholder = auto ? `${auto.toFixed(2)} (automático)` : 'automático';
+  const auto=fxAutoRate(cur);
+  // Si borras el TC manual, el campo queda vacío y el placeholder (el automático)
+  // vuelve a mandar — que es exactamente lo que pediste.
+  inp.placeholder = auto ? fxPlaceholder(cur, auto) : `${curSym(cur)} 1 = ?`;
   _fxOverride=_fxParse(inp.value);
-  if(hint) hint.textContent = _fxOverride ? `1 ${cur} = $${_fxOverride.toFixed(2)} MXN` : `Vacío = usar el automático`;
-  row.style.display='flex';
+  if(hint){
+    const mostrar = !auto && !_fxOverride;
+    hint.textContent = mostrar ? FX_SIN_AUTO : '';
+    hint.style.display = mostrar ? '' : 'none';
+  }
+  if(!_fxRowVisible){
+    _fxRowVisible=true;
+    row.style.display='flex';
+    revealAnimate(row);
+  }
 }
 function onFxManualInput(){
   _fxOverride=_fxParse(document.getElementById('fx-manual')?.value);

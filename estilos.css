@@ -211,8 +211,8 @@ nav {
 .amount-row { display: flex; gap: 8px; }
 .amount-row .cur-sel { width: 96px; flex-shrink: 0; }
 .amount-row input { flex: 1; }
-.rate-note { margin-top: 5px; font-size: 12px; color: var(--text3); display: none; align-items: center; gap: 5px; }
-.rate-dot  { width: 5px; height: 5px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
+/* R7 · el badge "TC: 1 CAD = $12.60 MXN" que vivía arriba del campo murió:
+   ese contenido ahora es el placeholder del propio campo de TC (ver .fx-row). */
 
 /* CAT BLOCKS */
 .cat-grid-ui { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 8px; }
@@ -530,6 +530,18 @@ nav {
 .toast-title { font-size: 14px; font-weight: 700; letter-spacing: -0.01em; line-height: 1.25; }
 .toast-sub { font-size: 13px; color: var(--text2); margin-top: 1px; line-height: 1.25; }
 .toast-sub:empty { display: none; }
+/* R7 · punto 5: el enlace del toast. Toca y te lleva al registro en el Historial.
+   OJO: .toast tiene `pointer-events: none` (para no bloquear toques al formulario
+   que queda debajo). Sin este `pointer-events: auto`, el botón se ve pero NO se
+   puede tocar — la función entera sería decorativa. */
+.toast-link {
+  flex: 0 0 auto; margin-left: 10px; padding: 6px 10px; border: none;
+  border-radius: 100px; background: var(--surface2); color: var(--accent);
+  font-family: inherit; font-size: 12px; font-weight: 700; cursor: pointer;
+  -webkit-appearance: none; appearance: none; white-space: nowrap;
+  pointer-events: auto;
+}
+.toast-link:active { transform: scale(0.94); }
 /* Circulito girando dentro del ícono del banner mientras se guarda/sincroniza */
 .toast-spinner {
   display: block; width: 17px; height: 17px;
@@ -1074,18 +1086,24 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
 }
 
 /* ── Tipo de cambio manual (solo en moneda extranjera) ── */
+/* R7 · TIPO DE CAMBIO
+   Sin etiqueta y sin "Vacío = usar el automático". El TC automático es el
+   PLACEHOLDER del campo ("$ 1 = $12.60"), con el símbolo de la moneda elegida.
+   El "MXN" vive afuera, discreto: todo convierte a pesos, siempre.
+   .fx-hint solo aparece cuando NO hay TC automático disponible. */
 .fx-row {
-  display: flex; align-items: center; gap: 8px; margin-top: 8px;
+  display: flex; align-items: center; gap: 7px; margin-top: 8px; flex-wrap: wrap;
 }
-.fx-row label { font-size: 12px; color: var(--text2); font-weight: 600; flex: 0 0 auto; }
 .fx-row input {
-  width: 110px; padding: 7px 10px; border: 1px solid var(--border2);
+  width: 92px; padding: 5px 9px; border: 1px solid var(--border2);
   border-radius: var(--radius-sm); background: var(--surface); color: var(--text);
-  font-family: inherit; font-size: 14px; outline: none;
+  font-family: inherit; font-size: 12px; outline: none;
   -webkit-appearance: none; appearance: none;
 }
+.fx-row input::placeholder { color: var(--text3); }
 .fx-row input:focus { border-color: var(--accent); }
-.fx-hint { font-size: 11.5px; color: var(--text3); }
+.fx-unit { font-size: 11.5px; color: var(--text3); font-weight: 600; flex: 0 0 auto; }
+.fx-hint { flex-basis: 100%; font-size: 11.5px; color: var(--text3); line-height: 1.35; margin-top: 2px; }
 .fx-revert {
   display: block; margin-top: 6px; padding: 0; background: none; border: none;
   color: var(--accent); font-family: inherit; font-size: 12px; font-weight: 600;

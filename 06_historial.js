@@ -1026,6 +1026,78 @@ function renderHistorial(animate){
 
 function sum(arr,t){return arr.filter(e=>e.type===t).reduce((s,e)=>s+e.amountMXN,0);}
 
+// ══════════════════════════════════════════════════════════════════════════
+// R7 · PUNTO 5 — "Ver" desde el toast de guardado
+//
+// Un registro puede estar invisible en el Historial por SEIS razones, no solo
+// por el mes: filtro de tipo, categorías, subcategorías, método, búsqueda activa,
+// modo campanita o modo rango. Si guardo un Starbucks con el Historial filtrado
+// en "Casa", el registro ni siquiera existe en el DOM y el enlace no haría nada.
+//
+// Por eso el enlace LIMPIA TODO y salta al mes del registro. El enlace promete
+// llevarte al registro; tiene que cumplir. El caso que más sirve —fecha de ayer
+// o del mes pasado— es justo el que fallaría sin esto.
+// ══════════════════════════════════════════════════════════════════════════
+function goToEntry(id){
+  const e = data.find(x=>String(x.id)===String(id));
+  if(!e) return;
+  // En un diferido, el ancla es la mensualidad 1: esa "es" la compra.
+  let target = e;
+  if(e.deferGroup){
+    const grp = data.filter(x=>sameGroup(x.deferGroup, e.deferGroup))
+                    .sort((a,b)=>(a.deferIndex||1)-(b.deferIndex||1));
+    if(grp.length) target = grp[0];
+  }
+  // Un hijo (desglose/propina/beneficio) no se resalta solo: se resalta su madre.
+  if(target.linkedTo){
+    const madre = data.find(x=>x.id===target.linkedTo);
+    if(madre) target = madre;
+  }
+
+  // 1. Al Historial. goNav ya apaga el modo campanita y el modo rango.
+  const btn = document.querySelector('.nav-btn[onclick*="historial"]');
+  try{ goNav('historial', btn); }catch(_e){}
+
+  // 2. Fuera los filtros que sobreviven a goNav: tipo, categorías, subcategorías,
+  //    método y la búsqueda.
+  try{ resetHistFiltersToTodos(); }catch(_e){}
+  const s=document.getElementById('hist-search');
+  if(s && s.value){ s.value=''; try{ clearSearch(); }catch(_e){} }
+
+  // 3. Al mes del registro (el punto entero del asunto).
+  //    OJO: renderHistorial() NO lee viewMonth/viewYear — esas globales son del
+  //    BALANCE. El Historial lee sus <select> del DOM (#hist-month-sel /
+  //    #hist-year-sel). Mover solo las variables no movía nada: el listado
+  //    seguía pintando el mes que marcaban los selectores.
+  const d = parseDate(target.date);
+  if(d && !isNaN(d.getTime())){
+    const mSel=document.getElementById('hist-month-sel');
+    const ySel=document.getElementById('hist-year-sel');
+    if(ySel){
+      // El año del registro puede no estar en la lista (registro viejo o futuro)
+      if(!Array.from(ySel.options).some(o=>parseInt(o.value)===d.getFullYear())){
+        const o=document.createElement('option');
+        o.value=String(d.getFullYear()); o.textContent=String(d.getFullYear());
+        ySel.appendChild(o);
+      }
+      ySel.value=String(d.getFullYear());
+    }
+    if(mSel) mSel.value=String(d.getMonth());
+  }
+  renderHistorial();
+
+  // 4. Scroll y resalte. Se re-busca el nodo dentro del timeout a propósito: el
+  //    refresco silencioso desde Sheets puede reconstruir la lista en medio.
+  setTimeout(()=>{
+    let node=null;
+    document.querySelectorAll('#hist-list .tx-item').forEach(el=>{
+      if(el._entryId===target.id || el._parentId===target.id) node=el;
+    });
+    if(node){ try{ node.scrollIntoView({behavior:'smooth', block:'center'}); }catch(_e){} }
+  }, 80);
+  try{ highlightUpdatedRecord(target.id, 520); }catch(_e){}
+}
+
 // Monto para TAGLINES: si los centavos son .00 se omiten (ahorra espacio).
 // Esta regla aplica SOLO aquí, no en los montos principales de la app.
 function tagAmt(n, sym){

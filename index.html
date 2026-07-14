@@ -17,6 +17,8 @@
     <div class="toast-title" id="toast-title"></div>
     <div class="toast-sub" id="toast-sub"></div>
   </div>
+  <!-- R7 · punto 5: enlace al registro recién guardado (solo si el toast lo trae) -->
+  <button type="button" class="toast-link" id="toast-link" style="display:none;">Ver</button>
 </div>
 <button class="reload-btn" id="reload-btn" onclick="forceReload()" title="Recargar datos">↻</button>
 <button class="reload-btn scrolltop-btn" id="scrolltop-btn" onclick="scrollToTopNow()" title="Ir arriba">↑</button>
@@ -83,12 +85,14 @@
           </select>
           <input type="text" id="amount" placeholder="0.00" inputmode="decimal" oninput="handleAmountInput(this);calcPropinaPreview();updateDesgloseRemaining();renderDiferirPreview()">
         </div>
-        <div class="rate-note" id="rate-note"><span class="rate-dot"></span><span id="rate-text"></span></div>
-        <!-- TC manual: solo visible en moneda extranjera. Vacío = automático -->
+        <!-- TC manual: solo visible en moneda extranjera. Vacío = automático.
+             R7 · fuera la etiqueta, fuera el "Vacío = usar el automático" y fuera
+             el badge superior "TC: 1 CAD = …". El TC vive ahora DENTRO del campo
+             como placeholder, y el "MXN" afuera (todo convierte a pesos). -->
         <div class="fx-row" id="fx-row" style="display:none;">
-          <label for="fx-manual">Tipo de cambio</label>
           <input type="text" id="fx-manual" inputmode="decimal" placeholder="" oninput="onFxManualInput()">
-          <span class="fx-hint" id="fx-hint"></span>
+          <span class="fx-unit" id="fx-unit">MXN</span>
+          <div class="fx-hint" id="fx-hint" style="display:none;"></div>
         </div>
       </div>
 
@@ -527,11 +531,10 @@
             </select>
             <input type="text" id="e-amount" placeholder="0.00" inputmode="decimal" oninput="handleAmountInput(this);calcEditBenPreview();updateEditDesgloseRemaining();calcEditPropinaPreview();renderEditDiferirPreview()">
           </div>
-          <div class="rate-note" id="e-rate-note"><span class="rate-dot"></span><span id="e-rate-text"></span></div>
           <div class="fx-row" id="e-fx-row" style="display:none;">
-            <label for="e-fx-manual">Tipo de cambio</label>
             <input type="text" id="e-fx-manual" inputmode="decimal" placeholder="" oninput="onEFxManualInput()">
-            <span class="fx-hint" id="e-fx-hint"></span>
+            <span class="fx-unit" id="e-fx-unit">MXN</span>
+            <div class="fx-hint" id="e-fx-hint" style="display:none;"></div>
           </div>
           <button type="button" class="fx-revert" id="e-fx-revert" style="display:none;" onclick="revertFxToHistoric()">Regresar a TC histórico</button>
         </div>

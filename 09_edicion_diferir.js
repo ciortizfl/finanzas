@@ -219,6 +219,9 @@ async function saveEditDeferred({amount, desc, cur, note, subcat, date}){
     } else if(typeof _editFxAuto!=='undefined' && _editFxAuto){
       _fxOverrideEdit=_editFxAuto;   // revertido: vuelve al TC automático
     }
+    // R7 · la marca "TC pendiente" sobrevive a las ediciones hasta que de verdad
+    // captures un tipo de cambio. Si solo cambiaste la nota, sigue pendiente.
+    if(!(_fxOverrideEdit>0) && _origFx && metaOf(_origFx).fxPendiente) _metaBase.fxPendiente=true;
   }
 
   // Desgloses del diferido: se PRORRATEAN entre las N mensualidades
@@ -340,7 +343,7 @@ async function saveEditDeferred({amount, desc, cur, note, subcat, date}){
       if(!dr.ok) delOk = false;
     }
     hideSyncing();
-    if(delOk) toast('✓ Gasto diferido actualizado');
+    if(delOk) toast('✓ Gasto diferido actualizado', {gotoId:newEntries[0].id});
     else toast('⚠️ Se guardó, pero quedaron mensualidades viejas sin borrar');
   }
   // El modal se cierra en AMBOS casos (igual que antes de este ajuste); lo único
@@ -440,7 +443,7 @@ async function saveEditConvertToDefer({amount, desc, cur, note, subcat}){
       if(!dc.ok) delOk = false;
     }
     hideSyncing();
-    if(delOk) toast(`✓ Gasto diferido en ${n} meses`);
+    if(delOk) toast(`✓ Gasto diferido en ${n} meses`, {gotoId:newEntries[0].id});
     else toast('⚠️ Se guardó, pero el registro viejo no se borró');
   }
   // El modal se cierra en AMBOS casos (igual que antes); solo cambia el momento.
@@ -596,6 +599,7 @@ async function saveEdit(){
     } else if(typeof _editFxAuto!=='undefined' && _editFxAuto){
       _fxOverrideEdit=_editFxAuto;   // revertido
     }
+    if(!(_fxOverrideEdit>0) && _origFx && metaOf(_origFx).fxPendiente) _mainMeta.fxPendiente=true;   // R7
   }
   // R6: el "TC:" ya no se escribe — el listado lo calcula desde amountMXN/amount.
   const noteWithRate=mainNote;
@@ -712,7 +716,7 @@ async function saveEdit(){
       if(!dr.ok) delOk = false;
     }
     hideSyncing();
-    if(delOk) toast('✓ Registro actualizado');
+    if(delOk) toast('✓ Registro actualizado', {gotoId:_parentId});
     else toast('⚠️ Se guardó, pero quedaron desgloses viejos sin borrar');
   }
 
@@ -749,10 +753,12 @@ function closeModalWithSlide(){
 }
 
 // Pulso (crece hacia afuera) + destello de color en el registro actualizado
-function highlightUpdatedRecord(id){
+// R7 · el retraso ahora es configurable. 833ms era el tiempo de espera para que
+// el modal terminara de bajar; el enlace del toast no tiene modal que esperar.
+function highlightUpdatedRecord(id, delay){
   const reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   if(reduced) return;
-  // Esperar a que la ventana termine de bajar (~500ms) + 1/3 de segundo (333ms)
+  const wait = (typeof delay === 'number') ? delay : 833;
   setTimeout(()=>{
     const rows=document.querySelectorAll('#hist-list .tx-item');
     let targetEl=null;
@@ -772,7 +778,7 @@ function highlightUpdatedRecord(id){
       ],{ duration:950, easing:'cubic-bezier(0.34,1.4,0.64,1)' });
     }catch(err){}
     setTimeout(()=>{ targetEl.style.zIndex=prevZ; targetEl.style.position=prevPos; }, 1000);
-  }, 833);
+  }, wait);
 }
 
 function deleteEntry(){
