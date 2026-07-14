@@ -577,10 +577,7 @@ async function saveEdit(){
   }
   // TC histórico del registro que se está editando (respeta el TC del pasado)
   const _origFx=data.find(x=>String(x.id)===String(editId))||null;
-  // ── MODO COPIA: se guarda como registro NUEVO (padre + hijos frescos),
-  //    sin tocar el original ni sus hijos ──
-  const _isCopy = (typeof copyMode!=='undefined' && copyMode);
-  const _parentId = _isCopy ? genId() : editId;
+  const _parentId = editId;
   const amountMXN=toMXNEdit(mainAmount,cur,_origFx);
 
   // Nota principal: SOLO la nota del usuario (sin "Monto original", que se
@@ -602,39 +599,26 @@ async function saveEdit(){
   }
   const noteWithRate=[mainNote,rateNoteEdit(cur,_origFx),_fxTag].filter(Boolean).join(' | ');
 
-  let oldChildIds=[];
-  let _copyParent=null;
-  if(_isCopy){
-    // Padre NUEVO con todos los valores del modal (el original queda intacto)
-    _copyParent={
-      id:_parentId, type:editType, amount:mainAmount, amountMXN, currency:cur,
-      desc, category:editCat, subcategory:subcat,
-      method:editType!=='ahorro-pasivo'?editMethod:null,
-      date, note:noteWithRate
-    };
-    data.unshift(_copyParent);
-  } else {
-    const idx=data.findIndex(x=>x.id===editId);
-    if(idx===-1) return;
+  const idx=data.findIndex(x=>x.id===editId);
+  if(idx===-1) return;
 
-    // Capturar IDs de TODOS los hijos viejos (incluida la propina) para borrarlos de Sheets
-    oldChildIds = data
-      .filter(x=>x.linkedTo===editId)
-      .map(x=>x.id);
+  // Capturar IDs de TODOS los hijos viejos (incluida la propina) para borrarlos de Sheets
+  const oldChildIds = data
+    .filter(x=>x.linkedTo===editId)
+    .map(x=>x.id);
 
-    // Eliminar TODOS los hijos vinculados viejos (se recrean desde el estado del modal)
-    data=data.filter(x=>x.linkedTo!==editId);
+  // Eliminar TODOS los hijos vinculados viejos (se recrean desde el estado del modal)
+  data=data.filter(x=>x.linkedTo!==editId);
 
-    // Actualizar el registro madre
-    const newIdx=data.findIndex(x=>x.id===editId);
-    data[newIdx]={
-      ...data[newIdx],
-      type:editType, amount:mainAmount, amountMXN, currency:cur,
-      desc, category:editCat, subcategory:subcat,
-      method:editType!=='ahorro-pasivo'?editMethod:null,
-      date, note:noteWithRate
-    };
-  }
+  // Actualizar el registro madre
+  const newIdx=data.findIndex(x=>x.id===editId);
+  data[newIdx]={
+    ...data[newIdx],
+    type:editType, amount:mainAmount, amountMXN, currency:cur,
+    desc, category:editCat, subcategory:subcat,
+    method:editType!=='ahorro-pasivo'?editMethod:null,
+    date, note:noteWithRate
+  };
 
   const newChildren=[];
 
@@ -717,48 +701,33 @@ async function saveEdit(){
   }catch(_e){}
 
   save();
-  showSyncing(_isCopy ? '⟳ Guardando copia...' : '⟳ Actualizando...');
+  showSyncing('⟳ Actualizando...');
   // ORDEN SEGURO: crear/actualizar primero, borrar los hijos viejos al final.
-  // AJUSTE: antes esta cadena se disparaba sin esperarla, y el modal se cerraba
-  // de inmediato — el mismo patrón que causó el registro fantasma con el
-  // diferido convertido. Ahora se espera a que termine antes de cerrar.
-  let rPadre;
-  if(_isCopy){
-    rPadre = await saveEntryToSheets({..._copyParent, benType:'', benAmount:0, benDesc:''});
-  } else {
-    const updatedEntry = data.find(x=>x.id===editId);
-    rPadre = await updateEntryInSheets({...updatedEntry, benType:'', benAmount:0, benDesc:''});
-  }
+  // Se espera a que termine antes de cerrar el modal (evita el registro
+  // fantasma si se navega a media operación).
+  const updatedEntry = data.find(x=>x.id===editId);
+  const rPadre = await updateEntryInSheets({...updatedEntry, benType:'', benAmount:0, benDesc:''});
   const rHijos = await Promise.all(newChildren.map(c=>saveEntryToSheets({...c, benType:'', benAmount:0, benDesc:''})));
   // R2: si la escritura no se confirmó, NO se borran los hijos viejos.
   if(!rPadre.ok || !_allOk(rHijos)){
     hideSyncing();
-    toast(_isCopy ? '⚠️ Copia guardada en el teléfono, pero no se sincronizó'
-                  : '⚠️ No se pudo sincronizar: no se borró nada');
+    toast('⚠️ No se pudo sincronizar: no se borró nada');
   } else {
     let delOk = true;
-    if(!_isCopy){
-      for(const oid of oldChildIds){
-        const dr = await deleteEntryInSheets(oid);
-        if(!dr.ok) delOk = false;
-      }
+    for(const oid of oldChildIds){
+      const dr = await deleteEntryInSheets(oid);
+      if(!dr.ok) delOk = false;
     }
     hideSyncing();
-    if(delOk) toast(_isCopy ? '✓ Copia guardada' : '✓ Registro actualizado');
+    if(delOk) toast('✓ Registro actualizado');
     else toast('⚠️ Se guardó, pero quedaron desgloses viejos sin borrar');
   }
 
   const _finalId = _parentId;
-  if(_isCopy){ try{ resetCopyModeUI(); }catch(_e){} }
   closeModalWithSlide();
   renderHistorial(); renderBalance();
-  if(_isCopy){
-    // Aparición en la lista (inverso del borrado), tras el cierre del modal
-    setTimeout(()=>{ try{ playAppearAnimation(_finalId); }catch(_e){} }, 380);
-  } else {
-    // Resaltar el registro actualizado en el listado (pulso + destello de color)
-    highlightUpdatedRecord(_finalId);
-  }
+  // Resaltar el registro actualizado en el listado (pulso + destello de color)
+  highlightUpdatedRecord(_finalId);
 }
 
 // Cierra el modal deslizándolo hacia abajo
