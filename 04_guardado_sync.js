@@ -696,7 +696,7 @@ async function loadFromSheets(silent) {
         currency:   r[7]||'MXN',
         amountMXN:  Number(r[8]),
         method:     r[9]||null,
-        note:       dedupeNoteMeta(r[10]||''),
+        note:       r[10]||'',
         benType:    r[11]||'',
         benAmount:  r[12]?Number(r[12]):0,
         benDesc:    r[13]||'',

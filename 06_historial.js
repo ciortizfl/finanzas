@@ -79,7 +79,7 @@ function entryMatchesAmount(e, target){
   if(!e.linkedTo){
     const hijos=data.filter(x=>x.linkedTo===e.id);
     if(hijos.length){
-      const desg=hijos.filter(h=>(h.note||'').includes('Desglose de:')).reduce((s,h)=>s+h.amount,0);
+      const desg=hijos.filter(isDesglose).reduce((s,h)=>s+h.amount,0);
       const ben=hijos.filter(h=>h.type==='ahorro-pasivo').reduce((s,h)=>s+h.amount,0);
       // En un diferido, el beneficio NO redujo la mensualidad (se acredita aparte):
       // el cargo del mes es madre + desgloses. En un gasto normal, el beneficio sí
@@ -1047,28 +1047,30 @@ function txEl(e, showDelete){
     const _madreDesc = _madre ? String(_madre.desc||'').trim() : '';
     const _tieneNombrePropio = _madreDesc &&
       String(e.desc||'').trim().toLowerCase() !== _madreDesc.toLowerCase();
-    (e.note||'').split(' | ').map(p=>p.trim()).filter(Boolean).forEach(p=>{
-      if(p.startsWith('Desglose de:')){
-        metaParts.push(_tieneNombrePropio ? `Desglose de ${_madreDesc}` : 'Desglose');
-        return;
-      }
-      if(p.startsWith('Propina de:')){ metaParts.push('Propina'); return; }
-      if(p.startsWith('Beneficio de:')){ metaParts.push('Beneficio'); return; }
-      // "Monto original" es inútil en un hijo → descartar
-      if(p.startsWith('Monto original:')) return;
-      if(p.startsWith('Vinculado a:')) return;
-      // Detalles útiles que SÍ se muestran (% de $X, incluida/adicional, TC)
-      if(p.startsWith('TC:') || p.startsWith('TCauto:')) return;   // el TC ya se muestra junto al monto original
-      const isDetail = /^\d+%/.test(p)
-        || p==='incluida' || p==='adicional'
-        || p.startsWith('incluida ') || p.startsWith('adicional ');
-      if(isDetail) metaParts.push(p); else userParts.push(p);
-    });
+    // R6: la relación y los detalles ya NO se leen del texto de la nota.
+    const _m = metaOf(e);
+    const _sym = e.currency==='MXN' ? '$' : `${e.currency} `;
+    const _fmt = v => `${_sym}${Number(v).toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})}`;
+
+    if(_m.rel==='desglose')  metaParts.push(_tieneNombrePropio ? `Desglose de ${_madreDesc}` : 'Desglose');
+    if(_m.rel==='propina')   metaParts.push('Propina');
+    if(_m.rel==='beneficio') metaParts.push('Beneficio');
+
+    // Detalles útiles (% del beneficio, propina incluida/adicional)
+    if(_m.ben) metaParts.push(`${_m.ben.pct}% de ${_fmt(_m.ben.base)}`);
+    if(_m.tip){
+      const _t=_m.tip, _est=_t.inc?'incluida':'adicional';
+      if(_t.pct!=null) metaParts.push(_t.base!=null ? `${_t.pct}% ${_est} en ${_fmt(_t.base)}` : `${_t.pct}% ${_est}`);
+      else             metaParts.push(_est);
+    }
+    if(_m.benMonth) metaParts.push(`Acreditado de ${_m.benMonth.i}/${_m.benMonth.n}`);
+
+    if(_m.userNote) userParts.push(_m.userNote);
   } else {
     // MADRE: calcular dinámicamente "Monto original" y el resumen de hijos.
     const children = data.filter(x=>x.linkedTo===e.id);
-    const childDesg = children.filter(x=>(x.note||'').includes('Desglose de:'));
-    const childProp = children.find(x=>x.subcategory==='Propinas'&&(x.note||'').includes('Propina de:'));
+    const childDesg = children.filter(isDesglose);
+    const childProp = children.find(isPropina);
     const childBen  = children.find(x=>x.type==='ahorro-pasivo');
     const sym = e.currency==='MXN'?'$':`${e.currency} `;
 
@@ -1109,24 +1111,10 @@ function txEl(e, showDelete){
     if(childProp) metaParts.push('Con propina');
     if(childBen) metaParts.push(`Beneficio: ${childBen.category}`);
 
-    // Nota real del usuario: filtrar TODAS las etiquetas del sistema (se calculan
-    // dinámicamente arriba). Solo se conservan el TC (meta) y la nota real del usuario.
-    (e.note||'').split(' | ').map(p=>p.trim()).filter(Boolean).forEach(p=>{
-      if(p.startsWith('TC:') || p.startsWith('TCauto:')) return;   // el TC ya se muestra junto al monto original
-      // Descartar etiquetas del sistema que pudieran haber quedado guardadas
-      const isSystemLabel = p.startsWith('Monto original:')
-        || p.startsWith('Desglose de:')
-        || p.startsWith('Propina de:')
-        || p.startsWith('Beneficio de:')
-        || p.startsWith('Vinculado a:')
-        || p.startsWith('Propina ')          // "Propina X% incluida/adicional" (viejo)
-        || /^\d+%\s/.test(p)                  // "10% de $X"
-        || /^\d+\s+desglose/.test(p);         // "1 desglose"
-      // "acreditado en la mensualidad 1 de 6" → "Acreditado de 1/6"
-      const mAcr=p.match(/^acreditado en la mensualidad\s+(\d+)\s+de\s+(\d+)$/i);
-      if(mAcr){ metaParts.push(`Acreditado de ${mAcr[1]}/${mAcr[2]}`); return; }
-      if(!isSystemLabel) userParts.push(p);
-    });
+    // R6: la nota del usuario sale limpia de la capa metaOf; ya no se filtra texto aquí.
+    const _mm = metaOf(e);
+    if(_mm.benMonth) metaParts.push(`Acreditado de ${_mm.benMonth.i}/${_mm.benMonth.n}`);
+    if(_mm.userNote) userParts.push(_mm.userNote);
   }
 
   // Recordatorio del comercio (antes era un iconito junto al nombre): ahora es

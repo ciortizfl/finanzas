@@ -17,22 +17,107 @@ const _migrations = {
   }
 };
 
-// Deduplica partes de metadata repetidas en una nota (ej. "Monto original" dos veces).
-function dedupeNoteMeta(note){
-  if(!note) return note;
-  const parts=note.split(' | ').map(p=>p.trim()).filter(Boolean);
-  const seen=new Set();
-  const out=[];
-  parts.forEach(p=>{
-    const isMeta = p.startsWith('Monto original:') || p.startsWith('Desglose de:') || p.startsWith('TC:');
-    if(isMeta){
-      if(!seen.has(p)){ seen.add(p); out.push(p); }
-    } else {
-      out.push(p);
+// ══════════════════════════════════════════════════════════════════════════
+// R6 · MODELO DE DATOS — CAPA DE LECTURA (Entrega A)
+//
+// Única fuente de verdad de la relación de un registro con su padre y de sus
+// datos de sistema. HOY los deriva de las etiquetas escondidas en la nota
+// (formato viejo). En la Entrega B, `_deriveMeta` dejará de parsear texto y
+// leerá la columna `meta` del Sheet — y NINGÚN consumidor tendrá que cambiar,
+// porque todos preguntan aquí y no al texto.
+//
+// Contrato de meta (llaves ausentes cuando no aplican):
+//   rel      'desglose' | 'propina' | 'beneficio'   relación con el padre
+//   fxAuto   número        TC automático del momento (solo si hubo TC manual)
+//   ben      {pct, base}   beneficio capturado como %
+//   benMonth {i, n}        beneficio acreditado en la mensualidad i de n
+//   tip      {pct|amt, inc, base}                   propina
+//   defer    {g, i, n, orig}                        gasto diferido
+//   userNote string        la nota REAL del usuario, sin etiquetas
+// ══════════════════════════════════════════════════════════════════════════
+const _META_CACHE = new WeakMap();
+const _num = s => parseFloat(String(s).replace(/,/g,''));
+
+function _deriveMeta(e){
+  const m = {};
+  const user = [];
+  String(e.note||'').split(' | ').map(p=>p.trim()).filter(Boolean).forEach(p=>{
+    let x;
+    // ── Relación con el padre ──
+    if(p.startsWith('Desglose de:')){  m.rel='desglose';  return; }
+    if(p.startsWith('Beneficio de:')){ m.rel='beneficio'; return; }
+    if(p.startsWith('Propina de:')){   m.rel='propina';   return; }
+    if(p.startsWith('Vinculado a:')){  m.rel='beneficio'; return; } // nombre viejo de "Beneficio de:"
+    // ── Etiquetas muertas: el render ya las calcula solo ──
+    if(p.startsWith('Monto original:')) return;
+    if(p.startsWith('TC:')) return;                       // derivable de amountMXN/amount
+    // ── Datos de sistema que SÍ importan ──
+    if((x=p.match(/^TCauto:\s*([\d.]+)$/))){
+      const v=parseFloat(x[1]); if(isFinite(v)&&v>0) m.fxAuto=v; return;
     }
+    if((x=p.match(/^acreditado en la mensualidad\s+(\d+)\s+de\s+(\d+)$/i))){
+      m.benMonth={i:+x[1], n:+x[2]}; return;
+    }
+    if((x=p.match(/^(\d+(?:\.\d+)?)%\s+de\s+\D*([\d,]+\.?\d*)$/))){
+      m.ben={pct:parseFloat(x[1]), base:_num(x[2])}; return;
+    }
+    // Propina, formato actual (en el hijo): "15% incluida en $1,045.35" / "incluida"
+    if((x=p.match(/^(\d+(?:\.\d+)?)%\s+(incluida|adicional)(?:\s+en\s+\D*([\d,]+\.?\d*))?$/i))){
+      m.tip={pct:parseFloat(x[1]), inc:x[2].toLowerCase()==='incluida'};
+      if(x[3]) m.tip.base=_num(x[3]);
+      return;
+    }
+    if((x=p.match(/^(incluida|adicional)$/i))){
+      m.tip={inc:x[1].toLowerCase()==='incluida'}; return;
+    }
+    // Propina, formatos legacy (escritos en la MADRE). Tres variantes vistas en
+    // datos reales, unificadas aquí:
+    //   "Propina 15% incluida en $1886.00"
+    //   "Propina incluida = $50.00 (total cobrado: $325.00)"
+    //   "Propina 15% incluida = $136.35 (total cobrado: $1045.35)"
+    if((x=p.match(/^Propina\s+(?:(\d+(?:\.\d+)?)%\s+)?(incluida|adicional)(?:\s*=\s*(?:[A-Z]{3}\s*)?\$?([\d,]+\.?\d*))?(?:\s*\(total cobrado:\s*(?:[A-Z]{3}\s*)?\$?([\d,]+\.?\d*)\))?(?:\s+en\s+(?:[A-Z]{3}\s*)?\$?([\d,]+\.?\d*))?$/i))){
+      m.tip={inc:x[2].toLowerCase()==='incluida'};
+      if(x[1]) m.tip.pct=parseFloat(x[1]);
+      if(x[3]) m.tip.amt=_num(x[3]);
+      if(x[4]) m.tip.base=_num(x[4]);
+      else if(x[5]) m.tip.base=_num(x[5]);
+      return;
+    }
+    user.push(p);  // ── lo que sobrevive es la nota del usuario ──
   });
-  return out.join(' | ');
+
+  // Hijos legacy sin etiqueta (propinas viejas): la relación se infiere.
+  if(e.linkedTo && !m.rel){
+    if(e.subcategory==='Propinas')        m.rel='propina';
+    else if(e.type==='ahorro-pasivo')     m.rel='beneficio';
+    else                                  m.rel='desglose';
+  }
+  if(e.deferGroup){
+    m.defer={g:e.deferGroup, i:e.deferIndex, n:e.deferTotal, orig:e.deferOriginal};
+  }
+  m.userNote = user.join(' | ');
+  return m;
 }
+
+// metaOf(e) — cachea por objeto; se recalcula si la nota cambió.
+function metaOf(e){
+  if(!e || typeof e!=='object') return {};
+  const cached=_META_CACHE.get(e);
+  if(cached && cached._src===e.note) return cached;
+  const m=_deriveMeta(e);
+  m._src=e.note;
+  _META_CACHE.set(e, m);
+  return m;
+}
+
+// Atajos legibles — los consumidores usan ESTO, nunca e.note.
+function relOf(e){       return metaOf(e).rel || null; }
+function isDesglose(e){  return relOf(e)==='desglose'; }
+function isPropina(e){   return relOf(e)==='propina'; }
+function isBeneficio(e){ return relOf(e)==='beneficio'; }
+function userNote(e){    return metaOf(e).userNote || ''; }
+// Limpia una nota SUELTA (string), sin objeto de registro alrededor.
+function cleanNoteStr(note){ return _deriveMeta({note}).userNote; }
 
 let _migrated = false;
 data.forEach(e => {
@@ -40,11 +125,8 @@ data.forEach(e => {
     e.category = _migrations.category[e.category];
     _migrated = true;
   }
-  // Limpiar notas con metadata duplicada (de versiones anteriores)
-  if(e.note){
-    const deduped=dedupeNoteMeta(e.note);
-    if(deduped!==e.note){ e.note=deduped; _migrated=true; }
-  }
+  // R6: ya no se "limpia" la nota al arranque. Las etiquetas duplicadas se
+  // descartan al derivar el meta (metaOf), sin reescribir el registro guardado.
 });
 if(_migrated) localStorage.setItem(SK, JSON.stringify(data));
 // ────────────────────────────────────────────────────────────────────────

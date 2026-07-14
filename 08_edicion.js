@@ -116,11 +116,8 @@ function openEdit(id) {
   try{
     _fxOverrideEdit=null;
     _editFxAuto=null;
-    const _tc=(e.note||'').split(' | ').map(p=>p.trim()).find(p=>p.startsWith('TCauto:'));
-    if(_tc){
-      const v=parseFloat(_tc.replace('TCauto:','').trim());
-      if(isFinite(v) && v>0) _editFxAuto=v;
-    }
+    const _fxAuto=metaOf(e).fxAuto;
+    if(isFinite(_fxAuto) && _fxAuto>0) _editFxAuto=_fxAuto;
     const _fxInp=document.getElementById('e-fx-manual');
     if(_fxInp){
       // Con TC manual guardado, el campo llega con ese TC (el efectivo del registro)
@@ -183,7 +180,7 @@ function openEdit(id) {
   let _realDesgloses;
   if(e.deferGroup){
     const agrupados = {};
-    data.filter(x=>_grupoIds.includes(x.linkedTo) && x.type===e.type && (x.note||'').includes('Desglose de:'))
+    data.filter(x=>_grupoIds.includes(x.linkedTo) && x.type===e.type && isDesglose(x))
       .forEach(x=>{
         const k = [x.category||'', x.subcategory||'', (x.desc||'').trim().toLowerCase()].join('||');
         if(!agrupados[k]) agrupados[k] = {...x, amount:0};
@@ -191,11 +188,11 @@ function openEdit(id) {
       });
     _realDesgloses = Object.values(agrupados);
   } else {
-    _realDesgloses = data.filter(x=>x.linkedTo===id&&x.type===e.type&&(x.note||'').includes('Desglose de:'));
+    _realDesgloses = data.filter(x=>x.linkedTo===id&&x.type===e.type&&isDesglose(x));
   }
   // Propina incluida: se sumó al cobro original, hay que devolverla al monto mostrado
-  const _linkedPropina = e.type==='egreso' ? data.find(x=>x.linkedTo===id&&x.subcategory==='Propinas'&&(x.note||'').includes('Propina de:')) : null;
-  const _propinaIncluida = _linkedPropina && (_linkedPropina.note||'').includes('incluida');
+  const _linkedPropina = e.type==='egreso' ? data.find(x=>x.linkedTo===id && isPropina(x)) : null;
+  const _propinaIncluida = !!(_linkedPropina && metaOf(_linkedPropina).tip && metaOf(_linkedPropina).tip.inc);
 
   // R5: el beneficio solo se suma de vuelta si ese tipo SÍ redujo el monto
   // (descuento aplicado). El cashback nunca lo redujo, así que e.amount YA es
@@ -231,7 +228,7 @@ function openEdit(id) {
     category: d.category,
     subcategory: d.subcategory||'',
     desc: ((d.desc||'').trim() !== (e.desc||'').trim()) ? (d.desc||'') : '',
-    note: (d.note||'').split(' | ').filter(p=>!p.startsWith('Desglose de:')&&!p.startsWith('Monto original:')).join(' | '),
+    note: userNote(d),
     existingId: d.id
   }));
   renderEditDesgloses();
@@ -240,19 +237,7 @@ function openEdit(id) {
   // --- Nota: mostrar colapsada, pero con contenido si existe ---
   // Filtrar TODAS las etiquetas del sistema (se generan/muestran dinámicamente),
   // dejando solo la nota real del usuario.
-  const cleanNote = (e.note||'').split(' | ').filter(p=>{
-    const t=p.trim();
-    return t.length>0
-        && !t.startsWith('TC:')
-        && !t.startsWith('TCauto:')
-        && !t.startsWith('Monto original:')
-        && !t.startsWith('Desglose de:')
-        && !t.startsWith('Propina de:')
-        && !t.startsWith('Beneficio de:')
-        && !t.startsWith('Vinculado a:')
-        && !t.startsWith('Propina ')       // "Propina X% incluida/adicional" (viejo)
-        && !/^\d+%\s/.test(t);              // "10% de $X"
-  }).join(' | ');
+  const cleanNote = userNote(e);
   document.getElementById('e-note').value = cleanNote;
   try{ _eNotePredicted=false; }catch(_e){}
   // Nota y Desglose son mutuamente excluyentes. Si el registro tiene desgloses,
@@ -870,7 +855,7 @@ function loadEditPropina(parentId){
     x.linkedTo===parentId &&
     x.subcategory==='Propinas' &&
     x.category==='Generosidad' &&
-    !(x.note||'').includes('Desglose de:')
+    !isDesglose(x)
   );
   // Limpiar inputs
   const pctEl=document.getElementById('e-propina-pct');
