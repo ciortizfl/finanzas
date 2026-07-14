@@ -499,6 +499,8 @@ function toggleRemPanel(){
   }
   try{ updateNoteDesgloseIndicators(); }catch(e){}
   updateRemToggleIndicator();
+  // Bug 2: abrir/cerrar Recordar debe esconder/devolver el botón Diferir
+  try{ refreshTopTabsVisibility(); }catch(e){}
 }
 
 // Pinta el estado activo/inactivo de los 4 chips según la selección actual
@@ -525,6 +527,7 @@ function setRemFreq(f){
   _remPaintChips();
   _remHintUpdate();
   try{ updateNoteDesgloseIndicators(); }catch(e){}
+  try{ refreshTopTabsVisibility(); }catch(e){}   // Bug 2
 }
 
 function setRemUntil(mode){
@@ -555,6 +558,7 @@ function setRemUntil(mode){
           if(v) v.value=_remFmt(d);
           _remHintUpdate();
           try{ updateNoteDesgloseIndicators(); }catch(e){}
+          try{ refreshTopTabsVisibility(); }catch(e){}   // Bug 2
         }
       });
     }
@@ -562,6 +566,7 @@ function setRemUntil(mode){
   _remPaintChips();
   _remHintUpdate();
   try{ updateNoteDesgloseIndicators(); }catch(e){}
+  try{ refreshTopTabsVisibility(); }catch(e){}   // Bug 2
 }
 
 function resetRemToggle(){
@@ -651,11 +656,19 @@ function renderEditReminderSection(){
   const editor = document.getElementById('e-rem-editor');
   const { e, type, desc } = _eRemTarget();
 
-  // El botón 🔔 vive solo en egresos y no convive con diferidos
-  const oculto = (type !== 'egreso') || !!(e && e.deferGroup) || !!(typeof editDeferGroup!=='undefined' && editDeferGroup);
+  // El botón 🔔 vive solo en egresos y no convive con diferidos. Bug 2: antes solo
+  // miraba si el registro YA era diferido; ahora también cuenta el diferido que
+  // acabas de activar en esta sesión de edición (panel abierto o meses elegidos).
+  const enDiferido = !!(e && e.deferGroup)
+                  || !!(typeof editDeferGroup!=='undefined' && editDeferGroup)
+                  || (typeof _eDiferirVisible!=='undefined' && _eDiferirVisible)
+                  || (typeof editDiferirHasData==='function' && editDiferirHasData());
+  const oculto = (type !== 'egreso') || enDiferido;
   if (btn) btn.style.display = oculto ? 'none' : '';
   if (oculto){
     if (_eRemPanelVisible) toggleERemPanel();
+    resetEditRemState();   // que no quede armado en la sombra
+    try{ updateEditNoteDesgloseIndicators(); }catch(_e){}
     return;
   }
   if (!box || !editor) return;
@@ -711,6 +724,7 @@ function toggleERemPanel(){
     renderEditReminderSection();
   }
   try{ updateEditNoteDesgloseIndicators(); }catch(e){}
+  try{ refreshEditTopTabs(); }catch(e){}   // Bug 2: esconder/devolver Diferir
 }
 
 // Quitar por completo el recordatorio vigente (o vencido) de este comercio
@@ -823,6 +837,7 @@ function eSetRemFreq(f){
     const v=document.getElementById('e-rem-until-value'); if(v) v.value='';
   }
   _eRemPaint(); _eRemHint();
+  try{ refreshEditTopTabs(); }catch(e){}   // Bug 2
 }
 
 function eSetRemUntil(mode){
@@ -851,11 +866,13 @@ function eSetRemUntil(mode){
           const v=document.getElementById('e-rem-until-value');
           if(v) v.value=_remFmt(d);
           _eRemHint();
+          try{ refreshEditTopTabs(); }catch(e){}   // Bug 2
         }
       });
     }
   }
   _eRemPaint(); _eRemHint();
+  try{ refreshEditTopTabs(); }catch(e){}   // Bug 2
 }
 
 // Crear la regla al GUARDAR la edición/copia (llamado desde saveEdit)

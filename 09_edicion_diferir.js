@@ -127,6 +127,7 @@ function toggleEditDiferirPreset(p){
   renderEditDiferirPreview();
   updateInlineBtn('e-inline-diferir-btn', true, editDiferirHasData());
   editUpdateDesgloseForDiferir();
+  try{ refreshEditTopTabs(); }catch(e){}   // Bug 2: mantener la exclusión al vuelo
 }
 
 function onEditDiferirCustomInput(){
@@ -142,6 +143,7 @@ function onEditDiferirCustomInput(){
   renderEditDiferirPreview();
   updateInlineBtn('e-inline-diferir-btn', true, editDiferirHasData());
   editUpdateDesgloseForDiferir();
+  try{ refreshEditTopTabs(); }catch(e){}   // Bug 2: mantener la exclusión al vuelo
 }
 
 // Quitar diferido: vuelve el gasto a ser único (de una vez)

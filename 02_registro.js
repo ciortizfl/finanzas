@@ -173,22 +173,16 @@ function onCurChange() {
   try{ updateFxRow(); }catch(e){}
   const cur = document.getElementById('currency').value;
   const badge = document.getElementById('rate-note');
-  const noteEl = document.getElementById('note');
-  // Remove any previous auto-injected rate from note
-  if(noteEl && noteEl.dataset.autoRate) {
-    noteEl.value = noteEl.value.replace(' | '+noteEl.dataset.autoRate, '').replace(noteEl.dataset.autoRate, '').trim();
-    delete noteEl.dataset.autoRate;
-  }
+  // R6.6: el TC ya NO se inyecta en la nota. Antes, al cambiar de moneda, esto
+  // escribía "TC: 1 CAD = $12.60 MXN" DENTRO del textarea del usuario (y le abría
+  // el panel de Nota a la fuerza). Esa etiqueta viajaba tal cual a la columna Nota
+  // del Sheet — justo lo que R6 vino a eliminar. El TC ya vive donde debe: se
+  // deriva de amountMXN/amount, y el manual se guarda en meta.fxAuto.
   if(cur==='MXN'){ if(badge) badge.style.display='none'; return; }
   if(badge) badge.style.display='flex';
   const r = rates[cur]||1;
   const rateStr = `TC: 1 ${cur} = $${r.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})} MXN${ratesLoaded?'':' (est.)'}`;
   document.getElementById('rate-text').textContent = rateStr;
-  if(noteEl){
-    noteEl.dataset.autoRate = rateStr;
-    noteEl.value = noteEl.value ? noteEl.value+' | '+rateStr : rateStr;
-    toggleNoteField(true);
-  }
   calcBenPreview();
   calcPropinaPreview();
   if(typeof renderDesgloses==='function' && desgloses.length>0) renderDesgloses();
@@ -448,7 +442,7 @@ function setType(t) {
   }
   // Reset note
   const noteEl=document.getElementById('note');
-  if(noteEl){ noteEl.value=''; delete noteEl.dataset.autoRate; }
+  if(noteEl){ noteEl.value=''; }   // R6.6: ya no existe dataset.autoRate
   // Al cambiar de tipo, limpiar desgloses (solo aplican a egreso)
   desgloses=[]; renderDesgloses();
   const noteWrap=document.getElementById('note-field-wrap');
@@ -708,8 +702,15 @@ function refreshTopTabsVisibility(){
   const dbn=document.getElementById('inline-diferir-btn');
   const propinaActiva = _propinaVisible || propinaHasData();
   const diferirActivo = _diferirVisible || diferirHasData();
+  // Diferir ↔ Recordar: la exclusión era de UNA SOLA VÍA (Diferir escondía a
+  // Recordar, pero no al revés). Ahora es simétrica: Recordar activo —panel
+  // abierto o ya armado— también esconde Diferir, y al apagarlo reaparece.
+  // El `&& !diferirActivo` evita que ambos se escondan a la vez: si Diferir
+  // está activo él manda, y updateRemToggleVisibility() apaga a Recordar.
+  const remActivo = (typeof _remPanelVisible!=='undefined' && _remPanelVisible)
+                 || (typeof remHasData==='function' && remHasData());
   if(pbn) pbn.style.display = diferirActivo ? 'none' : '';
-  if(dbn) dbn.style.display = propinaActiva ? 'none' : '';
+  if(dbn) dbn.style.display = (propinaActiva || (remActivo && !diferirActivo)) ? 'none' : '';
   updateInlineBtn('inline-propina-btn', _propinaVisible, propinaHasData() && !_propinaVisible);
   updateInlineBtn('inline-ben-btn', _benVisible, benHasData() && !_benVisible);
   updateInlineBtn('inline-diferir-btn', _diferirVisible, diferirHasData() && !_diferirVisible);
@@ -847,6 +848,7 @@ function toggleDiferirPreset(p){
   renderDiferirPreview();
   updateInlineBtn('inline-diferir-btn', true, diferirHasData());
   try{ updateBenMonthSelector(); }catch(e){}
+  try{ refreshTopTabsVisibility(); }catch(e){}   // Bug 2: mantener la exclusión al vuelo
 }
 
 function onDiferirCustomInput(){
@@ -863,6 +865,7 @@ function onDiferirCustomInput(){
   renderDiferirPreview();
   updateInlineBtn('inline-diferir-btn', true, diferirHasData());
   try{ updateBenMonthSelector(); }catch(e){}
+  try{ refreshTopTabsVisibility(); }catch(e){}   // Bug 2: mantener la exclusión al vuelo
 }
 
 // Quita el diferido por completo (vuelve a cero y reaparecen Propina/Beneficio/Desglose)

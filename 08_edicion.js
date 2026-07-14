@@ -750,8 +750,16 @@ function _closeOtherEditTopTabs(keep){
   }
 }
 
-// Exclusiones: Propina ↔ Diferir se esconden entre sí. Beneficio convive con todo.
+// Exclusiones: Propina ↔ Diferir se esconden entre sí. Diferir ↔ Recordar
+// también (bug 2: en edición NO se escondían en NINGUNA de las dos direcciones).
+// Beneficio convive con todo.
+let _eTabsBusy=false;   // guarda contra reentradas (renderEditReminderSection puede cerrar el panel 🔔)
 function refreshEditTopTabs(){
+  if(_eTabsBusy) return;
+  _eTabsBusy=true;
+  try{ _refreshEditTopTabs(); } finally { _eTabsBusy=false; }
+}
+function _refreshEditTopTabs(){
   const pbn=document.getElementById('e-inline-propina-btn');
   const dbn=document.getElementById('e-inline-diferir-btn');
   const full=document.getElementById('e-inline-diferir-full');
@@ -761,13 +769,20 @@ function refreshEditTopTabs(){
   if(row){ try{ row.getAnimations().forEach(a=>a.cancel()); }catch(e){} row.style.opacity=''; row.style.pointerEvents=''; }
   const propinaActiva = _ePropinaVisible || ePropinaHasData();
   const diferirActivo = (typeof _eDiferirVisible!=='undefined' && _eDiferirVisible) || editDiferirHasData();
+  // Recordar activo (panel abierto o ya armado) esconde Diferir. Si Diferir está
+  // activo, él manda y renderEditReminderSection() apaga a Recordar.
+  const remActivo = (typeof _eRemPanelVisible!=='undefined' && _eRemPanelVisible)
+                 || (typeof eRemHasData==='function' && eRemHasData());
   if(pbn) pbn.style.display = diferirActivo ? 'none' : '';
-  if(dbn) dbn.style.display = propinaActiva ? 'none' : '';
+  if(dbn) dbn.style.display = (propinaActiva || (remActivo && !diferirActivo)) ? 'none' : '';
   updateInlineBtn('e-inline-propina-btn', _ePropinaVisible, ePropinaHasData() && !_ePropinaVisible);
   updateInlineBtn('e-inline-ben-btn', _eBenVisible, eBenHasData() && !_eBenVisible);
   updateInlineBtn('e-inline-diferir-btn', (typeof _eDiferirVisible!=='undefined' && _eDiferirVisible), editDiferirHasData() && !(typeof _eDiferirVisible!=='undefined' && _eDiferirVisible));
   try{ updateEditBenMonthSelector(); }catch(e){}
   try{ editUpdateDesgloseForDiferir(); }catch(e){}
+  // Diferir → Recordar: recalcula si 🔔 debe estar visible (antes solo miraba si
+  // el registro YA era diferido, no si acababas de activar el diferido aquí).
+  try{ renderEditReminderSection(); }catch(e){}
 }
 
 function toggleEPropina(){

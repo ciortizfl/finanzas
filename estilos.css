@@ -253,6 +253,20 @@ nav {
 .chip:active { transform: scale(0.95); }
 .chip.active { background: var(--accent); color: white; font-weight: 600; }
 
+/* Botones de MÉTODO DE PAGO (registro, edición, y los de la propina en ambos).
+   Punto 4: eran 29px de alto / 13px de fuente. Se acercan al chip de búsqueda
+   del Historial (24px / 11.5px) sin llegar a él: siguen siendo el control
+   principal del formulario, no un filtro secundario. Los chips de Recordar
+   (Semanal/Mensual/Indefinido) NO se tocan: comparten la clase .chip pero no
+   son métodos de pago. */
+#method-field .chip,
+#e-chips .chip,
+#propina-method-chips .chip,
+#e-propina-method-chips .chip {
+  padding: 6px 12px;
+  font-size: 12px;
+}
+
 /* BENEFIT TOGGLE */.t-box {
   width: 22px; height: 22px; border-radius: 50%;
   border: 2px solid var(--amber); flex-shrink: 0;
