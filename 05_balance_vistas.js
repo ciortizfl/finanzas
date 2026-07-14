@@ -10,7 +10,7 @@ function renderBalance(){
   }
   const md=monthData();
   const ing=sum(md,'ingreso'), egr=sum(md,'egreso');
-  const aho=sum(md,'ahorro'), pas=sum(md,'ahorro-pasivo');
+  const aho=sum(md,'ahorro'), pas=sum(md,'beneficio');
   const bal=ing-egr;
 
   // Subtítulo fijo (el ahorro activo fue eliminado de la app)
@@ -97,7 +97,7 @@ function renderBalance(){
 
   // Re-highlight active stat card por ID (el orden del DOM ahora es dinámico)
   if(balView){
-    const idMap={ingreso:'ingreso-stat',egreso:'egreso-stat','ahorro-pasivo':'pasivo-stat'};
+    const idMap={ingreso:'ingreso-stat',egreso:'egreso-stat','beneficio':'pasivo-stat'};
     document.querySelectorAll('#page-balance .grid2 .stat').forEach(s=>s.classList.remove('active-filter'));
     const activeId=idMap[balView];
     if(activeId){ const activeEl=document.getElementById(activeId); if(activeEl) activeEl.classList.add('active-filter'); }
@@ -137,12 +137,12 @@ function renderBalanceCats(animate){
   // Animación del label solo cuando el usuario abre la vista (no en re-renders automáticos)
   if(animate) revealAnimate(lbl);
 
-  const typeNames={ingreso:'Ingresos',egreso:'Egresos',ahorro:'Ahorro activo','ahorro-pasivo':'Beneficios'};
+  const typeNames={ingreso:'Ingresos',egreso:'Egresos',ahorro:'Ahorro activo','beneficio':'Beneficios'};
   lbl.style.display='block';
   lbl.textContent=typeNames[balView];
 
   // For ahorro types: use ALL data (not just this month), show movements per category
-  const isAhorro = balView==='ahorro'||balView==='ahorro-pasivo';
+  const isAhorro = balView==='ahorro'||balView==='beneficio';
   const subset = md.filter(e=>e.type===balView);
 
   const catTotals={}, catSubTotals={}, catItems={};
@@ -164,8 +164,8 @@ function renderBalanceCats(animate){
   }
 
   if(isAhorro){
-    const sign = balView==='ahorro-pasivo' ? '★' : '→';
-    const amtColor = balView==='ahorro-pasivo' ? '#af52de' : 'var(--blue)';
+    const sign = balView==='beneficio' ? '★' : '→';
+    const amtColor = balView==='beneficio' ? '#af52de' : 'var(--blue)';
     Object.entries(catTotals).sort((a,b)=>b[1]-a[1]).forEach(([cat,tot])=>{
       const color=catColor(cat);
       const items=(catItems[cat]||[]).sort((a,b)=>b.amountMXN-a.amountMXN);
@@ -420,7 +420,7 @@ function populateAnnualYear(){
 }
 
 // Series visibles en la gráfica anual (se togglean con las leyendas)
-let chartSeriesVisible = { ingreso:true, egreso:true, 'ahorro-pasivo':true };
+let chartSeriesVisible = { ingreso:true, egreso:true, 'beneficio':true };
 
 function toggleChartSeries(type){
   // Forzar mínimo una serie activa
@@ -432,7 +432,7 @@ function toggleChartSeries(type){
 }
 
 function updateLegendStyles(){
-  [['ingreso','legend-ingreso'],['egreso','legend-egreso'],['ahorro-pasivo','legend-ahorro-pasivo']].forEach(([type,id])=>{
+  [['ingreso','legend-ingreso'],['egreso','legend-egreso'],['beneficio','legend-beneficio']].forEach(([type,id])=>{
     const el=document.getElementById(id);
     if(el) el.style.opacity = chartSeriesVisible[type] ? '1' : '0.35';
   });
@@ -451,7 +451,7 @@ function renderAnnual(){
 
   const ingData=Array.from({length:12},(_,m)=>sum(data.filter(e=>{if(isFutureEntry(e))return false;const d=parseDate(e.date);return d.getMonth()===m&&d.getFullYear()===yr;}),'ingreso'));
   const egrData=Array.from({length:12},(_,m)=>sum(data.filter(e=>{if(isFutureEntry(e))return false;const d=parseDate(e.date);return d.getMonth()===m&&d.getFullYear()===yr;}),'egreso'));
-  const benData=Array.from({length:12},(_,m)=>sum(data.filter(e=>{if(isFutureEntry(e))return false;const d=parseDate(e.date);return d.getMonth()===m&&d.getFullYear()===yr;}),'ahorro-pasivo'));
+  const benData=Array.from({length:12},(_,m)=>sum(data.filter(e=>{if(isFutureEntry(e))return false;const d=parseDate(e.date);return d.getMonth()===m&&d.getFullYear()===yr;}),'beneficio'));
 
   // ── Resumen anual hasta la fecha ──
   const totalIng=ingData.reduce((s,v)=>s+v,0);
@@ -484,7 +484,7 @@ function renderAnnual(){
   let maxCandidates=[1];
   if(chartSeriesVisible.ingreso) maxCandidates.push(...ingData);
   if(chartSeriesVisible.egreso) maxCandidates.push(...egrData);
-  if(chartSeriesVisible['ahorro-pasivo']) maxCandidates.push(...benData);
+  if(chartSeriesVisible['beneficio']) maxCandidates.push(...benData);
   const dataMax=Math.max(...maxCandidates);
 
   // ── Eje Y: intervalo escalado según el máximo ──
@@ -539,13 +539,13 @@ function renderAnnual(){
   }
 
   // Determinar cuántas barras se muestran por grupo (para el ancho)
-  const visibleSeries=['ingreso','egreso','ahorro-pasivo'].filter(t=>chartSeriesVisible[t]);
+  const visibleSeries=['ingreso','egreso','beneficio'].filter(t=>chartSeriesVisible[t]);
   const nBars=visibleSeries.length||1;
   // Ancho de cada barra según cuántas series visibles (más delgadas si son 3)
   const barW=Math.max(3,Math.floor(groupW*0.62/nBars));
   const gap=Math.max(1,Math.floor(barW*0.18));
-  const colorMap={ingreso:'#34c759',egreso:'#ff3b30','ahorro-pasivo':'#af52de'};
-  const dataMap={ingreso:ingData,egreso:egrData,'ahorro-pasivo':benData};
+  const colorMap={ingreso:'#34c759',egreso:'#ff3b30','beneficio':'#af52de'};
+  const dataMap={ingreso:ingData,egreso:egrData,'beneficio':benData};
 
   Array.from({length:12},(_,m)=>{
     const cx=padL+m*groupW+groupW/2;
@@ -585,7 +585,7 @@ function renderAnnual(){
   if(annualSelMonth===null&&lbl){ lbl.style.display='none'; cats.innerHTML=''; }
 }
 
-let annualDetailView = null; // 'ingreso' | 'egreso' | 'ahorro-pasivo' | null
+let annualDetailView = null; // 'ingreso' | 'egreso' | 'beneficio' | null
 
 function showAnnualMonthDetail(m,yr){
   annualSelMonth=m;
@@ -599,7 +599,7 @@ function showAnnualMonthDetail(m,yr){
   cats.innerHTML='';
 
   const md=data.filter(e=>{const d=parseDate(e.date);return d.getMonth()===m&&d.getFullYear()===yr;});
-  const ing=sum(md,'ingreso'),egr=sum(md,'egreso'),pas=sum(md,'ahorro-pasivo');
+  const ing=sum(md,'ingreso'),egr=sum(md,'egreso'),pas=sum(md,'beneficio');
   const bal=ing-egr;
 
   // ── Tarjetón de balance del mes a 100% de ancho ──
@@ -617,7 +617,7 @@ function showAnnualMonthDetail(m,yr){
   const items=[
     {k:'ingreso', lbl:'Ingresos', val:ing, cls:'g', show:ing>0},
     {k:'egreso',  lbl:'Egresos',  val:egr, cls:'r', show:egr>0},
-    {k:'ahorro-pasivo', lbl:'Beneficios', val:pas, cls:'a', show:pas>0},
+    {k:'beneficio', lbl:'Beneficios', val:pas, cls:'a', show:pas>0},
   ].filter(it=>it.show);
 
   const n=items.length;
@@ -665,7 +665,7 @@ function toggleAnnualDetailView(view, m, yr){
 
   box.innerHTML='';
   const md=data.filter(e=>{const d=parseDate(e.date);return d.getMonth()===m&&d.getFullYear()===yr && e.type===view;});
-  const typeNames={ingreso:'Ingresos',egreso:'Egresos','ahorro-pasivo':'Beneficios'};
+  const typeNames={ingreso:'Ingresos',egreso:'Egresos','beneficio':'Beneficios'};
 
   const sec=document.createElement('div'); sec.className='sec-lbl';
   sec.textContent=`${typeNames[view]} por categoría`;

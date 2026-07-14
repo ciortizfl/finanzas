@@ -387,7 +387,7 @@ function setType(t) {
   const thumb=document.getElementById('seg-thumb');
   if(seg){
     seg.setAttribute('data-active', t);
-    const order={egreso:0, ingreso:1, 'ahorro-pasivo':2};
+    const order={egreso:0, ingreso:1, 'beneficio':2};
     const idx=order[t] !== undefined ? order[t] : 0;
     if(thumb) thumb.style.transform=`translateX(${idx*100}%)`;
     seg.querySelectorAll('.seg-option').forEach(b=>{
@@ -401,7 +401,7 @@ function setType(t) {
   });
   const ahorroBtn=document.getElementById('type-btn-ahorro');
   if(ahorroBtn){
-    if(t==='ahorro'||t==='ahorro-pasivo') ahorroBtn.classList.add('active');
+    if(t==='ahorro'||t==='beneficio') ahorroBtn.classList.add('active');
     else ahorroBtn.classList.remove('active');
   }
   const subToggle=document.getElementById('ahorro-sub-toggle');
@@ -459,7 +459,7 @@ function setType(t) {
   if(noteLbl) noteLbl.textContent=' Agregar nota';
   const badge=document.getElementById('rate-note');
   if(badge) badge.style.display='none';
-  document.getElementById('method-field').style.display=t==='ahorro-pasivo'?'none':'block';
+  document.getElementById('method-field').style.display=t==='beneficio'?'none':'block';
   // Efecto de despliegue en el formulario al cambiar de tipo
   revealAnimate(document.getElementById('register-form-card'));
 }
@@ -470,7 +470,7 @@ function buildCatBlocks() {
 
 // Devuelve la clase de color de selección según el tipo actual
 function curColorCls(){
-  return curType==='ingreso'?'sel-in':curType==='ahorro'?'sel-ah':curType==='ahorro-pasivo'?'sel-pa':'sel-eg';
+  return curType==='ingreso'?'sel-in':curType==='ahorro'?'sel-ah':curType==='beneficio'?'sel-pa':'sel-eg';
 }
 
 // Renderiza el UI de categorías/subcategorías según el estado actual:
@@ -964,7 +964,7 @@ document.addEventListener('click', function(ev){
   }
 });
 
-let curAhorroSubType = 'ahorro'; // 'ahorro' | 'ahorro-pasivo'
+let curAhorroSubType = 'ahorro'; // 'ahorro' | 'beneficio'
 
 
 
@@ -974,7 +974,7 @@ function setAhorroSubType(t){
   const activoBtn=document.getElementById('ahorro-sub-activo');
   const pasivoBtn=document.getElementById('ahorro-sub-pasivo');
   if(activoBtn){ activoBtn.style.background=t==='ahorro'?'var(--blue)':'var(--surface2)'; activoBtn.style.color=t==='ahorro'?'white':'var(--text3)'; }
-  if(pasivoBtn){ pasivoBtn.style.background=t==='ahorro-pasivo'?'#af52de':'var(--surface2)'; pasivoBtn.style.color=t==='ahorro-pasivo'?'white':'var(--text3)'; }
+  if(pasivoBtn){ pasivoBtn.style.background=t==='beneficio'?'#af52de':'var(--surface2)'; pasivoBtn.style.color=t==='beneficio'?'white':'var(--text3)'; }
   const mainBtn=document.getElementById('type-btn-ahorro');
   const lbl=document.getElementById('ahorro-type-lbl');
   if(lbl) lbl.textContent=t==='ahorro'?'Ahorro':'Beneficio';
@@ -1081,8 +1081,8 @@ function predictCategory(){
     }
     return;
   }
-  // Funciona para egreso, ingreso y beneficio (ahorro-pasivo)
-  if(curType !== 'egreso' && curType !== 'ingreso' && curType !== 'ahorro-pasivo') return;
+  // Funciona para egreso, ingreso y beneficio (beneficio)
+  if(curType !== 'egreso' && curType !== 'ingreso' && curType !== 'beneficio') return;
 
   // Ponderación por recencia: el año se parte en 4 cuartos de ~91 días.
   // Los registros más recientes pesan más. Nada más viejo de 365 días cuenta.
@@ -1131,7 +1131,7 @@ function predictCategory(){
 
   // ── Predecir método de pago (el más frecuente para descripciones similares) ──
   const methodEntries = Object.entries(methodFreq);
-  if(methodEntries.length > 0 && curType !== 'ahorro-pasivo'){
+  if(methodEntries.length > 0 && curType !== 'beneficio'){
     const [bestMethod] = methodEntries.sort((a,b)=>b[1]-a[1])[0];
     if(bestMethod && bestMethod !== selMethod){
       selMethod = bestMethod;
@@ -1330,7 +1330,7 @@ function calcEditBenPreview(){
 
 // Unificar: las categorías de ahorro pasivo SON los tipos de beneficio.
 // Así coinciden sin importar si se registra dentro de un gasto o por separado.
-BEN_TYPES.forEach(t=>{ CATS['ahorro-pasivo'][t]=['—']; });
+BEN_TYPES.forEach(t=>{ CATS['beneficio'][t]=['—']; });
 let curBenType = 'Cashback';
 let editBenType = 'Cashback';
 

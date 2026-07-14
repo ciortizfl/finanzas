@@ -186,8 +186,8 @@ nav {
 .seg-control[data-active="egreso"]  .seg-option.active { color: var(--danger); }
 .seg-control[data-active="ingreso"] .seg-thumb { background: var(--green-light); }
 .seg-control[data-active="ingreso"] .seg-option.active { color: var(--green); }
-.seg-control[data-active="ahorro-pasivo"] .seg-thumb { background: #af52de22; }
-.seg-control[data-active="ahorro-pasivo"] .seg-option.active { color: #af52de; }
+.seg-control[data-active="beneficio"] .seg-thumb { background: #af52de22; }
+.seg-control[data-active="beneficio"] .seg-option.active { color: #af52de; }
 
 /* FIELDS */
 .field { margin-bottom: 14px; }
@@ -462,7 +462,7 @@ nav {
 .tx-ico.ingreso       { background: var(--green-light); }
 .tx-ico.egreso        { background: var(--danger-light); }
 .tx-ico.ahorro        { background: var(--blue-light); }
-.tx-ico.ahorro-pasivo { background: #af52de22; }
+.tx-ico.beneficio { background: #af52de22; }
 .tx-info { flex: 1; min-width: 0; }
 .tx-desc { font-size: 14px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: -0.01em; }
 .tx-meta { font-size: 11px; color: var(--text3); margin-top: 2px; }
@@ -470,7 +470,7 @@ nav {
 .tx-amt.ingreso       { color: var(--green); }
 .tx-amt.egreso        { color: var(--danger); }
 .tx-amt.ahorro        { color: var(--blue); }
-.tx-amt.ahorro-pasivo { color: #af52de; }
+.tx-amt.beneficio { color: #af52de; }
 
 /* AHORROS *//* FILTER BAR */
 .filter-bar { padding: 0 16px 12px; display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
@@ -768,7 +768,7 @@ nav {
 /* Tarjetones de detalle anual: color por tipo al activarse */
 .annual-detail-stat.active-filter[data-view="ingreso"] { background: var(--green) !important; }
 .annual-detail-stat.active-filter[data-view="egreso"]  { background: var(--danger) !important; }
-.annual-detail-stat.active-filter[data-view="ahorro-pasivo"] { background: #af52de !important; }
+.annual-detail-stat.active-filter[data-view="beneficio"] { background: #af52de !important; }
 .stat.active-filter .lbl,
 .stat.active-filter .val,
 .stat.active-filter .sub,

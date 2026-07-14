@@ -80,7 +80,7 @@ function entryMatchesAmount(e, target){
     const hijos=data.filter(x=>x.linkedTo===e.id);
     if(hijos.length){
       const desg=hijos.filter(isDesglose).reduce((s,h)=>s+h.amount,0);
-      const ben=hijos.filter(h=>h.type==='ahorro-pasivo').reduce((s,h)=>s+h.amount,0);
+      const ben=hijos.filter(h=>h.type==='beneficio').reduce((s,h)=>s+h.amount,0);
       // En un diferido, el beneficio NO redujo la mensualidad (se acredita aparte):
       // el cargo del mes es madre + desgloses. En un gasto normal, el beneficio sí
       // se restó, así que el monto original lo incluye. Se aceptan ambos.
@@ -732,7 +732,7 @@ function updateTypeChips(selMonth, selYear, isSearchMode){
   const counts = {
     egreso: baseEntries.some(e=>e.type==='egreso'),
     ingreso: baseEntries.some(e=>e.type==='ingreso'),
-    'ahorro-pasivo': baseEntries.some(e=>e.type==='ahorro-pasivo'),
+    'beneficio': baseEntries.some(e=>e.type==='beneficio'),
   };
   const anyRecords = baseEntries.length>0;
 
@@ -750,14 +750,14 @@ function updateTypeChips(selMonth, selYear, isSearchMode){
   setChip('fchip-todos', anyRecords);
   setChip('fchip-egreso', counts.egreso);
   setChip('fchip-ingreso', counts.ingreso);
-  setChip('fchip-ahorro-pasivo', counts['ahorro-pasivo']);
+  setChip('fchip-beneficio', counts['beneficio']);
 
   // Si el filtro activo quedó sin registros (por el mes, el rango o la búsqueda),
   // volver a "Todos" para no dejar la vista atorada en un tipo vacío.
   if(histFilter!=='todos'){
     const stillHasData = histFilter==='egreso' ? counts.egreso
       : histFilter==='ingreso' ? counts.ingreso
-      : histFilter==='ahorro-pasivo' ? counts['ahorro-pasivo']
+      : histFilter==='beneficio' ? counts['beneficio']
       : true;
     if(!stillHasData){
       histFilter='todos';
@@ -1022,7 +1022,7 @@ function txEl(e, showDelete){
     const tcTxt=tc>0 ? ` (TC: ${tagAmt(tc)} MXN)` : '';
     curLine=`<div class="tx-note" style="opacity:0.7">${montoOrig}${tcTxt}</div>`;
   }
-  const sign={ingreso:'+',egreso:'−',ahorro:'→','ahorro-pasivo':'★'}[e.type]||'';
+  const sign={ingreso:'+',egreso:'−',ahorro:'→','beneficio':'★'}[e.type]||'';
   const ico=emojiForEntry(e);
   // Los hijos vinculados (desglose/propina/beneficio) no se eliminan independientemente
   const isLinkedChild = !!e.linkedTo;
@@ -1063,7 +1063,7 @@ function txEl(e, showDelete){
       if(_t.pct!=null) metaParts.push(_t.base!=null ? `${_t.pct}% ${_est} en ${_fmt(_t.base)}` : `${_t.pct}% ${_est}`);
       else             metaParts.push(_est);
     }
-    if(_m.benMonth) metaParts.push(`Acreditado de ${_m.benMonth.i}/${_m.benMonth.n}`);
+    if(_m.benMonth) metaParts.push(`Acreditado en ${_m.benMonth.i}/${_m.benMonth.n}`);
 
     if(_m.userNote) userParts.push(_m.userNote);
   } else {
@@ -1071,7 +1071,7 @@ function txEl(e, showDelete){
     const children = data.filter(x=>x.linkedTo===e.id);
     const childDesg = children.filter(isDesglose);
     const childProp = children.find(isPropina);
-    const childBen  = children.find(x=>x.type==='ahorro-pasivo');
+    const childBen  = children.find(x=>x.type==='beneficio');
     const sym = e.currency==='MXN'?'$':`${e.currency} `;
 
     // Etiqueta de gasto diferido: "Diferido · mes X/N · de $Total"
@@ -1113,7 +1113,7 @@ function txEl(e, showDelete){
 
     // R6: la nota del usuario sale limpia de la capa metaOf; ya no se filtra texto aquí.
     const _mm = metaOf(e);
-    if(_mm.benMonth) metaParts.push(`Acreditado de ${_mm.benMonth.i}/${_mm.benMonth.n}`);
+    if(_mm.benMonth) metaParts.push(`Acreditado en ${_mm.benMonth.i}/${_mm.benMonth.n}`);
     if(_mm.userNote) userParts.push(_mm.userNote);
   }
 

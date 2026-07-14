@@ -53,7 +53,7 @@
       <div class="seg-thumb" id="seg-thumb"></div>
       <button class="seg-option active" data-t="egreso" onclick="setType('egreso')"><span class="seg-ico">↓</span><span>Egreso</span></button>
       <button class="seg-option" data-t="ingreso" onclick="setType('ingreso')"><span class="seg-ico">↑</span><span>Ingreso</span></button>
-      <button class="seg-option" data-t="ahorro-pasivo" onclick="setType('ahorro-pasivo')"><span class="seg-ico">★</span><span>Beneficio</span></button>
+      <button class="seg-option" data-t="beneficio" onclick="setType('beneficio')"><span class="seg-ico">★</span><span>Beneficio</span></button>
     </div>
 
     <!-- Ahorro sub-type selector — oculto: solo se usa ahorro pasivo -->
@@ -61,7 +61,7 @@
       <div style="display:flex;gap:8px;width:100%;">
         <button onclick="setAhorroSubType('ahorro')" id="ahorro-sub-activo"
           style="flex:1;padding:10px 0;border-radius:100px;border:none;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;background:var(--blue);color:white;transition:all 0.2s;">◎ Activo</button>
-        <button onclick="setAhorroSubType('ahorro-pasivo')" id="ahorro-sub-pasivo"
+        <button onclick="setAhorroSubType('beneficio')" id="ahorro-sub-pasivo"
           style="flex:1;padding:10px 0;border-radius:100px;border:none;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;background:var(--surface2);color:var(--text3);transition:all 0.2s;">★ Beneficio</button>
       </div>
     </div>
@@ -298,7 +298,7 @@
       <div class="lbl">Bono despensa</div><div class="val" id="d-bono" style="color:var(--green)">$0</div>
       <div class="sub" id="bono-stat-sub">Disponible</div>
     </div>
-    <div class="stat" id="pasivo-stat" style="cursor:pointer" onclick="setBalView('ahorro-pasivo',this)">
+    <div class="stat" id="pasivo-stat" style="cursor:pointer" onclick="setBalView('beneficio',this)">
       <div class="lbl">Beneficios</div><div class="val a" id="d-pas">$0</div>
       <div class="sub">Recompensas del mes</div>
     </div>
@@ -331,7 +331,7 @@
         <div style="display:flex;justify-content:center;gap:16px;margin-top:12px;flex-wrap:wrap;">
           <div id="legend-ingreso" onclick="toggleChartSeries('ingreso')" style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2);cursor:pointer;user-select:none;transition:opacity 0.18s;"><span style="width:10px;height:10px;border-radius:2px;background:#34c759;"></span>Ingresos</div>
           <div id="legend-egreso" onclick="toggleChartSeries('egreso')" style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2);cursor:pointer;user-select:none;transition:opacity 0.18s;"><span style="width:10px;height:10px;border-radius:2px;background:#ff3b30;"></span>Egresos</div>
-          <div id="legend-ahorro-pasivo" onclick="toggleChartSeries('ahorro-pasivo')" style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2);cursor:pointer;user-select:none;transition:opacity 0.18s;"><span style="width:10px;height:10px;border-radius:2px;background:#af52de;"></span>Beneficios</div>
+          <div id="legend-beneficio" onclick="toggleChartSeries('beneficio')" style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2);cursor:pointer;user-select:none;transition:opacity 0.18s;"><span style="width:10px;height:10px;border-radius:2px;background:#af52de;"></span>Beneficios</div>
         </div>
       </div>
     </div>
@@ -434,7 +434,7 @@
     <button class="f-chip" id="fchip-egreso" onclick="setFilter('egreso',this)">Egresos</button>
     <button class="f-chip" id="fchip-ingreso" onclick="setFilter('ingreso',this)">Ingresos</button>
     <button class="f-chip" onclick="setFilter('ahorro',this)" style="display:none">Ahorro activo</button>
-    <button class="f-chip" id="fchip-ahorro-pasivo" onclick="setFilter('ahorro-pasivo',this)">Beneficios</button>
+    <button class="f-chip" id="fchip-beneficio" onclick="setFilter('beneficio',this)">Beneficios</button>
     <button id="method-filter-toggle-btn" onclick="toggleMethodFilters()" style="display:flex;align-items:center;gap:4px;padding:6px 12px;border-radius:100px;border:1.5px solid var(--border2);background:var(--surface2);font-family:inherit;font-size:12px;font-weight:600;color:var(--text2);cursor:pointer;white-space:nowrap;">
       <span id="method-filter-indicator" style="width:7px;height:7px;border-radius:50%;background:var(--border2);flex-shrink:0;transition:background 0.2s;"></span>
       Método <span id="method-filter-arrow" style="font-size:10px;transition:transform 0.2s;display:inline-block;">▸</span>
@@ -492,7 +492,7 @@
         <button class="type-btn t-egreso" data-et="egreso" onclick="setEditType('egreso',this)"><span class="icon">↓</span>Egreso</button>
         <button class="type-btn t-ingreso" data-et="ingreso" onclick="setEditType('ingreso',this)"><span class="icon">↑</span>Ingreso</button>
         <div id="e-ahorro-type-wrap" style="position:relative;flex:1">
-          <button class="type-btn t-pasivo" id="e-type-btn-ahorro" data-et="ahorro-pasivo" onclick="setEditType('ahorro-pasivo',this)" style="width:100%"><span class="icon">★</span><span id="e-ahorro-type-lbl">Beneficio</span></button>
+          <button class="type-btn t-pasivo" id="e-type-btn-ahorro" data-et="beneficio" onclick="setEditType('beneficio',this)" style="width:100%"><span class="icon">★</span><span id="e-ahorro-type-lbl">Beneficio</span></button>
         </div>
       </div>
 
@@ -501,7 +501,7 @@
         <div style="display:flex;gap:8px;width:100%;">
           <button onclick="setEditAhorroSubType('ahorro')" id="e-ahorro-sub-activo"
             style="flex:1;padding:10px 0;border-radius:100px;border:none;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;background:var(--blue);color:white;transition:all 0.2s;">◎ Activo</button>
-          <button onclick="setEditAhorroSubType('ahorro-pasivo')" id="e-ahorro-sub-pasivo"
+          <button onclick="setEditAhorroSubType('beneficio')" id="e-ahorro-sub-pasivo"
             style="flex:1;padding:10px 0;border-radius:100px;border:none;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;background:var(--surface2);color:var(--text3);transition:all 0.2s;">★ Beneficio</button>
         </div>
       </div>

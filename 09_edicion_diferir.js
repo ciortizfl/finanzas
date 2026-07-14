@@ -295,7 +295,7 @@ async function saveEditDeferred({amount, desc, cur, note, subcat, date}){
       }
       const _benNote='';
       newEntries.push({
-        id:genId(), type:'ahorro-pasivo',
+        id:genId(), type:'beneficio',
         amount:benAmt, amountMXN:toMXNEdit(benAmt,cur,_origFx), currency:cur,
         desc:desc, category:editBenType, subcategory:'',
         method:null, date:dateStr,
@@ -402,7 +402,7 @@ async function saveEditConvertToDefer({amount, desc, cur, note, subcat}){
       }
       const _benNote='';
       newEntries.push({
-        id: genId(), type:'ahorro-pasivo',
+        id: genId(), type:'beneficio',
         amount:benAmt, amountMXN:toMXNEdit(benAmt,cur,_origFx), currency:cur,
         desc, category:editBenType, subcategory:'',
         date:dateStr,
@@ -615,7 +615,7 @@ async function saveEdit(){
     ...data[newIdx],
     type:editType, amount:mainAmount, amountMXN, currency:cur,
     desc, category:editCat, subcategory:subcat,
-    method:editType!=='ahorro-pasivo'?editMethod:null,
+    method:editType!=='beneficio'?editMethod:null,
     date, note:noteWithRate, meta:_mainMeta
   };
 
@@ -653,7 +653,7 @@ async function saveEdit(){
       _bmN.ben={pct:pct, base:amount};
     }
     const benEntry={
-      id:genId(), type:'ahorro-pasivo',
+      id:genId(), type:'beneficio',
       amount:benAmt, amountMXN:baMXN, currency:cur,
       desc:desc, category:bt, subcategory:'',
       method:null, date,
@@ -674,7 +674,7 @@ async function saveEdit(){
         amount:d.amount, amountMXN:dMXN, currency:cur,
         desc:((d.desc||'').trim()) ? d.desc.trim() : desc,
         category:d.category, subcategory: dHasSubs?d.subcategory:'',
-        method:editType!=='ahorro-pasivo'?editMethod:null, date,
+        method:editType!=='beneficio'?editMethod:null, date,
         note:d.note||'', meta:{rel:'desglose'}, linkedTo:_parentId
       };
       data.unshift(dEntry);
@@ -758,7 +758,7 @@ function highlightUpdatedRecord(id){
     if(!targetEl) return;
     const e=data.find(x=>x.id===id);
     // Color sólido del tipo para el destello (visible en claro y oscuro)
-    const flash = e ? (e.type==='ingreso'?'52,199,89' : e.type==='ahorro-pasivo'?'175,82,222' : e.type==='egreso'?'255,59,48' : '0,113,227') : '0,113,227';
+    const flash = e ? (e.type==='ingreso'?'52,199,89' : e.type==='beneficio'?'175,82,222' : e.type==='egreso'?'255,59,48' : '0,113,227') : '0,113,227';
     const prevZ=targetEl.style.zIndex, prevPos=targetEl.style.position;
     targetEl.style.position='relative';
     targetEl.style.zIndex='5';

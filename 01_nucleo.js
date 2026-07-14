@@ -89,7 +89,7 @@ function _deriveMeta(e){
   // Hijos legacy sin etiqueta (propinas viejas): la relación se infiere.
   if(e.linkedTo && !m.rel){
     if(e.subcategory==='Propinas')        m.rel='propina';
-    else if(e.type==='ahorro-pasivo')     m.rel='beneficio';
+    else if(e.type==='beneficio' || e.type==='ahorro-pasivo') m.rel='beneficio';
     else                                  m.rel='desglose';
   }
   if(e.deferGroup){
@@ -134,6 +134,8 @@ data.forEach(e => {
     e.category = _migrations.category[e.category];
     _migrated = true;
   }
+  // R6.5: 'ahorro-pasivo' → 'beneficio' (nombre viejo del mismo tipo)
+  if(e.type==='ahorro-pasivo'){ e.type='beneficio'; _migrated=true; }
   // R6: ya no se "limpia" la nota al arranque. Las etiquetas duplicadas se
   // descartan al derivar el meta (metaOf), sin reescribir el registro guardado.
 });
@@ -243,7 +245,7 @@ const CATS = {
   ahorro: {
     'Inversiones':['—'],'Otros (Ahorro)':['—']
   },
-  'ahorro-pasivo': {} // Se llena dinámicamente desde BEN_TYPES (ver más abajo)
+  'beneficio': {} // Se llena dinámicamente desde BEN_TYPES (ver más abajo)
 };
 
 const ICONS = {

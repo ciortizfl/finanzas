@@ -208,7 +208,7 @@ function submitDeferredEntry({amount, desc, cur, date, note, subcat}){
         _bm.ben={pct:pct, base:amount};
       }
       const benChild={
-        id:genId(), type:'ahorro-pasivo',
+        id:genId(), type:'beneficio',
         amount:benAmt, amountMXN:toMXN(benAmt,cur), currency:cur,
         desc:desc, category:curBenType, subcategory:'',
         method:null, date:dateStr,
@@ -260,7 +260,7 @@ function _submitEntry(){
   if(!curCat) return toast('Selecciona una categoría');
   if(_hasSubs && !subcat) return toast('Selecciona una subcategoría');
   if(!date) return toast('Selecciona una fecha');
-  if(curType!=='ahorro-pasivo'&&!selMethod) return toast('Selecciona un método de pago');
+  if(curType!=='beneficio'&&!selMethod) return toast('Selecciona un método de pago');
   // Desgloses a medio llenar → no se guarda nada (evita perder datos en silencio)
   const _dErr = (typeof firstIncompleteDesglose==='function') ? firstIncompleteDesglose(desgloses, curType) : null;
   if(_dErr) return toast(_dErr);
@@ -326,7 +326,7 @@ function _submitEntry(){
   const entry={
     id:genId(), type:curType, amount:mainAmount, amountMXN, currency:cur,
     desc, category:curCat, subcategory:subcat,
-    method:curType!=='ahorro-pasivo'?selMethod:null,
+    method:curType!=='beneficio'?selMethod:null,
     date, note:mainNote, meta:_mainMeta
   };
   data.unshift(entry);
@@ -342,7 +342,7 @@ function _submitEntry(){
         _bm.ben={pct:pct, base:amount};
       }
       data.unshift({
-        id:genId(), type:'ahorro-pasivo',
+        id:genId(), type:'beneficio',
         amount:ba, amountMXN:baMXN, currency:cur,
         desc:desc, category:bt, subcategory:'',
         method:null, date,
@@ -387,7 +387,7 @@ function _submitEntry(){
         amount:d.amount, amountMXN:dMXN, currency:cur,
         desc:((d.desc||'').trim()) ? d.desc.trim() : desc,
         category:d.category, subcategory: dHasSubs?d.subcategory:'',
-        method:curType!=='ahorro-pasivo'?selMethod:null, date,
+        method:curType!=='beneficio'?selMethod:null, date,
         note:d.note||'', meta:{rel:'desglose'}, linkedTo:entry.id
       };
       data.unshift(dEntry);
@@ -400,7 +400,7 @@ function _submitEntry(){
   showSyncing('⟳ Guardando...');
   const saves = [saveEntryToSheets(entry)];
   if(curType==='egreso'&&benOn){
-    const bonus = data.find(x=>x.linkedTo===entry.id&&x.type==='ahorro-pasivo');
+    const bonus = data.find(x=>x.linkedTo===entry.id&&x.type==='beneficio');
     if(bonus) saves.push(saveEntryToSheets({...bonus, benType:'', benAmount:0, benDesc:''}));
   }
   if(propinaEntry) saves.push(saveEntryToSheets(propinaEntry));
@@ -676,7 +676,9 @@ async function loadFromSheets(silent) {
       const obj = {
         id:         cleanNum(r[0]),
         date:       dateVal,
-        type:       r[2],
+        // R6.5: 'ahorro-pasivo' fue el nombre viejo de 'beneficio'. Se normaliza al
+        // leer, así que la app funciona con la hoja migrada Y con la sin migrar.
+        type:       (r[2]==='ahorro-pasivo') ? 'beneficio' : r[2],
         category:   r[3],
         subcategory:r[4]||'',
         desc:       r[5],

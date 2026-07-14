@@ -142,10 +142,10 @@ function openEdit(id) {
   // Quitar active de todos los botones de tipo
   document.querySelectorAll('[data-et]').forEach(b=>b.classList.remove('active'));
   // Manejar ahorro activo/pasivo igual que en registro
-  const isAhorro = e.type==='ahorro'||e.type==='ahorro-pasivo';
+  const isAhorro = e.type==='ahorro'||e.type==='beneficio';
   if(isAhorro){
     document.getElementById('e-type-btn-ahorro').classList.add('active');
-    document.getElementById('e-ahorro-type-lbl').textContent = e.type==='ahorro-pasivo'?'Beneficio':'Ahorro';
+    document.getElementById('e-ahorro-type-lbl').textContent = e.type==='beneficio'?'Beneficio':'Ahorro';
   } else {
     document.querySelector(`[data-et="${e.type}"]`)?.classList.add('active');
   }
@@ -158,8 +158,8 @@ function openEdit(id) {
     const pasivo = document.getElementById('e-ahorro-sub-pasivo');
     activo.style.background = e.type==='ahorro'?'var(--blue)':'var(--surface2)';
     activo.style.color      = e.type==='ahorro'?'white':'var(--text3)';
-    pasivo.style.background = e.type==='ahorro-pasivo'?'var(--blue)':'var(--surface2)';
-    pasivo.style.color      = e.type==='ahorro-pasivo'?'white':'var(--text3)';
+    pasivo.style.background = e.type==='beneficio'?'var(--blue)':'var(--surface2)';
+    pasivo.style.color      = e.type==='beneficio'?'white':'var(--text3)';
   }
 
   // --- Campos base ---
@@ -175,7 +175,7 @@ function openEdit(id) {
     ? data.filter(x=>sameGroup(x.deferGroup, e.deferGroup)).map(x=>x.id)
     : [id];
   const _linkedBen = e.type==='egreso'
-    ? data.find(x=>_grupoIds.includes(x.linkedTo) && x.type==='ahorro-pasivo')
+    ? data.find(x=>_grupoIds.includes(x.linkedTo) && x.type==='beneficio')
     : null;
   let _realDesgloses;
   if(e.deferGroup){
@@ -251,7 +251,7 @@ function openEdit(id) {
   updateEditNoteMode();
 
   // --- Método de pago ---
-  document.getElementById('e-method-field').style.display = e.type==='ahorro-pasivo'?'none':'block';
+  document.getElementById('e-method-field').style.display = e.type==='beneficio'?'none':'block';
   document.querySelectorAll('#e-chips .chip').forEach(c=>{
     const map={'Tarjeta de crédito':'Crédito','Efectivo':'Efectivo','Bono de despensa':'Bono despensa','SPEI':'SPEI','Débito':'Débito'};
     c.classList.toggle('active', c.textContent.trim()===(map[e.method]||e.method||'Crédito'));
@@ -353,7 +353,7 @@ function buildEditCatBlocks(type, selCat, selSubcat){
 
 // Clase de color según el tipo de edición
 function editColorCls(){
-  return editType==='ingreso'?'sel-in':editType==='ahorro'?'sel-ah':editType==='ahorro-pasivo'?'sel-pa':'sel-eg';
+  return editType==='ingreso'?'sel-in':editType==='ahorro'?'sel-ah':editType==='beneficio'?'sel-pa':'sel-eg';
 }
 
 // Renderiza categorías/subcategorías en edición con el MISMO comportamiento colapsable
@@ -446,9 +446,9 @@ function setEditType(t,btn){
   document.querySelectorAll('[data-et]').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
   document.getElementById('e-ahorro-sub-toggle').style.display='none';
-  document.getElementById('e-ahorro-type-lbl').textContent = t==='ahorro-pasivo'?'Beneficio':'Ahorro';
+  document.getElementById('e-ahorro-type-lbl').textContent = t==='beneficio'?'Beneficio':'Ahorro';
   document.getElementById('e-inline-toggles').style.display=t==='egreso'?'block':'none';
-  document.getElementById('e-method-field').style.display=t==='ahorro-pasivo'?'none':'block';
+  document.getElementById('e-method-field').style.display=t==='beneficio'?'none':'block';
   if(t!=='egreso'){ editBenOn=false; updateEBenUI(); editDesgloses=[]; renderEditDesgloses(); }
   updateEditDesgloseVisibility();
   renderEditCatUI();
@@ -459,15 +459,15 @@ function setEditType(t,btn){
 function setEditAhorroSubType(sub){
   editType = sub;
   editCat=''; editSubcat='';
-  document.getElementById('e-ahorro-type-lbl').textContent = sub==='ahorro-pasivo'?'Beneficio':'Ahorro';
+  document.getElementById('e-ahorro-type-lbl').textContent = sub==='beneficio'?'Beneficio':'Ahorro';
   const activo=document.getElementById('e-ahorro-sub-activo');
   const pasivo=document.getElementById('e-ahorro-sub-pasivo');
   activo.style.background = sub==='ahorro'?'var(--blue)':'var(--surface2)';
   activo.style.color      = sub==='ahorro'?'white':'var(--text3)';
-  pasivo.style.background = sub==='ahorro-pasivo'?'var(--blue)':'var(--surface2)';
-  pasivo.style.color      = sub==='ahorro-pasivo'?'white':'var(--text3)';
+  pasivo.style.background = sub==='beneficio'?'var(--blue)':'var(--surface2)';
+  pasivo.style.color      = sub==='beneficio'?'white':'var(--text3)';
   document.getElementById('e-inline-toggles').style.display='none';
-  document.getElementById('e-method-field').style.display=sub==='ahorro-pasivo'?'none':'block';
+  document.getElementById('e-method-field').style.display=sub==='beneficio'?'none':'block';
   editBenOn=false; updateEBenUI();
   buildEditCatBlocks(sub,'','');
 }
@@ -924,7 +924,7 @@ function updateEditBenMonthSelector(){
   let actual=1;
   const madres=grupo.slice().sort((a,b)=>a.deferIndex-b.deferIndex);
   madres.forEach(m=>{
-    const ben=data.find(x=>x.linkedTo===m.id && x.type==='ahorro-pasivo');
+    const ben=data.find(x=>x.linkedTo===m.id && x.type==='beneficio');
     if(ben) actual=m.deferIndex;
   });
   sel.innerHTML='';
