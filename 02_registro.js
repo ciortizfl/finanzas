@@ -1034,7 +1034,36 @@ let _amountPredicted=false;   // monto autopredicho
 let _catPredicted=false;      // categoría/subcategoría puestas por la predicción
 let _methodPredicted=false;   // método puesto por la predicción
 let _curPredicted=false;      // moneda puesta por la predicción
+let _notePredicted=false;     // nota puesta por la predicción
+let _desglosePredictedId=null; // id del desglose que puso la predicción (null = ninguno)
+let _desgloseDismissed=false;  // lo quitaste a mano: no lo vuelvo a poner en este registro
 let _applyingPrediction=false; // guard: el cambio viene de la predicción, no del usuario
+
+// ══════════════════════════════════════════════════════════════════════════
+// R7 · PONDERACIÓN POR RECENCIA — punto ÚNICO de verdad
+//
+// El año se parte en 4 cuartos de ~91 días. Los registros recientes pesan más.
+// Nada más viejo de 365 días cuenta. Pesos: 0-91d→4, 92-182d→3, 183-273d→2,
+// 274-365d→1, >365d→0.
+//
+// ESTABA DECLARADA DENTRO de predictCategory, así que NO era global. Por eso
+// predictCatForDesc (09b) hacía `typeof recencyWeight==='function' ? ... : 1`
+// y SIEMPRE caía al `:1`: la predicción de los desgloses no ponderaba por
+// recencia ni respetaba la ventana de 365 días. Aquí arriba, las dos rutas
+// —formulario y desglose— usan por fin el MISMO criterio, que es justo lo que
+// el punto 1 exige.
+// ══════════════════════════════════════════════════════════════════════════
+const MS_PER_DAY = 86400000;
+function recencyWeight(dateStr){
+  const t = parseDate(dateStr).getTime();
+  const days = (Date.now() - t) / MS_PER_DAY;
+  if(days < 0)   return 4; // fecha futura → tratar como más reciente
+  if(days <= 91)  return 4;
+  if(days <= 182) return 3;
+  if(days <= 273) return 2;
+  if(days <= 365) return 1;
+  return 0; // más de 365 días → no cuenta
+}
 
 function predictCategory(){
   // Refrescar el indicador de "recordatorio activo" del botón 🔔 (corre siempre,
@@ -1082,26 +1111,24 @@ function predictCategory(){
       _catPredicted=false;
       renderCatUI();
     }
+    // R7 · el desglose que puso la predicción también se deshace
+    const _mio = _desglosePredictedId!=null && desgloses.length===1 && desgloses[0].id===_desglosePredictedId;
+    if(_mio || vacio){
+      if(_mio){
+        desgloses=[];
+        toggleDesgloseSection(false);
+        renderDesgloses(false);
+        try{ updateDesgloseRemaining(); updateNoteDesgloseIndicators(); refreshTopTabsVisibility(); }catch(e){}
+      }
+      _desglosePredictedId=null;
+      if(vacio) _desgloseDismissed=false;   // registro en blanco: borrón y cuenta nueva
+    }
     return;
   }
   // Funciona para egreso, ingreso y beneficio (beneficio)
   if(curType !== 'egreso' && curType !== 'ingreso' && curType !== 'beneficio') return;
 
-  // Ponderación por recencia: el año se parte en 4 cuartos de ~91 días.
-  // Los registros más recientes pesan más. Nada más viejo de 365 días cuenta.
-  // Pesos por cuarto: 0-91d → 4, 92-182d → 3, 183-273d → 2, 274-365d → 1.
-  const MS_PER_DAY = 86400000;
-  const now = Date.now();
-  function recencyWeight(dateStr){
-    const t = parseDate(dateStr).getTime();
-    const days = (now - t) / MS_PER_DAY;
-    if(days < 0)   return 4; // fecha futura → tratar como más reciente
-    if(days <= 91)  return 4;
-    if(days <= 182) return 3;
-    if(days <= 273) return 2;
-    if(days <= 365) return 1;
-    return 0; // más de 365 días → no cuenta
-  }
+  // recencyWeight() ahora es global (ver arriba): la misma que usan los desgloses.
 
   // Contar frecuencia PONDERADA de cat+subcat, método Y moneda en registros del
   // MISMO tipo con descripción similar. También juntar candidatos para el monto.
@@ -1166,36 +1193,51 @@ function predictCategory(){
     }
   }
 
-  // ── Predecir monto (solo para pagos recurrentes de monto EXACTO) ──
-  // Regla: entre los últimos 4 registros del comercio (≤365 días, misma moneda
-  // predicha, sin mensualidades de diferidos), si un monto exacto aparece al
-  // menos 2 veces Y en al menos la mitad de ellos, se predice. En empate gana
-  // el más reciente. Así "Limpieza $500" mensual se predice, el súper (montos
-  // variables) no, y si el pago sube a $600, a la 2a vez ya predice $600.
-  const amtEl = document.getElementById('amount');
-  if(amtEl){
-    let predAmt = null;
-    const pool = matches
-      .filter(e => !e.deferGroup) // las mensualidades de un diferido no son "pagos" reales
-      .filter(e => (e.currency || 'MXN') === (predictedCur || 'MXN'))
-      .sort((a,b) => parseDate(b.date) - parseDate(a.date))
-      .slice(0, 4);
-    if(pool.length >= 2){
-      const counts = {};
-      pool.forEach(e => {
-        const k = String(Number(e.amount));
+  // ── REGLA PREDICTIVA ÚNICA ──────────────────────────────────────────────
+  // Entre los últimos 4 registros del comercio (≤365 días, misma moneda
+  // predicha, sin mensualidades de diferidos), un valor se predice si aparece
+  // al menos 2 veces Y en al menos la mitad de ellos. En empate gana el más
+  // reciente (el pool viene ordenado reciente→viejo).
+  //
+  // El punto 1 exige que el desglose use EXACTAMENTE este criterio, no uno
+  // nuevo. Por eso la regla vive aquí una sola vez y se le pasa qué mirar:
+  // el monto, o los nombres de los desgloses. Un registro puede aportar varias
+  // claves (una madre con 2 desgloses), pero cada uno cuenta 1 vez por registro.
+  const pool = matches
+    .filter(e => !e.deferGroup) // las mensualidades de un diferido no son "pagos" reales
+    .filter(e => (e.currency || 'MXN') === (predictedCur || 'MXN'))
+    .sort((a,b) => parseDate(b.date) - parseDate(a.date))
+    .slice(0, 4);
+
+  function predictFromPool(keysOf){
+    if(pool.length < 2) return null;
+    const counts = {};
+    pool.forEach(e => {
+      const ks = keysOf(e);
+      new Set((Array.isArray(ks) ? ks : [ks]).filter(k => k!=null && k!=='')).forEach(k => {
         counts[k] = (counts[k] || 0) + 1;
       });
-      let best = null, bestCount = 0;
-      // Recorrer del más reciente al más viejo: en empate gana el más reciente
-      pool.forEach(e => {
-        const k = String(Number(e.amount));
+    });
+    let best = null, bestCount = 0;
+    // Del más reciente al más viejo: en empate gana el reciente
+    pool.forEach(e => {
+      const ks = keysOf(e);
+      new Set((Array.isArray(ks) ? ks : [ks]).filter(k => k!=null && k!=='')).forEach(k => {
         if(counts[k] > bestCount){ best = k; bestCount = counts[k]; }
       });
-      if(best !== null && bestCount >= 2 && bestCount >= Math.ceil(pool.length / 2)){
-        predAmt = Number(best);
-      }
-    }
+    });
+    if(best !== null && bestCount >= 2 && bestCount >= Math.ceil(pool.length / 2)) return best;
+    return null;
+  }
+
+  // ── Predecir monto ──────────────────────────────────────────────────────
+  // R7 · BUG 1: se usaba e.amount, que en una madre desglosada es el REMANENTE,
+  // no lo que tecleaste. izzi guarda 741 (1070 − 329 de Netflix) y eso era lo
+  // que predecía. origAmountOf() devuelve el monto original completo.
+  const amtEl = document.getElementById('amount');
+  if(amtEl){
+    const best = predictFromPool(e => String(Number(origAmountOf(e))));
+    const predAmt = (best !== null) ? Number(best) : null;
     const userTyped = amtEl.value.trim() !== '' && !_amountPredicted;
     if(!userTyped){
       if(predAmt !== null){
@@ -1208,6 +1250,44 @@ function predictCategory(){
         _amountPredicted = false;
         try{ calcPropinaPreview(); updateDesgloseRemaining(); renderDiferirPreview(); }catch(e){}
       }
+    }
+  }
+
+  // ── Predecir DESGLOSE (el caso izzi + Netflix) ──────────────────────────
+  // MISMO criterio, MISMO pool: si un desglose con nombre propio aparece en al
+  // menos 2 de los últimos 4 registros del comercio (y en al menos la mitad),
+  // se predice. Aquí solo se hacen DOS cosas: activar el toggle de desglose y
+  // escribir el nombre propio. De ahí en adelante manda updateDesglose(…,'desc',…)
+  // —la predictiva del desglose— que llena monto, categoría, subcategoría y nota.
+  if(curType === 'egreso'){
+    const nombre = predictFromPool(e => desgloseNamesOf(e));
+    const mio = _desglosePredictedId != null
+             && desgloses.length === 1
+             && desgloses[0].id === _desglosePredictedId;
+    if(nombre && !_desgloseDismissed){
+      // No pisar desgloses que capturaste tú
+      const libre = desgloses.length === 0 || mio;
+      if(libre && !(mio && desgloses[0].desc === nombre)){
+        if(mio) desgloses = [];
+        toggleDesgloseSection(true);          // (a) solo el toggle
+        if(desgloses.length === 0) addDesglose();
+        const d = desgloses[desgloses.length - 1];
+        _desglosePredictedId = d.id;
+        renderDesgloses(false);
+        const inp = document.querySelector(`#desglose-list [data-desg-id="${d.id}"] [data-desg-owndesc]`);
+        if(inp) inp.value = nombre;           // (b) solo el nombre propio
+        updateDesglose(d.id, 'desc', nombre); // …y que la predictiva del desglose haga lo suyo
+        refreshTopTabsVisibility();
+      }
+    } else if(mio){
+      // Ya no aplica (cambiaste la descripción): deshacer SOLO lo que puso ella
+      desgloses = [];
+      _desglosePredictedId = null;
+      toggleDesgloseSection(false);
+      renderDesgloses(false);
+      updateDesgloseRemaining();
+      updateNoteDesgloseIndicators();
+      refreshTopTabsVisibility();
     }
   }
 

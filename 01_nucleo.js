@@ -128,6 +128,74 @@ function userNote(e){    return metaOf(e).userNote || ''; }
 // Limpia una nota SUELTA (string), sin objeto de registro alrededor.
 function cleanNoteStr(note){ return _deriveMeta({note}).userNote; }
 
+// ══════════════════════════════════════════════════════════════════════════
+// R7 · MONTO ORIGINAL — punto ÚNICO de verdad
+//
+// La madre guarda el NETO: al guardar se le restan los desgloses, la propina
+// incluida y el descuento aplicado (04_guardado_sync). Reconstruir "lo que
+// tecleaste" exige devolverle esas piezas.
+//
+// Ese cálculo vivía DUPLICADO en openEdit (08) y en el render del historial
+// (06), y las dos copias YA se habían desincronizado: una sumaba la propina
+// incluida y la otra no. La predicción (02) leía e.amount crudo — y de ahí
+// salía el bug de izzi (predecía 741, el remanente, en vez de 1070).
+//
+//   cargoBrutoDe(e) → lo que se cobró en ESTE registro madre, antes de partirlo.
+//   origAmountOf(e) → total de la COMPRA. Igual al anterior, salvo en un
+//                     diferido: ahí es el total de los N meses, no la mensualidad.
+//
+// R5: el beneficio solo se suma de vuelta si REDUJO el gasto (descuento
+// aplicado). El cashback nunca lo redujo — sumarlo inflaba el monto.
+// ══════════════════════════════════════════════════════════════════════════
+function _hijosDe(id){ return data.filter(x=>x.linkedTo===id); }
+
+function cargoBrutoDe(e){
+  if(!e || typeof e!=='object') return 0;
+  if(e.linkedTo) return e.amount;          // un hijo no tiene "monto original"
+  const hijos = _hijosDe(e.id);
+  let t = e.amount;
+  hijos.filter(isDesglose).forEach(d=>{ t += d.amount; });
+  // Propina INCLUIDA: formaba parte del cobro, hay que devolverla.
+  // La adicional no: se pagó aparte y nunca redujo la madre.
+  const prop = (e.type==='egreso') ? hijos.find(isPropina) : null;
+  const propMeta = prop ? metaOf(prop) : null;
+  if(propMeta && propMeta.tip && propMeta.tip.inc) t += prop.amount;
+  // En un diferido el beneficio se acredita aparte: no redujo la mensualidad.
+  if(!e.deferGroup){
+    const ben = hijos.find(x=>x.type==='beneficio');
+    if(ben && typeof benReduceGasto==='function' && benReduceGasto(ben.category)) t += ben.amount;
+  }
+  return +t.toFixed(2);
+}
+
+function origAmountOf(e){
+  if(!e || typeof e!=='object') return 0;
+  if(e.linkedTo) return e.amount;
+  if(e.deferGroup && e.deferOriginal){
+    // deferOriginal ya trae el descuento restado ANTES de prorratear: se suma
+    // de vuelta para llegar a lo que realmente escribiste.
+    let t = e.deferOriginal;
+    const ids = data.filter(x=>sameGroup(x.deferGroup, e.deferGroup)).map(x=>x.id);
+    const ben = data.find(x=>ids.includes(x.linkedTo) && x.type==='beneficio');
+    if(ben && typeof benReduceGasto==='function' && benReduceGasto(ben.category)) t += ben.amount;
+    return +t.toFixed(2);
+  }
+  return cargoBrutoDe(e);
+}
+
+// Nombres PROPIOS de los desgloses de una madre (los que no heredaron su nombre).
+// Es lo que la predicción necesita saber: "izzi siempre trae un Netflix adentro".
+function desgloseNamesOf(e){
+  if(!e || e.linkedTo) return [];
+  const madre = (e.desc||'').trim().toLowerCase();
+  const out = new Set();
+  _hijosDe(e.id).filter(isDesglose).forEach(d=>{
+    const n = (d.desc||'').trim();
+    if(n && n.toLowerCase() !== madre) out.add(n);
+  });
+  return [...out];
+}
+
 let _migrated = false;
 data.forEach(e => {
   if(_migrations.category[e.category]){

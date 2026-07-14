@@ -250,6 +250,26 @@ function renderBellView(hl, hlReal, searchQuery, animate){
 // (sin tope semanal: 3 McDonald's en una semana suman 3, para que el ranking
 // refleje hábitos reales y tenga dinamismo). Un gasto diferido cuenta 1 sola
 // vez, no una por mensualidad.
+//
+// R7 · BOOST DE RECENCIA. Encima del score histórico va un multiplicador que
+// premia lo que compraste hace poquito:  mult = 1 + FUERZA × 0.5^(días/VIDA_MEDIA)
+// donde `días` = días desde la ÚLTIMA compra de ese comercio. Fuera de la
+// VENTANA, mult = 1 (el boost desaparece y manda el hábito).
+//
+// Los tres parámetros, en una línea, para moverlos sin buscar nada:
+const CHIP_BOOST = { FUERZA: 1.5, VIDA_MEDIA: 2.5, VENTANA: 14 };
+//
+// Con estos valores: hoy ×2.50 · 1d ×2.14 · 2d ×1.86 · 3d ×1.65 · 5d ×1.38
+//                    7d ×1.22 · 10d ×1.09 · 13d ×1.04 · 14d+ ×1.00
+// OJO con la VENTANA: la especificación original la ponía en 7, pero con FUERZA
+// alta eso deja un acantilado (día 6 ×1.28 → día 7 ×1.00, 28 puntos de golpe).
+// En 14 el boost se apaga solo. Bajarla a 7 es cambiar un número.
+function chipRecencyMult(dias){
+  if(!(dias >= 0)) return 1;
+  if(dias >= CHIP_BOOST.VENTANA) return 1;
+  return 1 + CHIP_BOOST.FUERZA * Math.pow(0.5, dias / CHIP_BOOST.VIDA_MEDIA);
+}
+
 function computeSearchPresets(){
   const DAY=86400000, now=Date.now();
   const seenDefer=new Set();  // grupos de diferido ya contados
@@ -275,8 +295,16 @@ function computeSearchPresets(){
     if(!display[key]) display[key]=desc;   // data va reciente→viejo: casing más reciente
     if(!lastT[key] || t>lastT[key]) lastT[key]=t;
   });
-  return Object.keys(score)
-    .sort((a,b)=> score[b]-score[a] || lastT[b]-lastT[a])
+  // Score final = histórico × boost de recencia. Los días se cuentan por DÍA
+  // (no por horas): comprado hoy = 0, ayer = 1.
+  const hoyT=parseDate(localToday()).getTime();
+  const boosted={};
+  Object.keys(score).forEach(k=>{
+    const dias=Math.round((hoyT - lastT[k]) / DAY);
+    boosted[k]=score[k] * chipRecencyMult(dias);
+  });
+  return Object.keys(boosted)
+    .sort((a,b)=> boosted[b]-boosted[a] || lastT[b]-lastT[a])
     .slice(0,20)          // cantera amplia; el tope real lo pone renderSearchPresets
     .map(k=>display[k]);
 }
@@ -1080,17 +1108,12 @@ function txEl(e, showDelete){
       metaParts.push(`Mensualidad ${e.deferIndex}/${e.deferTotal} de ${tagAmt(e.deferOriginal||0, sym)}`);
     }
 
-    // Monto original = monto del madre + suma de reducciones (desgloses + beneficio)
-    // (la propina adicional no reduce el monto madre; la incluida sí formaba parte del cobro)
-    let origAmount = e.amount;
-    childDesg.forEach(d=>{ origAmount += d.amount; });
-    // En un diferido el beneficio se acredita aparte (no redujo la mensualidad),
-    // así que no forma parte del "monto original" del cargo de ese mes.
-    // R5: solo se suma de vuelta si ese tipo de beneficio SÍ redujo el monto
-    // (descuento aplicado). El cashback nunca lo redujo, así que sumarlo aquí
-    // producía un "Monto original" inflado (p. ej. 600 + 90 = 690 en vez de 600).
-    if(childBen && !e.deferGroup && typeof benReduceGasto==='function' && benReduceGasto(childBen.category)) origAmount += childBen.amount;
-    const hasReductions = childDesg.length>0 || (!!childBen && !e.deferGroup);
+    // R7 · 6a: el "Monto original" ahora sale de cargoBrutoDe() (01_nucleo), el
+    // punto único de verdad. Aquí vivía la otra copia del cálculo — y estaba
+    // desincronizada con la de openEdit: no sumaba la propina incluida.
+    const origAmount = cargoBrutoDe(e);
+    const hasReductions = childDesg.length>0 || (!!childBen && !e.deferGroup)
+                       || (!!childProp && !!metaOf(childProp).tip && !!metaOf(childProp).tip.inc);
     if(hasReductions){
       metaParts.push(e.deferGroup
         ? `Cargo del mes: ${tagAmt(origAmount, sym)}`

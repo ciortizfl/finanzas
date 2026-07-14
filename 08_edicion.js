@@ -190,31 +190,9 @@ function openEdit(id) {
   } else {
     _realDesgloses = data.filter(x=>x.linkedTo===id&&x.type===e.type&&isDesglose(x));
   }
-  // Propina incluida: se sumó al cobro original, hay que devolverla al monto mostrado
-  const _linkedPropina = e.type==='egreso' ? data.find(x=>x.linkedTo===id && isPropina(x)) : null;
-  const _propinaIncluida = !!(_linkedPropina && metaOf(_linkedPropina).tip && metaOf(_linkedPropina).tip.inc);
-
-  // R5: el beneficio solo se suma de vuelta si ese tipo SÍ redujo el monto
-  // (descuento aplicado). El cashback nunca lo redujo, así que e.amount YA es
-  // el original completo — sumarlo aquí lo inflaba (el bug de "690").
-  const _benReduce = _linkedBen && typeof benReduceGasto==='function' && benReduceGasto(_linkedBen.category);
-  let _origAmount = e.amount;
-  if(_linkedBen && _benReduce) _origAmount += _linkedBen.amount;
-  _realDesgloses.forEach(d=>{ _origAmount += d.amount; });
-  if(_propinaIncluida) _origAmount += _linkedPropina.amount;
-  _origAmount = +(_origAmount).toFixed(2);
-
-  // Si es un gasto diferido, el monto a editar es el TOTAL original, no la
-  // mensualidad. `deferOriginal` (R5) ya refleja cualquier descuento aplicado
-  // ANTES de prorratear — hay que sumar ese descuento de vuelta para mostrar lo
-  // que realmente escribiste. El cashback nunca tocó ese total, así que no se
-  // suma nada en ese caso (deferOriginal ya es el original completo).
-  if(e.deferGroup && e.deferOriginal){
-    _origAmount = e.deferOriginal;
-    if(_linkedBen && _benReduce){
-      _origAmount = +(_origAmount + _linkedBen.amount).toFixed(2);
-    }
-  }
+  // R7 · 6a: el monto original ahora sale de origAmountOf() (01_nucleo), el
+  // punto único de verdad. Aquí vivía una de las dos copias del cálculo.
+  const _origAmount = origAmountOf(e);
 
   document.getElementById('e-amount').value   = formatAmountString(String(_origAmount));
   document.getElementById('e-currency').value = e.currency||'MXN';

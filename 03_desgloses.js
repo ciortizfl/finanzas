@@ -10,6 +10,12 @@ function addDesglose(){
 }
 
 function removeDesglose(id){
+  // R7 · si quitas a mano el desglose que puso la predicción, se respeta:
+  // no se vuelve a inyectar mientras sigas capturando este registro.
+  if(typeof _desglosePredictedId!=='undefined' && _desglosePredictedId===id){
+    _desglosePredictedId=null;
+    _desgloseDismissed=true;
+  }
   const list=document.getElementById('desglose-list');
   const card=list?list.querySelector(`[data-desg-id="${id}"]`):null;
   const isOnlyOne = desgloses.length<=1;

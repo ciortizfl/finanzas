@@ -447,6 +447,8 @@ function resetForm(){
   if(typeof _methodPredicted!=='undefined') _methodPredicted=false;
   if(typeof _curPredicted!=='undefined') _curPredicted=false;
   if(typeof _notePredicted!=='undefined') _notePredicted=false;
+  if(typeof _desglosePredictedId!=='undefined') _desglosePredictedId=null;   // R7
+  if(typeof _desgloseDismissed!=='undefined') _desgloseDismissed=false;      // R7
   try { if(typeof resetRemToggle==='function') resetRemToggle(); } catch(e){}
   document.getElementById('currency').value='MXN';
   const _today = localToday();
