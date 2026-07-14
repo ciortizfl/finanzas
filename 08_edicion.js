@@ -110,7 +110,6 @@ function openEdit(id) {
   editEmojiOverride = null; // sin override hasta que el usuario elija uno
   editType = e.type;
   updateEditMethodLabel();
-  try{ resetCopyModeUI(); }catch(_e){}
   _ePropinaVisible=false; _eBenVisible=false;
   try{ updateEditBenMonthSelector(); }catch(_e){}
   // TC manual: leer la etiqueta de sistema TCauto (si el registro se guardó con TC manual)
@@ -130,8 +129,6 @@ function openEdit(id) {
     }
     updateEditFxRow();
   }catch(_e){}
-  const _cpBtn=document.getElementById('e-copy-btn');
-  if(_cpBtn) _cpBtn.style.display = e.deferGroup ? 'none' : '';
   editCat  = e.category;
   editSubcat = e.subcategory||'';
   editMethod = e.method||'Tarjeta de crédito';
@@ -351,7 +348,6 @@ function openEdit(id) {
 }
 
 function closeModal(){
-  try{ resetCopyModeUI(); }catch(_e){}
   _ePropinaVisible=false; _eBenVisible=false;
   document.getElementById('edit-modal').classList.remove('open');
   document.body.style.overflow='';
@@ -921,90 +917,6 @@ function loadEditPropina(parentId){
 function updateEditMethodLabel(){
   const l=document.getElementById('e-method-label');
   if(l) l.textContent = (editType==='ingreso') ? 'Método de recepción' : 'Método de pago';
-}
-
-
-// ══════════ COPIAR REGISTRO ══════════
-// El modal entra en "modo copia": todo lo cargado se conserva y al Guardar se
-// crea un registro NUEVO (padre + hijos frescos) sin tocar el original.
-let copyMode=false;
-
-function resetCopyModeUI(){
-  copyMode=false;
-  const t=document.getElementById('edit-modal-title'); if(t) t.textContent='Editar registro';
-  const del=document.querySelector('#edit-modal .btn-delete'); if(del) del.style.display='';
-  const cb=document.getElementById('e-copy-btn'); if(cb) cb.style.display='';
-}
-
-function startCopy(){
-  if(copyMode) return;
-  const e=data.find(x=>String(x.id)===String(editId));
-  if(!e || e.deferGroup) return; // los diferidos no se copian (sus mensualidades son un grupo)
-  const sheet=document.getElementById('modal-sheet');
-  const enterCopy=()=>{
-    copyMode=true;
-    const t=document.getElementById('edit-modal-title'); if(t) t.textContent='Copia del registro';
-    const del=document.querySelector('#edit-modal .btn-delete'); if(del) del.style.display='none';
-    const cb=document.getElementById('e-copy-btn'); if(cb) cb.style.display='none';
-    // La sección de recordatorio SÍ se muestra en modo copia (la copia es
-    // idéntica); además es "viva": sigue al nombre que escribas.
-    try{ renderEditReminderSection(); }catch(_e){}
-  };
-  if(!sheet){ enterCopy(); return; }
-  // Animación "fantasma que se asienta" (opción 2 elegida): la hoja se eleva
-  // translúcida y se re-asienta ya convertida en la copia, con pulso azul.
-  try{
-    const a=sheet.animate([
-      {transform:'translateY(0) scale(1)', opacity:1},
-      {transform:'translateY(-14px) scale(1.015)', opacity:0.55, offset:0.45},
-      {transform:'translateY(0) scale(1)', opacity:1}
-    ],{duration:700,easing:'cubic-bezier(0.22,0.61,0.36,1)'});
-    setTimeout(enterCopy, 300); // el título cambia a mitad del vuelo
-    a.onfinish=()=>{
-      try{
-        sheet.animate([
-          {boxShadow:'0 0 0 3px rgba(0,113,227,0.5)'},
-          {boxShadow:'0 0 0 0 rgba(0,113,227,0)'}
-        ],{duration:650,easing:'ease'});
-      }catch(_e){}
-    };
-  }catch(_e){ enterCopy(); }
-}
-
-// Aparición del registro copiado en el historial: inverso exacto del borrado —
-// el hueco se abre, la fila entra deslizándose desde la izquierda con borde
-// acento que se desvanece, y los registros de abajo se acomodan.
-function playAppearAnimation(entryId){
-  const reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const list=document.getElementById('hist-list');
-  if(reduced || !list) return;
-  const rows=Array.from(list.querySelectorAll('.tx-item'));
-  let el=null;
-  rows.forEach(r=>{ if(r._entryId===entryId) el=r; });
-  if(!el) return;
-  const h=el.offsetHeight;
-  el.style.overflow='hidden';
-  el.style.borderLeft='3px solid var(--accent)';
-  try{
-    const a=el.animate([
-      {height:'0px', opacity:0, transform:'translateX(-24px)', paddingTop:'0px', paddingBottom:'0px'},
-      {height:h+'px', opacity:1, transform:'translateX(0)'}
-    ],{duration:520,easing:'cubic-bezier(0.22,0.61,0.36,1)'});
-    let after=false;
-    rows.forEach(r=>{
-      if(r===el){ after=true; return; }
-      if(after){
-        try{ r.animate([{transform:'translateY(-6px)'},{transform:'translateY(0)'}],{duration:480,delay:60,easing:'cubic-bezier(0.22,0.61,0.36,1)'}); }catch(_e){}
-      }
-    });
-    a.onfinish=()=>{
-      el.style.overflow='';
-      try{
-        el.animate([{borderLeftColor:'var(--accent)'},{borderLeftColor:'transparent'}],{duration:900,fill:'forwards'})
-          .onfinish=()=>{ el.style.borderLeft=''; };
-      }catch(_e){ el.style.borderLeft=''; }
-    };
-  }catch(_e){ el.style.overflow=''; el.style.borderLeft=''; }
 }
 
 
