@@ -223,13 +223,25 @@ async function saveEditDeferred({amount, desc, cur, note, subcat, date}){
   // Desgloses del diferido: se PRORRATEAN entre las N mensualidades
   const activeDesg=(typeof editDesgloses!=='undefined'?editDesgloses:[]).filter(d=>d.amount>0);
   const totalDesg=activeDesg.reduce((s,d)=>s+d.amount,0);
-  const principalTotal=+(amount-totalDesg).toFixed(2);
-  if(principalTotal<0){ toast('Los desgloses no pueden superar el gasto'); return; }
 
-  // Beneficio del diferido: se acredita COMPLETO en la mensualidad elegida
+  // R5 · Beneficio del diferido (misma regla que en el registro):
+  //  · Descuento aplicado → reduce el total ANTES de prorratear (bajan todas las mensualidades)
+  //  · Cashback → no toca las mensualidades; se acredita completo en la elegida
+  // FIX: este bloque se había quedado con la fórmula vieja (sin restar el
+  // descuento) — causaba "deferTotalAmount is not defined" al guardar, porque
+  // una edición posterior asumía que esta variable ya existía aquí.
   const benAmt=(editType==='egreso'&&editBenOn)?getEditBenAmount():0;
   if(benAmt>0 && !editBenType){ toast('Elige el tipo de beneficio'); return; }
+  const benDescuento = (benAmt>0 && benReduceGasto(editBenType)) ? benAmt : 0;
+
+  const principalTotal=+(amount-totalDesg-benDescuento).toFixed(2);
+  if(principalTotal<0){ toast('Los desgloses y el beneficio no pueden superar el gasto'); return; }
+
   const benMonth=Math.min(Math.max(parseInt(document.getElementById('e-ben-month')?.value||'1',10)||1,1),n);
+
+  // Total realmente diferido (tras el descuento), para que las mensualidades
+  // cuadren y para que "deferOriginal" no infle el monto original al editar.
+  const deferTotalAmount = principalTotal;
 
   const perMonth=Math.floor((principalTotal/n)*100)/100;
   let acc=0;
