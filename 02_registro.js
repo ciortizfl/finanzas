@@ -67,6 +67,12 @@ function updateBenMonthSelector(){
   if(!row || !sel) return;
   const n=(typeof diferirHasData==='function' && diferirHasData()) ? diferirMonths : 0;
   if(!n || n<2){ row.style.display='none'; return; }
+  // R5: "¿en qué mensualidad se acreditó?" SOLO tiene sentido para beneficios
+  // tipo crédito recibido (Cashback) — un descuento aplicado ya redujo el total
+  // ANTES de prorratear, así que no se "acredita" en un mes en particular.
+  if(!curBenType || (typeof benReduceGasto==='function' && benReduceGasto(curBenType))){
+    row.style.display='none'; return;
+  }
   const prev=sel.value;
   sel.innerHTML='';
   for(let i=1;i<=n;i++){
@@ -733,7 +739,7 @@ function inlineToggleBen(){
   const b=document.getElementById('ben-panel');
   if(b){
     b.style.display = abrir ? 'block' : 'none';
-    if(abrir){ revealAnimate(b); benOn=true; try{ buildBenTypeBlocks('ben-type-blocks', curBenType, t=>{ curBenType=t; }); }catch(e){} }
+    if(abrir){ revealAnimate(b); benOn=true; try{ buildBenTypeBlocks('ben-type-blocks', curBenType, t=>{ curBenType=t; try{ updateBenMonthSelector(); }catch(e){} }); }catch(e){} }
   }
   refreshTopTabsVisibility();
 }
