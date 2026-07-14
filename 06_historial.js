@@ -1084,7 +1084,10 @@ function txEl(e, showDelete){
     childDesg.forEach(d=>{ origAmount += d.amount; });
     // En un diferido el beneficio se acredita aparte (no redujo la mensualidad),
     // así que no forma parte del "monto original" del cargo de ese mes.
-    if(childBen && !e.deferGroup) origAmount += childBen.amount;
+    // R5: solo se suma de vuelta si ese tipo de beneficio SÍ redujo el monto
+    // (descuento aplicado). El cashback nunca lo redujo, así que sumarlo aquí
+    // producía un "Monto original" inflado (p. ej. 600 + 90 = 690 en vez de 600).
+    if(childBen && !e.deferGroup && typeof benReduceGasto==='function' && benReduceGasto(childBen.category)) origAmount += childBen.amount;
     const hasReductions = childDesg.length>0 || (!!childBen && !e.deferGroup);
     if(hasReductions){
       metaParts.push(e.deferGroup
