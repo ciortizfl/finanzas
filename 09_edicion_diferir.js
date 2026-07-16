@@ -89,15 +89,15 @@ function _editCrossfadeRetirado_show(){
 // en 02_registro.js) ya no borra nada; esta versión ahora hace lo mismo:
 // solo reparte el ancho del renglón, nunca toca los datos.
 function editUpdateDesgloseForDiferir(){
+  // R7.2: sin botón Nota — Desglose y Recordar se reparten el renglón; con
+  // Diferido activo, Recordar se esconde (renderEditReminderSection) y
+  // Desglose toma el 100%.
   const desgBtn=document.getElementById('e-desglose-toggle-btn');
-  const noteBtn=document.getElementById('e-note-toggle-btn');
   const remBtn=document.getElementById('e-rem-toggle-btn');
-  if(!desgBtn || !noteBtn) return;
+  if(!desgBtn) return;
   desgBtn.style.display = (editType==='egreso') ? '' : 'none';
-  const visibles=[noteBtn,desgBtn,remBtn].filter(b=>b && b.style.display!=='none');
+  const visibles=[desgBtn,remBtn].filter(b=>b && b.style.display!=='none');
   visibles.forEach(b=>{ b.style.flex='1 1 0'; });
-  if(visibles.length===1) noteBtn.style.flex='1 1 100%';
-  updateEditNoteMode();
 }
 
 function renderEditDiferirPresets(){
@@ -156,15 +156,19 @@ function editClearDiferir(){
   document.getElementById('e-diferir-panel').style.display='none';
   updateInlineBtn('e-inline-diferir-btn', false, false);
   editShowPropinaBenButtons();
+  // R7.2 (gemelo de clearDiferir): al desactivar el diferido en edición, el
+  // botón Recordar debe reaparecer. renderEditReminderSection lo restaura según
+  // el estado (ya no en diferido) y editUpdateDesgloseForDiferir reparte el ancho.
+  try{ if(typeof renderEditReminderSection==='function') renderEditReminderSection(); }catch(e){}
+  try{ if(typeof refreshEditTopTabs==='function') refreshEditTopTabs(); }catch(e){}
+  try{ if(typeof editUpdateDesgloseForDiferir==='function') editUpdateDesgloseForDiferir(); }catch(e){}
 }
 
 function renderEditDiferirPreview(){
   const prev=document.getElementById('e-diferir-preview');
-  const clearBtn=document.getElementById('e-diferir-clear-btn');
   if(!prev) return;
   if(!editDiferirHasData()){
     prev.style.display='none';
-    if(clearBtn) clearBtn.style.display='none';
     return;
   }
   const amount=parseFloat(rawAmount(document.getElementById('e-amount').value))||0;
@@ -183,7 +187,6 @@ function renderEditDiferirPreview(){
     <div style="font-size:12.5px;color:var(--text2);margin-bottom:2px;">Durante <b>${n} meses</b> · ${startLbl} – ${endLbl}</div>
     <div style="font-size:11.5px;color:var(--text3);">Cada día ${base.getDate()} de cada mes</div>
   `;
-  if(clearBtn) clearBtn.style.display='block';
 }
 
 async function saveEditDeferred({amount, desc, cur, note, subcat, date}){
@@ -228,20 +231,16 @@ async function saveEditDeferred({amount, desc, cur, note, subcat, date}){
   const activeDesg=(typeof editDesgloses!=='undefined'?editDesgloses:[]).filter(d=>d.amount>0);
   const totalDesg=activeDesg.reduce((s,d)=>s+d.amount,0);
 
-  // R5 · Beneficio del diferido (misma regla que en el registro):
-  //  · Descuento aplicado → reduce el total ANTES de prorratear (bajan todas las mensualidades)
-  //  · Cashback → no toca las mensualidades; se acredita completo en la elegida
-  // FIX: este bloque se había quedado con la fórmula vieja (sin restar el
-  // descuento) — causaba "deferTotalAmount is not defined" al guardar, porque
-  // una edición posterior asumía que esta variable ya existía aquí.
-  const benAmt=(editType==='egreso'&&editBenOn)?getEditBenAmount():0;
-  if(benAmt>0 && !editBenType){ toast('Elige el tipo de beneficio'); return; }
-  const benDescuento = (benAmt>0 && benReduceGasto(editBenType)) ? benAmt : 0;
+  // R7.2 · Beneficios del diferido: TODOS son descuentos aplicados y reducen
+  // el total ANTES de prorratear (bajan todas las mensualidades). Sus registros
+  // hijos viven vinculados a la mensualidad 1 — la "compra" del grupo.
+  const _benErr=(typeof firstIncompleteBeneficio==='function') ? firstIncompleteBeneficio(editBeneficios) : null;
+  if(_benErr){ toast(_benErr); return; }
+  const benDet=editBeneficiosDetalle();
+  const benDescuento=benDet.total;
 
   const principalTotal=+(amount-totalDesg-benDescuento).toFixed(2);
-  if(principalTotal<0){ toast('Los desgloses y el beneficio no pueden superar el gasto'); return; }
-
-  const benMonth=Math.min(Math.max(parseInt(document.getElementById('e-ben-month')?.value||'1',10)||1,1),n);
+  if(principalTotal<0){ toast('Los desgloses y los beneficios no pueden superar el gasto'); return; }
 
   // Total realmente diferido (tras el descuento), para que las mensualidades
   // cuadren y para que "deferOriginal" no infle el monto original al editar.
@@ -288,24 +287,21 @@ async function saveEditDeferred({amount, desc, cur, note, subcat, date}){
       });
     });
 
-    if(benAmt>0 && (i+1)===benMonth){
-      // R5: agregar la etiqueta "X% de $Y" cuando se capturó como porcentaje —
-      // esta función no la escribía, así que una segunda edición perdía la
-      // posibilidad de reconstruir el % original (aunque la primera vez sí
-      // se hubiera guardado bien desde el registro).
-      const _bm={rel:'beneficio', benMonth:{i:benMonth, n:n}};
-      if(editBenType_mode==='pct'){
-        const _pct=parseFloat(document.getElementById('e-ben-pct')?.value)||0;
-        _bm.ben={pct:_pct, base:amount};
-      }
-      const _benNote='';
-      newEntries.push({
-        id:genId(), type:'beneficio',
-        amount:benAmt, amountMXN:toMXNEdit(benAmt,cur,_origFx), currency:cur,
-        desc:desc, category:editBenType, subcategory:'',
-        method:null, date:dateStr,
-        note:_benNote, meta:_bm,
-        linkedTo:madre.id
+    // R7.2: TODOS los beneficios viven en la mensualidad 1, cada uno como
+    // registro independiente, en su orden de cálculo.
+    if(benDescuento>0 && i===0){
+      benDet.items.forEach(({b, val})=>{
+        if(val<=0 || !b.category) return;
+        const _bm={rel:'beneficio'};
+        if(b.mode==='pct') _bm.ben={pct:b.pct, base:amount};
+        newEntries.push({
+          id:genId(), type:'beneficio',
+          amount:val, amountMXN:toMXNEdit(val,cur,_origFx), currency:cur,
+          desc:desc, category:b.category, subcategory:'',
+          method:null, date:dateStr,
+          note:'', meta:_bm,
+          linkedTo:madre.id
+        });
       });
     }
   }
@@ -361,20 +357,30 @@ async function saveEditConvertToDefer({amount, desc, cur, note, subcat}){
   const groupId=genId();
   const _origFx=orig||null;   // TC histórico (antes se buscaba DESPUÉS de borrarlo: siempre null)
 
-  // ── R5 · BENEFICIO EN LA CONVERSIÓN ──
-  // Este flujo IGNORABA el beneficio por completo: convertir un gasto con
-  // cashback a meses lo hacía desaparecer. Ahora se conserva y se aplica la
-  // misma regla que en el resto de la app:
-  //  · Descuento aplicado → reduce el total antes de prorratear
-  //  · Cashback → se acredita completo en la mensualidad elegida
-  const benAmt=(editType==='egreso'&&editBenOn)?getEditBenAmount():0;
-  if(benAmt>0 && !editBenType){ toast('Elige el tipo de beneficio'); return; }
-  const benDescuento = (benAmt>0 && benReduceGasto(editBenType)) ? benAmt : 0;
+  // ── R7.2 · BENEFICIOS EN LA CONVERSIÓN ──
+  // Todos son descuentos aplicados: reducen el total antes de prorratear y sus
+  // registros hijos viven en la mensualidad 1.
+  const _benErr=(typeof firstIncompleteBeneficio==='function') ? firstIncompleteBeneficio(editBeneficios) : null;
+  if(_benErr){ toast(_benErr); return; }
+  const benDet=editBeneficiosDetalle();
+  const benDescuento=benDet.total;
 
   const principalTotal=+(amount-benDescuento).toFixed(2);
-  if(principalTotal<0){ toast('El beneficio no puede superar el gasto'); return; }
+  if(principalTotal<0){ toast('Los beneficios no pueden superar el gasto'); return; }
   const deferTotalAmount = principalTotal;
-  const benMonth=Math.min(Math.max(parseInt(document.getElementById('e-ben-month')?.value||'1',10)||1,1),n);
+  // FIX (pre-existente): _metaBase se usaba aquí sin declararse — convertir un
+  // gasto a diferido tronaba con ReferenceError. Se declara con la misma lógica
+  // de TC que el resto de los guardados de edición.
+  const _metaBase={};
+  if(cur!=='MXN'){
+    if(_fxOverrideEdit && _fxOverrideEdit>0){
+      const _auto=(typeof _editFxAuto!=='undefined' && _editFxAuto) ? _editFxAuto : fxRateForEdit(_origFx,cur);
+      if(_auto>0) _metaBase.fxAuto=_auto;
+    } else if(typeof _editFxAuto!=='undefined' && _editFxAuto){
+      _fxOverrideEdit=_editFxAuto;
+    }
+    if(!(_fxOverrideEdit>0) && _origFx && metaOf(_origFx).fxPendiente) _metaBase.fxPendiente=true;
+  }
 
   // Borrar el registro original y sus hijos del estado local
   const oldChildIds=data.filter(x=>x.linkedTo===editId).map(x=>x.id);
@@ -398,21 +404,20 @@ async function saveEditConvertToDefer({amount, desc, cur, note, subcat}){
       deferGroup:groupId, deferIndex:i+1, deferTotal:n, deferOriginal:deferTotalAmount
     };
     newEntries.push(madre);
-    // El beneficio se acredita completo en la mensualidad elegida
-    if(benAmt>0 && (i+1)===benMonth){
-      const _bm={rel:'beneficio', benMonth:{i:benMonth, n:n}};
-      if(editBenType_mode==='pct'){
-        const _pct=parseFloat(document.getElementById('e-ben-pct')?.value)||0;
-        _bm.ben={pct:_pct, base:amount};
-      }
-      const _benNote='';
-      newEntries.push({
-        id: genId(), type:'beneficio',
-        amount:benAmt, amountMXN:toMXNEdit(benAmt,cur,_origFx), currency:cur,
-        desc, category:editBenType, subcategory:'',
-        date:dateStr,
-        note:_benNote, meta:_bm,
-        linkedTo:madre.id
+    // R7.2: TODOS los beneficios viven en la mensualidad 1
+    if(benDescuento>0 && i===0){
+      benDet.items.forEach(({b, val})=>{
+        if(val<=0 || !b.category) return;
+        const _bm={rel:'beneficio'};
+        if(b.mode==='pct') _bm.ben={pct:b.pct, base:amount};
+        newEntries.push({
+          id: genId(), type:'beneficio',
+          amount:val, amountMXN:toMXNEdit(val,cur,_origFx), currency:cur,
+          desc, category:b.category, subcategory:'',
+          method:null, date:dateStr,
+          note:'', meta:_bm,
+          linkedTo:madre.id
+        });
       });
     }
   }
@@ -461,6 +466,19 @@ async function saveEditRemoveDefer({amount, desc, cur, note, subcat, date}){
   const method=group[0].method;
   const oldIds=group.map(x=>x.id);
   const dateStr=`${startDate.getFullYear()}-${String(startDate.getMonth()+1).padStart(2,'0')}-${String(startDate.getDate()).padStart(2,'0')}`;
+  // FIX (pre-existente): _metaBase se usaba abajo sin declararse — quitar el
+  // diferido tronaba con ReferenceError. Misma lógica de TC que los demás flujos.
+  const _origFx=group[0]||null;
+  const _metaBase={};
+  if(cur!=='MXN'){
+    if(_fxOverrideEdit && _fxOverrideEdit>0){
+      const _auto=(typeof _editFxAuto!=='undefined' && _editFxAuto) ? _editFxAuto : fxRateForEdit(_origFx,cur);
+      if(_auto>0) _metaBase.fxAuto=_auto;
+    } else if(typeof _editFxAuto!=='undefined' && _editFxAuto){
+      _fxOverrideEdit=_editFxAuto;
+    }
+    if(!(_fxOverrideEdit>0) && _origFx && metaOf(_origFx).fxPendiente) _metaBase.fxPendiente=true;
+  }
   // R4: borrar todo el grupo Y a sus hijos vinculados (desglose/beneficio de
   // cualquier mensualidad) — antes solo se quitaban las mensualidades y los
   // hijos quedaban huérfanos localmente hasta la próxima recarga.
@@ -549,11 +567,10 @@ async function saveEdit(){
     }
   }
 
-  // Beneficio
-  let benAmt = 0;
-  if(editType==='egreso' && editBenOn) benAmt = getEditBenAmount();
-  // Si hay monto de beneficio pero no se eligió tipo, pedirlo
-  if(benAmt > 0 && !editBenType) return toast('Elige el tipo de beneficio');
+  // R7.2 · Beneficios múltiples: cada bloque iniciado debe estar completo
+  const _benErr=(typeof firstIncompleteBeneficio==='function') ? firstIncompleteBeneficio(editBeneficios) : null;
+  if(editType==='egreso' && _benErr) return toast(_benErr);
+  const benDet = (editType==='egreso') ? editBeneficiosDetalle() : {items:[], total:0};
 
   // Total de desgloses
   const totalDesg = activeEditDesgloses.reduce((s,d)=>s+d.amount,0);
@@ -565,12 +582,11 @@ async function saveEdit(){
     propinaIncludedAmt = getEditPropinaAmount();
   }
 
-  // R5: solo los DESCUENTOS APLICADOS reducen el gasto. El cashback es un
-  // crédito que llega después: la compra se registra completa.
-  const benDescuento = (benAmt > 0 && benReduceGasto(editBenType)) ? benAmt : 0;
+  // R7.2: TODOS los beneficios son descuentos aplicados y reducen el gasto.
+  const benDescuento = benDet.total;
 
   // Validar que reducciones no excedan el monto
-  if(benDescuento + totalDesg + propinaIncludedAmt > amount) return toast('Beneficio, desgloses y propina exceden el monto');
+  if(benDescuento + totalDesg + propinaIncludedAmt > amount) return toast('Beneficios, desgloses y propina exceden el monto');
 
   let mainAmount = +(amount - benDescuento - totalDesg - propinaIncludedAmt).toFixed(2);
   if(mainAmount < 0) mainAmount = 0;
@@ -632,15 +648,17 @@ async function saveEdit(){
     const propinaAmt=getEditPropinaAmount();
     if(propinaAmt>0){
       const propinaAmtMXN=toMXNEdit(propinaAmt,cur,_origFx);
-      const _tm={rel:'propina', tip:{inc:!!editPropinaIncluida}};
+      // R7.2: la base (monto total del egreso) se guarda SIEMPRE — el tagline
+      // del historial la muestra también cuando la propina fue de monto fijo.
+      const _tm={rel:'propina', tip:{inc:!!editPropinaIncluida, base:amount}};
       if(editPropinaType==='pct'){
         const pct=parseFloat(document.getElementById('e-propina-pct').value)||0;
-        _tm.tip.pct=pct; _tm.tip.base=amount;
+        _tm.tip.pct=pct;
       }
       const propinaEntry={
         id:genId(), type:'egreso',
         amount:propinaAmt, amountMXN:propinaAmtMXN, currency:cur,
-        desc:desc, category:'Generosidad', subcategory:'Propinas',
+        desc:desc, category:'Generosidad', subcategory:'Propina',
         method:editPropinaMethod||editMethod, date,
         note:'', meta:_tm, linkedTo:_parentId
       };
@@ -649,24 +667,25 @@ async function saveEdit(){
     }
   }
 
-  // Recrear beneficio
-  if(editType==='egreso'&&editBenOn&&benAmt>0){
-    const bt=editBenType;
-    const baMXN=toMXNEdit(benAmt,cur,_origFx);
-    const _bmN={rel:'beneficio'};
-    if(editBenType_mode==='pct'){
-      const pct=parseFloat(document.getElementById('e-ben-pct').value)||0;
-      _bmN.ben={pct:pct, base:amount};
-    }
-    const benEntry={
-      id:genId(), type:'beneficio',
-      amount:benAmt, amountMXN:baMXN, currency:cur,
-      desc:desc, category:bt, subcategory:'',
-      method:null, date,
-      note:'', meta:_bmN, linkedTo:_parentId
-    };
-    data.unshift(benEntry);
-    newChildren.push(benEntry);
+  // Recrear beneficios (R7.2: uno por bloque, en su orden de cálculo)
+  if(editType==='egreso' && benDet.total>0){
+    const _benNew=[];
+    benDet.items.forEach(({b, val})=>{
+      if(val<=0 || !b.category) return;
+      const _bmN={rel:'beneficio'};
+      if(b.mode==='pct') _bmN.ben={pct:b.pct, base:amount};
+      const benEntry={
+        id:genId(), type:'beneficio',
+        amount:val, amountMXN:toMXNEdit(val,cur,_origFx), currency:cur,
+        desc:desc, category:b.category, subcategory:'',
+        method:null, date,
+        note:'', meta:_bmN, linkedTo:_parentId
+      };
+      _benNew.push(benEntry);
+      newChildren.push(benEntry);
+    });
+    // Insertar en reversa para conservar el orden de cálculo en `data`
+    for(let _k=_benNew.length-1; _k>=0; _k--) data.unshift(_benNew[_k]);
   }
 
   // Recrear desgloses (heredan tipo, moneda, fecha y método del padre)

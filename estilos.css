@@ -309,6 +309,11 @@ nav {
 @media (max-width: 767px) {
   .inline-tgl { flex: 1 1 0; }
 }
+/* R7.2 · Renglón inferior (Desglose + Recordar): se reparte el ancho completo
+   también en web — ~50% cada botón; con uno solo visible, ese toma el 100%.
+   (Va después de las media queries para ganarles en especificidad de cascada.) */
+#note-desglose-row .inline-tgl,
+#e-note-desglose-row .inline-tgl { flex: 1 1 0; }
 
 /* Presets de meses (Diferir) */
 .month-preset{
@@ -1031,6 +1036,20 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
 .rem-cfg-row { display: flex; gap: 8px; }
 .rem-cfg-hint { font-size: 12px; color: var(--text3); margin-top: 6px; }
 .rem-cfg-hint:empty { display: none; }
+
+/* ── R7.2 · Recordatorio: un renglón, dos columnas con separador vertical ── */
+.rem-two-cols { display: flex; gap: 12px; align-items: stretch; padding-right: 14px; }
+.rem-col { flex: 1 1 0; min-width: 0; }
+.rem-col-sep { flex: 0 0 auto; width: 1px; background: var(--border2); align-self: stretch; }
+.rem-col-title { font-size: 12px; font-weight: 600; color: var(--text3); margin-bottom: 6px; }
+.rem-col .rem-cfg-row { gap: 6px; }
+/* Chips de ancho FIJO: los dos chips de cada columna se reparten el ancho por
+   igual, así el texto del chip de fecha (dd/mm/aaaa) nunca lo redimensiona. */
+.rem-chip {
+  flex: 1 1 0; min-width: 0; text-align: center;
+  font-size: 12px; padding: 6px 4px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
 
 /* ── Representación de recordatorios ── */
 .tx-rem-ico { font-size: 10px; margin-left: 5px; opacity: 0.55; vertical-align: 1px; }

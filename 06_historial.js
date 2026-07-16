@@ -1153,17 +1153,35 @@ function txEl(e, showDelete){
     const _fmt = v => `${_sym}${Number(v).toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})}`;
 
     if(_m.rel==='desglose')  metaParts.push(_tieneNombrePropio ? `Desglose de ${_madreDesc}` : 'Desglose');
-    if(_m.rel==='propina')   metaParts.push('Propina');
     if(_m.rel==='beneficio') metaParts.push('Beneficio');
 
-    // Detalles útiles (% del beneficio, propina incluida/adicional)
+    // Detalle del beneficio capturado como porcentaje
     if(_m.ben) metaParts.push(`${_m.ben.pct}% de ${_fmt(_m.ben.base)}`);
-    if(_m.tip){
-      const _t=_m.tip, _est=_t.inc?'incluida':'adicional';
-      if(_t.pct!=null) metaParts.push(_t.base!=null ? `${_t.pct}% ${_est} en ${_fmt(_t.base)}` : `${_t.pct}% ${_est}`);
-      else             metaParts.push(_est);
+
+    // R7.2 · Tagline de la propina VINCULADA — una sola línea, siempre con el
+    // monto total registrado del egreso ($Monto = tip.base):
+    //   · % incluida  → "15% incluida en $1,000"
+    //   · % adicional → "15% adicional a $1,000"
+    //   · $ incluida  → "Incluida en $1,000"
+    //   · $ adicional → "Adicional a $1,000"
+    // Registros legacy sin base guardada degradan a la forma corta.
+    if(_m.rel==='propina'){
+      if(_m.tip){
+        const _t=_m.tip;
+        if(_t.pct!=null){
+          const _est=_t.inc?'incluida':'adicional';
+          const _prep=_t.inc?'en':'a';
+          metaParts.push(_t.base!=null ? `${_t.pct}% ${_est} ${_prep} ${_fmt(_t.base)}` : `${_t.pct}% ${_est}`);
+        } else {
+          const _est=_t.inc?'Incluida':'Adicional';
+          const _prep=_t.inc?'en':'a';
+          metaParts.push(_t.base!=null ? `${_est} ${_prep} ${_fmt(_t.base)}` : _est);
+        }
+      } else {
+        metaParts.push('Propina');   // legacy sin meta interpretable
+      }
     }
-    if(_m.benMonth) metaParts.push(`Acreditado en ${_m.benMonth.i}/${_m.benMonth.n}`);
+    if(_m.benMonth) metaParts.push(`Acreditado en ${_m.benMonth.i}/${_m.benMonth.n}`);   // legacy
 
     if(_m.userNote) userParts.push(_m.userNote);
   } else {
@@ -1171,7 +1189,8 @@ function txEl(e, showDelete){
     const children = data.filter(x=>x.linkedTo===e.id);
     const childDesg = children.filter(isDesglose);
     const childProp = children.find(isPropina);
-    const childBen  = children.find(x=>x.type==='beneficio');
+    // R7.2: puede haber VARIOS beneficios vinculados
+    const childBens = children.filter(x=>x.type==='beneficio');
     const sym = e.currency==='MXN'?'$':`${e.currency} `;
 
     // Etiqueta de gasto diferido: "Diferido · mes X/N · de $Total"
@@ -1184,7 +1203,7 @@ function txEl(e, showDelete){
     // punto único de verdad. Aquí vivía la otra copia del cálculo — y estaba
     // desincronizada con la de openEdit: no sumaba la propina incluida.
     const origAmount = cargoBrutoDe(e);
-    const hasReductions = childDesg.length>0 || (!!childBen && !e.deferGroup)
+    const hasReductions = childDesg.length>0 || (childBens.length>0 && !e.deferGroup)
                        || (!!childProp && !!metaOf(childProp).tip && !!metaOf(childProp).tip.inc);
     if(hasReductions){
       metaParts.push(e.deferGroup
@@ -1204,7 +1223,9 @@ function txEl(e, showDelete){
       metaParts.push(`${childDesg.length} desglose${childDesg.length>1?'s':''} (${nombres.join(' · ')})`);
     }
     if(childProp) metaParts.push('Con propina');
-    if(childBen) metaParts.push(`Beneficio: ${childBen.category}`);
+    // R7.2: 1 beneficio → "Beneficio: X"; varios → "N beneficios (Cat1 · Cat2)"
+    if(childBens.length===1) metaParts.push(`Beneficio: ${childBens[0].category}`);
+    else if(childBens.length>1) metaParts.push(`${childBens.length} beneficios (${childBens.map(b=>b.category).join(' · ')})`);
 
     // R6: la nota del usuario sale limpia de la capa metaOf; ya no se filtra texto aquí.
     const _mm = metaOf(e);

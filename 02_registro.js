@@ -11,6 +11,7 @@ function init() {
   initStrip('tx-date-strip', todayISO);
   populateSelectors();
   setType('egreso');
+  initNoteBehavior();
   fetchRates();
   // Render immediately from cache, then refresh from Sheets
   renderBalance();
@@ -43,11 +44,11 @@ function desgloseHasData(){
   return desgloses.some(d=>d.amount>0);
 }
 
-// Actualiza el indicador "tiene contenido" en los botones Nota / Desglose
+// Actualiza el indicador "tiene contenido" en los botones del renglón inferior
+// (R7.2: la Nota ya no vive ahí — solo Desglose y Recordar)
 function updateNoteDesgloseIndicators(){
-  updateInlineBtn('note-toggle-btn', _noteVisible, noteHasData());
   updateInlineBtn('desglose-toggle-btn', _desgloseVisible, desgloseHasData());
-  // Tercer tab: 🔔 Recordar (activo = panel abierto; con-datos = armado pero en otro tab)
+  // 🔔 Recordar (activo = panel abierto; con-datos = armado pero cerrado)
   try{
     updateInlineBtn('rem-toggle-btn',
       typeof _remPanelVisible!=='undefined' && _remPanelVisible,
@@ -55,87 +56,54 @@ function updateNoteDesgloseIndicators(){
   }catch(e){}
 }
 
-// Decide el modo de la nota:
-//  - MODO DIRECTO: cuando la nota va sola (ingreso, beneficio o egreso diferido).
-//    El textarea se muestra directamente, sin botón toggle.
-//  - MODO TOGGLE: cuando conviven Nota y Desglose (egreso normal). Botones toggle.
-// Poblar el selector "¿en qué mensualidad se te acreditó?" del beneficio.
-// Solo aparece cuando el gasto es diferido (en gastos normales no aplica).
-function updateBenMonthSelector(){
-  const row=document.getElementById('ben-month-row');
-  const sel=document.getElementById('ben-month');
-  if(!row || !sel) return;
-  const n=(typeof diferirHasData==='function' && diferirHasData()) ? diferirMonths : 0;
-  if(!n || n<2){ row.style.display='none'; return; }
-  // R5: "¿en qué mensualidad se acreditó?" SOLO tiene sentido para beneficios
-  // tipo crédito recibido (Cashback) — un descuento aplicado ya redujo el total
-  // ANTES de prorratear, así que no se "acredita" en un mes en particular.
-  if(!curBenType || (typeof benReduceGasto==='function' && benReduceGasto(curBenType))){
-    row.style.display='none'; return;
-  }
-  const prev=sel.value;
-  sel.innerHTML='';
-  for(let i=1;i<=n;i++){
-    const o=document.createElement('option');
-    o.value=String(i);
-    o.textContent=`Mensualidad ${i} de ${n}`;
-    sel.appendChild(o);
-  }
-  sel.value=(prev && Number(prev)>=1 && Number(prev)<=n) ? prev : '1';
-  row.style.display='block';
+// ══════════════════════════════════════════════════════════════════════════
+// R7.2 · NOTA BAJO DESCRIPCIÓN — aparición y ocultamiento por FOCO
+//
+// Reglas (mismas en registro y edición, y para egreso/ingreso/beneficio):
+//  1. Enfocar Descripción → la Nota se desliza debajo (revealAnimate).
+//  2. Mientras el foco siga en Descripción, la Nota permanece visible.
+//  3. Con contenido, la Nota permanece visible el resto del registro.
+//  4. Vacía y el foco pasa a otro control → se desliza hacia arriba y desaparece.
+//  5. Volver a enfocar Descripción la vuelve a mostrar (sin tocar lo escrito).
+//  6. Si se borra por completo y el foco sale → vuelve a ocultarse.
+// ══════════════════════════════════════════════════════════════════════════
+function showNoteField(){
+  const wrap=document.getElementById('note-field-wrap');
+  if(!wrap || _noteVisible) return;
+  _noteVisible=true;
+  wrap.style.display='block';
+  revealAnimate(wrap);
+}
+function maybeHideNoteField(){
+  const wrap=document.getElementById('note-field-wrap');
+  if(!wrap || !_noteVisible) return;
+  if(noteHasData()) return;   // con contenido nunca se oculta sola
+  _noteVisible=false;
+  hideAnimate(wrap);
+}
+function initNoteBehavior(){
+  const desc=document.getElementById('desc');
+  const note=document.getElementById('note');
+  if(!desc || !note) return;
+  desc.addEventListener('focus', showNoteField);
+  const onOut=()=>{
+    // Esperar al siguiente frame: si el foco brincó entre Descripción y Nota,
+    // el campo no debe parpadear.
+    setTimeout(()=>{
+      const ae=document.activeElement;
+      if(ae===desc || ae===note) return;
+      maybeHideNoteField();
+    }, 0);
+  };
+  desc.addEventListener('blur', onOut);
+  note.addEventListener('blur', onOut);
 }
 
+// La visibilidad de los botones del renglón inferior según el tipo/diferido
+// vive en updateFinalizeVisibility y updateDesgloseButtonForDiferir.
 function updateNoteMode(){
-  // El botón 🔔 Recordar sigue las mismas reglas de visibilidad (se oculta con
-  // diferido activo/con datos, y en tipos que no son egreso)
   try{ if(typeof updateRemToggleVisibility==='function') updateRemToggleVisibility(); }catch(e){}
   try{ if(typeof updateDesgloseButtonForDiferir==='function') updateDesgloseButtonForDiferir(); }catch(e){}
-  const row=document.getElementById('note-desglose-row');
-  const noteBtn=document.getElementById('note-toggle-btn');
-  const wrap=document.getElementById('note-field-wrap');
-  if(!row || !noteBtn || !wrap) return;
-  // Con diferido activo, la Nota sigue siendo un TAB (para que Desglose y
-  // Recordar puedan convivir); solo en ingresos/beneficios va directa.
-  const noteDirecto = (curType!=='egreso');
-  if(noteDirecto){
-    // El botón Nota deja de ser toggle: se oculta y el textarea queda directo.
-    noteBtn.style.display='none';
-    wrap.style.display='block';
-    wrap.style.marginTop='0';
-    _noteVisible=true;
-  } else {
-    // Egreso normal: el botón Nota vuelve a ser toggle
-    noteBtn.style.display='';
-    wrap.style.marginTop='10px';
-    // Si el usuario no lo había abierto y no hay contenido, ocultar el textarea
-    if(!_noteVisible && !noteHasData()){
-      wrap.style.display='none';
-    }
-  }
-}
-
-function toggleNoteField(forceOpen){
-  const wrap=document.getElementById('note-field-wrap');
-  if(!wrap) return;
-  const isManual = forceOpen===undefined;
-  const open = isManual ? !_noteVisible : forceOpen;
-  _noteVisible=open;
-  wrap.style.display=open?'block':'none';
-  if(open){
-    revealAnimate(wrap);
-    // Mutuamente excluyente (solo en clic manual): cerrar Desglose si estaba abierto
-    if(isManual && _desgloseVisible){
-      _desgloseVisible=false;
-      const dsec=document.getElementById('desglose-section');
-      if(dsec) dsec.style.display='none';
-    }
-      if(isManual && typeof _remPanelVisible!=='undefined' && _remPanelVisible){
-        _remPanelVisible=false;
-        const rc=document.getElementById('rem-config');
-        if(rc) rc.style.display='none';
-      }
-  }
-  updateNoteDesgloseIndicators();
 }
 
 function toggleDesgloseSection(forceOpen){
@@ -147,17 +115,12 @@ function toggleDesgloseSection(forceOpen){
   sec.style.display=open?'block':'none';
   if(open){
     revealAnimate(sec);
-    // Mutuamente excluyente (solo en clic manual): cerrar Nota si estaba abierta
-    if(isManual && _noteVisible){
-      _noteVisible=false;
-      const nwrap=document.getElementById('note-field-wrap');
-      if(nwrap) nwrap.style.display='none';
+    // Mutuamente excluyente (solo en clic manual): cerrar Recordar si estaba abierto
+    if(isManual && typeof _remPanelVisible!=='undefined' && _remPanelVisible){
+      _remPanelVisible=false;
+      const rc=document.getElementById('rem-config');
+      if(rc) rc.style.display='none';
     }
-      if(isManual && typeof _remPanelVisible!=='undefined' && _remPanelVisible){
-        _remPanelVisible=false;
-        const rc=document.getElementById('rem-config');
-        if(rc) rc.style.display='none';
-      }
     // Si no hay ningún desglose aún, agregar uno automáticamente para agilizar
     if(desgloses.length===0) addDesglose();
   }
@@ -176,41 +139,15 @@ function onCurChange() {
   // R7 (punto 3): y el badge superior "TC: 1 CAD = $12.60 MXN" ya no existe —
   // ese contenido es ahora el placeholder del propio campo de TC (updateFxRow).
   if(cur==='MXN') return;
-  calcBenPreview();
   calcPropinaPreview();
+  if(typeof renderBeneficios==='function' && beneficios.length>0) renderBeneficios(false);
   if(typeof renderDesgloses==='function' && desgloses.length>0) renderDesgloses();
   // Si cambia la moneda, refrescar las tarjetas de desglose (etiqueta USD/MXN)
   try{ if(typeof renderDesgloses==='function' && desgloses.length>0) renderDesgloses(false); }catch(e){}
 }
 
-function calcBenPreview(){
-  const calcEl=document.getElementById('ben-calc');
-  if(!calcEl) return;
-  const cur=document.getElementById('currency').value;
-  const sym=cur==='MXN'?'$':`${cur} `;
-
-  if(benType==='monto'){
-    // Monto directo: solo mostrar conversión a MXN si aplica
-    const benVal=parseFloat(rawAmount(document.getElementById('ben-amount').value))||0;
-    if(cur!=='MXN' && benVal>0){
-      const mxn=toMXN(benVal,cur);
-      calcEl.textContent=`= $${mxn.toFixed(2)} MXN`;
-    } else {
-      calcEl.textContent='';
-    }
-    return;
-  }
-
-  // Modo porcentaje — siempre directo sobre el monto
-  const pct=parseFloat(document.getElementById('ben-pct').value)||0;
-  const amount=parseFloat(rawAmount(document.getElementById('amount').value))||0;
-  if(pct>0 && amount>0){
-    const benAmt = amount * pct / 100;
-    calcEl.textContent=`= ${sym}${benAmt.toFixed(2)}`;
-  } else {
-    calcEl.textContent='';
-  }
-}
+// R7.2: calcBenPreview desapareció — cada BLOQUE de beneficio calcula y
+// muestra su propio resultado (ver renderBeneficios / updateBeneficioCalc).
 // ── TIPO DE CAMBIO MANUAL ──
 // Si el usuario escribe un TC, ese manda sobre el automático. Vale para el
 // registro madre y TODO lo ligado (propina, beneficio, desgloses, mensualidades
@@ -402,7 +339,8 @@ function setType(t) {
     const bp=document.getElementById('ben-panel');
     if(pp) pp.style.display='none';
     if(bp) bp.style.display='none';
-    propinaOn=false; benOn=false;
+    propinaOn=false;
+    if(typeof resetBeneficios==='function') resetBeneficios();
     // Reset Diferir (solo aplica a egresos)
     diferirMonths=0; diferirCustom=false; _diferirVisible=false;
     const dp=document.getElementById('diferir-panel');
@@ -433,17 +371,14 @@ function setType(t) {
   } else {
     selMethod='';
   }
-  // Reset note
+  // Reset note (R7.2: el campo vive bajo Descripción y arranca oculto)
   const noteEl=document.getElementById('note');
   if(noteEl){ noteEl.value=''; }   // R6.6: ya no existe dataset.autoRate
-  // Al cambiar de tipo, limpiar desgloses (solo aplican a egreso)
-  desgloses=[]; renderDesgloses();
   const noteWrap=document.getElementById('note-field-wrap');
   if(noteWrap) noteWrap.style.display='none';
-  const noteIcon=document.getElementById('note-toggle-icon');
-  if(noteIcon) noteIcon.textContent='＋';
-  const noteLbl=document.getElementById('note-toggle-lbl');
-  if(noteLbl) noteLbl.textContent=' Agregar nota';
+  _noteVisible=false;
+  // Al cambiar de tipo, limpiar desgloses (solo aplican a egreso)
+  desgloses=[]; renderDesgloses();
   document.getElementById('method-field').style.display=t==='beneficio'?'none':'block';
   // Efecto de despliegue en el formulario al cambiar de tipo
   revealAnimate(document.getElementById('register-form-card'));
@@ -557,17 +492,17 @@ function updateFinalizeVisibility(animDelay){
   const submitBtn=document.getElementById('submit-btn');
   if(!noteSection||!submitBtn) return;
 
-  // El desglose solo aplica a egresos. En ingreso/beneficio se oculta el botón
-  // Desglose y la Nota ocupa todo el ancho del renglón.
+  // R7.2: el renglón inferior (Desglose + Recordar) solo aplica a egresos.
+  // En ingreso/beneficio se oculta y se limpian los desgloses del tipo previo.
   const desgBtn=document.getElementById('desglose-toggle-btn');
-  const noteBtn=document.getElementById('note-toggle-btn');
-  if(desgBtn && noteBtn){
-    if(curType==='egreso' && !_diferirVisible && !diferirHasData()){
+  const bottomRow=document.getElementById('note-desglose-row');
+  if(desgBtn){
+    if(curType==='egreso'){
       desgBtn.style.display='';
-      noteBtn.style.flex='';
+      if(bottomRow) bottomRow.style.display='';
     } else {
       desgBtn.style.display='none';
-      noteBtn.style.flex='1 1 100%';
+      if(bottomRow) bottomRow.style.display='none';
       // Si había un desglose abierto de un tipo previo, cerrarlo
       if(_desgloseVisible){
         _desgloseVisible=false;
@@ -585,26 +520,29 @@ function updateFinalizeVisibility(animDelay){
     complete = hasSubs ? !!curSubcat : true;
   }
 
+  // R7.2: en ingreso/beneficio la note-section quedó sin contenido aplicable
+  // (la Nota vive bajo Descripción), así que solo se muestra en egresos.
+  const showSection = complete && curType==='egreso';
   const wasHidden = noteSection.style.display==='none';
   if(complete){
     const delay = (wasHidden ? (animDelay || 0) : 0);
     if(wasHidden && delay>0){
       // Poner opacity 0 ANTES de hacer visible, para que no haya un frame visible
-      noteSection.style.opacity='0';
+      if(showSection) noteSection.style.opacity='0';
       submitBtn.style.opacity='0';
-      noteSection.style.display='';
+      noteSection.style.display=showSection?'':'none';
       submitBtn.style.display='';
       setTimeout(()=>{
         noteSection.style.opacity='';
         submitBtn.style.opacity='';
-        revealAnimate(noteSection);
+        if(showSection) revealAnimate(noteSection);
         revealAnimate(submitBtn);
       }, delay);
     } else {
-      noteSection.style.display='';
+      noteSection.style.display=showSection?'':'none';
       submitBtn.style.display='';
       if(wasHidden){
-        revealAnimate(noteSection);
+        if(showSection) revealAnimate(noteSection);
         revealAnimate(submitBtn);
       }
     }
@@ -656,9 +594,8 @@ function propinaHasData(){
 }
 
 function benHasData(){
-  const amt=parseFloat(rawAmount(document.getElementById('ben-amount')?.value))||0;
-  const pct=parseFloat(document.getElementById('ben-pct')?.value)||0;
-  return benOn && (amt>0||pct>0);
+  // R7.2: hay dato si CUALQUIER bloque de beneficio aporta un monto > 0
+  try{ return beneficiosDetalle().total>0; }catch(e){ return false; }
 }
 
 let _propinaVisible=false;
@@ -708,7 +645,6 @@ function refreshTopTabsVisibility(){
   // Diferir ↔ Recordar
   try{ updateRemToggleVisibility(); }catch(e){}
   try{ updateNoteDesgloseIndicators(); }catch(e){}
-  try{ updateBenMonthSelector(); }catch(e){}
 }
 
 function inlineTogglePropina(){
@@ -731,7 +667,12 @@ function inlineToggleBen(){
   const b=document.getElementById('ben-panel');
   if(b){
     b.style.display = abrir ? 'block' : 'none';
-    if(abrir){ revealAnimate(b); benOn=true; try{ buildBenTypeBlocks('ben-type-blocks', curBenType, t=>{ curBenType=t; try{ updateBenMonthSelector(); }catch(e){} }); }catch(e){} }
+    if(abrir){
+      revealAnimate(b);
+      // Igual que Desglose: si no hay ningún bloque aún, agregar uno para agilizar
+      if(beneficios.length===0) addBeneficio();
+      else renderBeneficios(false);
+    }
   }
   refreshTopTabsVisibility();
 }
@@ -838,7 +779,6 @@ function toggleDiferirPreset(p){
   renderDiferirPresets();
   renderDiferirPreview();
   updateInlineBtn('inline-diferir-btn', true, diferirHasData());
-  try{ updateBenMonthSelector(); }catch(e){}
   try{ refreshTopTabsVisibility(); }catch(e){}   // Bug 2: mantener la exclusión al vuelo
 }
 
@@ -855,7 +795,6 @@ function onDiferirCustomInput(){
   renderDiferirPresets();
   renderDiferirPreview();
   updateInlineBtn('inline-diferir-btn', true, diferirHasData());
-  try{ updateBenMonthSelector(); }catch(e){}
   try{ refreshTopTabsVisibility(); }catch(e){}   // Bug 2: mantener la exclusión al vuelo
 }
 
@@ -869,17 +808,20 @@ function clearDiferir(){
   document.getElementById('diferir-panel').style.display='none';
   updateInlineBtn('inline-diferir-btn', false, false);
   showPropinaBenButtons();
+  // R7.2: al desactivar Diferido, el botón Recordar debe REAPARECER (el diferido
+  // lo ocultaba). updateRemToggleVisibility lo restaura y updateDesgloseButtonForDiferir
+  // reparte de nuevo el ancho — Desglose vuelve a ~50%.
+  try{ if(typeof updateRemToggleVisibility==='function') updateRemToggleVisibility(); }catch(e){}
+  try{ if(typeof refreshTopTabsVisibility==='function') refreshTopTabsVisibility(); }catch(e){}
   updateDesgloseButtonForDiferir();
 }
 
 // Vista previa en vivo: monto por mes + rango de fechas + día de corte
 function renderDiferirPreview(){
   const prev=document.getElementById('diferir-preview');
-  const clearBtn=document.getElementById('diferir-clear-btn');
   if(!prev) return;
   if(!diferirHasData()){
     prev.style.display='none';
-    if(clearBtn) clearBtn.style.display='none';
     return;
   }
   const amount=parseFloat(rawAmount(document.getElementById('amount').value))||0;
@@ -895,7 +837,6 @@ function renderDiferirPreview(){
     <div style="font-size:12.5px;color:var(--text2);margin-bottom:2px;">Durante <b>${diferirMonths} meses</b> · ${startLbl} – ${endLbl}</div>
     <div style="font-size:11.5px;color:var(--text3);">Cada día ${base.getDate()} de cada mes</div>
   `;
-  if(clearBtn) clearBtn.style.display='block';
 }
 
 // Fecha de la mensualidad i (0-based), anclando al día original; si el mes no
@@ -911,19 +852,16 @@ function diferirMonthlyDate(base, i){
   return new Date(targetY, targetM, d);
 }
 
-// Oculta/muestra el botón Desglose según el estado de Diferir (Diferir abierto → sin Desglose)
-// El Desglose ya NO se oculta con Diferir (se prorratea entre las mensualidades).
-// Aquí solo se reparte el ancho del renglón entre los botones que quedan visibles:
-// con diferido activo, Recordar se esconde y Nota+Desglose ocupan 50% cada uno.
+// Reparte el ancho del renglón inferior entre los botones visibles.
+// R7.2: sin botón Nota — Desglose y Recordar ocupan ~50% cada uno; con Diferido
+// activo, Recordar se esconde (updateRemToggleVisibility) y Desglose toma el
+// 100% del ancho disponible. Al desactivar Diferido, Recordar reaparece.
 function updateDesgloseButtonForDiferir(){
-  const noteBtn=document.getElementById('note-toggle-btn');
   const desgBtn=document.getElementById('desglose-toggle-btn');
   const remBtn=document.getElementById('rem-toggle-btn');
   if(desgBtn) desgBtn.style.display = (curType==='egreso') ? '' : 'none';
-  const visibles=[noteBtn,desgBtn,remBtn].filter(b=>b && b.style.display!=='none');
+  const visibles=[desgBtn,remBtn].filter(b=>b && b.style.display!=='none');
   visibles.forEach(b=>{ b.style.flex='1 1 0'; });
-  if(visibles.length===1 && noteBtn) noteBtn.style.flex='1 1 100%';
-  try{ updateBenMonthSelector(); }catch(e){}
 }
 
 
@@ -1344,87 +1282,76 @@ function setMethod(m,el){
   if(el) el.classList.add('active');
 }
 
-const BEN_TYPES = ['Cashback','Puntos de lealtad','Puntos TDC','Millas aéreas','Descuentos y promociones','Otros beneficios'];
-
-// ════════════════════════════════════════════════════════════════════════
-// R5 · SEMÁNTICA DEL BENEFICIO — punto ÚNICO de verdad
-//
-// Antes, la decisión de "restar o no restar el beneficio" dependía de si el
-// gasto era diferido o no — un criterio equivocado que hacía que el mismo tipo
-// de beneficio se tratara distinto según el tipo de gasto.
-//
-// La regla correcta depende del TIPO de beneficio:
-//
-//   · DESCUENTO APLICADO (resta del egreso): pagaste menos en el momento porque
-//     usaste puntos, millas o una promoción. El dinero nunca salió de tu bolsa.
-//     Caso límite: un Starbucks pagado 100% con puntos → el egreso queda en $0 y
-//     el beneficio absorbe el total. En la práctica funciona como método de pago.
-//
-//   · CRÉDITO RECIBIDO (NO resta): el cashback. La compra se cobró completa y el
-//     dinero regresa después como crédito a favor, independiente de esa compra.
-//
-// Esta regla aplica IGUAL en gastos normales y diferidos. En un diferido, un
-// descuento reduce el total ANTES de prorratear (bajan todas las mensualidades);
-// el cashback se mantiene anclado al mes en que se acredita.
-// ════════════════════════════════════════════════════════════════════════
-const BEN_CREDITO_RECIBIDO = ['Cashback'];   // no reduce el gasto
-
-// ¿Este tipo de beneficio se descuenta del monto del egreso?
-function benReduceGasto(benType){
-  if(!benType) return false;
-  return !BEN_CREDITO_RECIBIDO.includes(benType);
-}
-
-// ── Estado del beneficio en edición (espejo del registro) ──
-let editBenType_mode = 'monto'; // 'pct' | 'monto'
-
-function setEditBenType(t){
-  editBenType_mode=t;
-  const pctBtn=document.getElementById('e-ben-chip-pct');
-  const montoBtn=document.getElementById('e-ben-chip-monto');
-  const pctInput=document.getElementById('e-ben-pct');
-  const montoInput=document.getElementById('e-ben-amount');
-  if(pctBtn){ pctBtn.style.background=t==='pct'?'var(--accent)':'transparent'; pctBtn.style.color=t==='pct'?'white':'var(--text3)'; }
-  if(montoBtn){ montoBtn.style.background=t==='monto'?'var(--accent)':'transparent'; montoBtn.style.color=t==='monto'?'white':'var(--text3)'; }
-  if(pctInput) pctInput.style.display=t==='pct'?'':'none';
-  if(montoInput) montoInput.style.display=t==='monto'?'':'none';
-  calcEditBenPreview();
-}
-
-function getEditBenAmount(){
-  if(!editBenOn) return 0;
-  if(editBenType_mode==='monto') return parseFloat(rawAmount(document.getElementById('e-ben-amount').value))||0;
-  const pct=parseFloat(document.getElementById('e-ben-pct').value)||0;
-  const amount=parseFloat(rawAmount(document.getElementById('e-amount').value))||0;
-  return +(amount * pct / 100).toFixed(2);
-}
-
-function calcEditBenPreview(){
-  const calcEl=document.getElementById('e-ben-calc');
-  if(!calcEl) return;
-  const cur=document.getElementById('e-currency').value;
-  const sym=cur==='MXN'?'$':`${cur} `;
-  if(editBenType_mode==='monto'){
-    const benVal=parseFloat(rawAmount(document.getElementById('e-ben-amount').value))||0;
-    if(cur!=='MXN' && benVal>0){
-      calcEl.textContent=`= $${toMXN(benVal,cur).toFixed(2)} MXN`;
-    } else { calcEl.textContent=''; }
-    return;
-  }
-  const pct=parseFloat(document.getElementById('e-ben-pct').value)||0;
-  const amount=parseFloat(rawAmount(document.getElementById('e-amount').value))||0;
-  if(pct>0 && amount>0){
-    calcEl.textContent=`= ${sym}${(amount*pct/100).toFixed(2)}`;
-  } else { calcEl.textContent=''; }
-}
-
-
-// Unificar: las categorías de ahorro pasivo SON los tipos de beneficio.
+// R7.2: 'Cashback' dejó de ser beneficio (ahora es categoría de INGRESO) y se
+// agregó 'Dinero electrónico', que se comporta igual que cualquier otro.
+const BEN_TYPES = ['Dinero electrónico','Puntos de lealtad','Puntos TDC','Millas aéreas','Descuentos y promociones','Otros beneficios'];
+// Unificar: las categorías del tipo "beneficio" SON los tipos de beneficio.
 // Así coinciden sin importar si se registra dentro de un gasto o por separado.
 BEN_TYPES.forEach(t=>{ CATS['beneficio'][t]=['—']; });
-let curBenType = 'Cashback';
-let editBenType = 'Cashback';
 
+// ════════════════════════════════════════════════════════════════════════
+// R7.2 · BENEFICIOS MÚLTIPLES — punto ÚNICO de verdad
+//
+// Un egreso puede llevar VARIOS beneficios, cada uno como bloque independiente
+// (misma mecánica que los desgloses). Reglas:
+//   · TODO beneficio es un descuento aplicado: resta del monto del egreso y
+//     suma al apartado Beneficios. (La semántica "crédito recibido" del
+//     Cashback desapareció junto con él.)
+//   · Solo puede existir UN beneficio porcentual por egreso; los demás deben
+//     ser de monto fijo.
+//   · Orden de cálculo: primero el porcentual (sobre el monto original del
+//     egreso menos cualquier beneficio previamente aplicado — al ir primero,
+//     su base es el monto completo), luego los fijos en el orden agregado.
+//   · La única limitación es el monto disponible: nunca se puede exceder.
+//   · Los beneficios tienen PRIORIDAD sobre los desgloses: el disponible de
+//     los desgloses es el monto menos los beneficios.
+//
+// Cada bloque: {id, mode:'pct'|'monto', pct, amount, category}
+// ════════════════════════════════════════════════════════════════════════
+let beneficios = [];
+
+// Monto que aporta UN bloque, dada la base (el monto original del egreso)
+function beneficioVal(b, base){
+  if(b.mode==='pct') return +((base*(b.pct||0))/100).toFixed(2);
+  return +(b.amount||0);
+}
+
+// Detalle completo: bloques en ORDEN DE CÁLCULO (pct primero, fijos después
+// en orden de captura), con el valor de cada uno, el total y el restante.
+function _beneficiosDetalleDe(list, amount){
+  const ordered=[...list.filter(b=>b.mode==='pct'), ...list.filter(b=>b.mode!=='pct')];
+  let remaining=+(amount||0);
+  const items=ordered.map(b=>{
+    const val=beneficioVal(b, amount||0);
+    remaining=+(remaining-val).toFixed(2);
+    return {b, val};
+  });
+  const total=items.reduce((s,x)=>s+x.val,0);
+  return { items, total:+total.toFixed(2), remaining, amount:+(amount||0) };
+}
+function beneficiosDetalle(){
+  const amount=parseFloat(rawAmount(document.getElementById('amount')?.value))||0;
+  return _beneficiosDetalleDe(beneficios, amount);
+}
+function beneficiosTotal(){ return beneficiosDetalle().total; }
+
+// ¿Ya existe un beneficio porcentual (distinto de `exceptId`)?
+function benPctTaken(list, exceptId){
+  return list.some(b=>b.mode==='pct' && b.id!==exceptId);
+}
+
+// Validación al guardar: un bloque "iniciado" debe estar completo
+// (monto > 0 + categoría). Los totalmente vacíos se ignoran en silencio.
+function firstIncompleteBeneficio(list){
+  for(const b of (list||[])){
+    const val=(b.mode==='pct') ? (b.pct||0) : (b.amount||0);
+    const iniciado = val>0 || !!b.category;
+    if(!iniciado) continue;
+    if(!(val>0)) return 'Ponle monto a cada beneficio (o elimínalo)';
+    if(!b.category) return 'Elige el tipo de cada beneficio (o elimínalo)';
+  }
+  return null;
+}
 
 // ══════════ TC MANUAL: UI DEL FORMULARIO DE REGISTRO ══════════
 // El campo solo aparece en moneda extranjera. Vacío = TC automático.
@@ -1486,12 +1413,23 @@ function onFxManualInput(){
   _fxOverride=_fxParse(document.getElementById('fx-manual')?.value);
   updateFxRow();
   // Recalcular vistas previas que dependen del TC
-  try{ calcPropinaPreview(); calcBenPreview(); updateDesgloseRemaining(); renderDiferirPreview(); }catch(e){}
+  try{ calcPropinaPreview(); refreshBeneficioCalcs(); updateDesgloseRemaining(); renderDiferirPreview(); }catch(e){}
 }
 
 
 // Escribir la nota a mano cancela la predicción (deja de ser "automática")
 function onNoteInput(){
   if(typeof _notePredicted!=='undefined') _notePredicted=false;
-  updateNoteDesgloseIndicators();
+}
+
+// ══════════ R7.2 · LIMPIAR MÓDULOS (✕ dentro del panel) ══════════
+// Mismo comportamiento que eliminar el único desglose: borra la información,
+// colapsa el módulo y desactiva el botón correspondiente.
+function clearPropinaModule(){
+  resetPropina();
+  _propinaVisible=false;
+  const p=document.getElementById('propina-panel');
+  if(p) p.style.display='none';
+  updateInlineBtn('inline-propina-btn', false, false);
+  refreshTopTabsVisibility();
 }

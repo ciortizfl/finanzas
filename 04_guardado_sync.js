@@ -137,23 +137,17 @@ function submitDeferredEntry({amount, desc, cur, date, note, subcat}){
   const activeDesg=(typeof desgloses!=='undefined'?desgloses:[]).filter(d=>d.amount>0);
   const totalDesg=activeDesg.reduce((s,d)=>s+d.amount,0);
 
-  // ── R5 · BENEFICIO EN UN DIFERIDO ──
-  // Dos comportamientos distintos según el tipo:
-  //  · DESCUENTO APLICADO (puntos, millas, promociones): redujo el precio de la
-  //    compra, así que reduce el TOTAL ANTES de prorratear → bajan TODAS las
-  //    mensualidades proporcionalmente. Si negociaste $1,800 en vez de $2,000
-  //    usando puntos, lo que se difiere a 6 meses es sobre $1,800.
-  //  · CRÉDITO RECIBIDO (cashback): el banco te cobra la mensualidad completa y
-  //    el dinero regresa después. NO toca las mensualidades; se acredita completo
-  //    en UNA de ellas (la que elijas), como llega en la realidad.
-  const benAmt=(curType==='egreso'&&benOn)?getBenAmount():0;
-  if(benAmt>0 && !curBenType) return toast('Elige el tipo de beneficio');
-  const benDescuento = (benAmt>0 && benReduceGasto(curBenType)) ? benAmt : 0;
+  // ── R7.2 · BENEFICIOS EN UN DIFERIDO ──
+  // Todo beneficio es un descuento aplicado: reduce el TOTAL ANTES de prorratear
+  // (bajan todas las mensualidades proporcionalmente). Puede haber varios; sus
+  // registros hijos viven vinculados a la mensualidad 1 — la "compra" del grupo.
+  const _benErr=(typeof firstIncompleteBeneficio==='function') ? firstIncompleteBeneficio(beneficios) : null;
+  if(_benErr) return toast(_benErr);
+  const benDet=beneficiosDetalle();
+  const benDescuento=benDet.total;
 
   const principalTotal=+(amount-totalDesg-benDescuento).toFixed(2);
-  if(principalTotal<0) return toast('Los desgloses y el beneficio no pueden superar el gasto');
-
-  const benMonth=Math.min(Math.max(parseInt(document.getElementById('ben-month')?.value||'1',10)||1,1),n);
+  if(principalTotal<0) return toast('Los desgloses y los beneficios no pueden superar el gasto');
 
   // Total REALMENTE diferido: si hubo descuento, es lo que quedó por pagar.
   // (Se usa como "Monto original" del grupo, para que las mensualidades sumen
@@ -205,21 +199,24 @@ function submitDeferredEntry({amount, desc, cur, date, note, subcat}){
       data.unshift(child); childrenAll.push(child);
     });
 
-    // Beneficio: solo en la mensualidad elegida, por el monto COMPLETO
-    if(benAmt>0 && (i+1)===benMonth){
-      const _bm={rel:'beneficio', benMonth:{i:benMonth, n:n}};
-      if(benType==='pct'){
-        const pct=parseFloat(document.getElementById('ben-pct').value)||0;
-        _bm.ben={pct:pct, base:amount};
-      }
-      const benChild={
-        id:genId(), type:'beneficio',
-        amount:benAmt, amountMXN:toMXN(benAmt,cur), currency:cur,
-        desc:desc, category:curBenType, subcategory:'',
-        method:null, date:dateStr,
-        note:'', meta:_bm, linkedTo:entry.id
-      };
-      data.unshift(benChild); childrenAll.push(benChild);
+    // Beneficios: TODOS viven en la mensualidad 1 (la "compra" del grupo),
+    // cada uno como registro independiente, en su orden de cálculo.
+    if(benDescuento>0 && i===0){
+      const _benChildren=[];
+      benDet.items.forEach(({b, val})=>{
+        if(val<=0 || !b.category) return;
+        const _bm={rel:'beneficio'};
+        if(b.mode==='pct') _bm.ben={pct:b.pct, base:amount};
+        const benChild={
+          id:genId(), type:'beneficio',
+          amount:val, amountMXN:toMXN(val,cur), currency:cur,
+          desc:desc, category:b.category, subcategory:'',
+          method:null, date:dateStr,
+          note:'', meta:_bm, linkedTo:entry.id
+        };
+        _benChildren.push(benChild); childrenAll.push(benChild);
+      });
+      for(let _j=_benChildren.length-1; _j>=0; _j--) data.unshift(_benChildren[_j]);
     }
   }
   trackUsage(curType, curCat, subcat);
@@ -277,12 +274,14 @@ function _submitEntry(){
     return submitDeferredEntry({amount, desc, cur, date, note, subcat});
   }
 
-  // Si el beneficio está activo con monto, debe tener un tipo elegido
-  if(curType==='egreso' && benOn && getBenAmount()>0 && !curBenType){
-    return toast('Selecciona un tipo de beneficio');
-  }
+  // ── R7.2 · Beneficios múltiples: cada bloque iniciado debe estar completo ──
+  const _benErr = (typeof firstIncompleteBeneficio==='function') ? firstIncompleteBeneficio(beneficios) : null;
+  if(curType==='egreso' && _benErr) return toast(_benErr);
 
   // ── Validar desgloses (egreso, ingreso y beneficio) ──
+  // R7.2: los beneficios tienen PRIORIDAD — el disponible para desglosar es el
+  // monto menos los beneficios.
+  const _benTotalPre=(curType==='egreso' && typeof beneficiosTotal==='function') ? beneficiosTotal() : 0;
   const activeDesgloses = desgloses.filter(d=>d.amount>0);
   if(activeDesgloses.length>0){
     for(const d of activeDesgloses){
@@ -292,7 +291,7 @@ function _submitEntry(){
       if(dHasSubs && !d.subcategory) return toast('Cada desglose necesita una subcategoría');
     }
     const totalDesg=activeDesgloses.reduce((s,d)=>s+d.amount,0);
-    const remainingPrincipal=+(amount-totalDesg).toFixed(2);
+    const remainingPrincipal=+(amount-_benTotalPre-totalDesg).toFixed(2);
     const maxDesg=activeDesgloses.reduce((mx,d)=>Math.max(mx,d.amount),0);
     if(remainingPrincipal < maxDesg) return toast('Ningún desglose puede superar el gasto principal');
   }
@@ -303,14 +302,13 @@ function _submitEntry(){
     const propinaAmt = getPropinaAmount();
     if(propinaAmt > 0) mainAmount = +(mainAmount - propinaAmt).toFixed(2);
   }
-  // R5 · Beneficio: solo se resta si es un DESCUENTO APLICADO (puntos, millas,
-  // promociones...). El cashback NO se resta: es un crédito que llega después,
-  // así que la compra se registra completa. Ver benReduceGasto() en 02_registro.
-  if(curType==='egreso' && benOn){
-    const ba = getBenAmount();
-    // Si hay monto de beneficio pero no se eligió tipo, pedirlo
-    if(ba > 0 && !curBenType) return toast('Elige el tipo de beneficio');
-    if(ba > 0 && benReduceGasto(curBenType)) mainAmount = +(mainAmount - ba).toFixed(2);
+  // R7.2 · Beneficios: TODOS son descuentos aplicados y se restan del monto.
+  // Se calculan en orden (porcentual primero, fijos después) y nunca pueden
+  // exceder el monto del egreso.
+  const benDet = (curType==='egreso') ? beneficiosDetalle() : {items:[], total:0};
+  if(curType==='egreso' && benDet.total>0){
+    if(benDet.remaining < 0) return toast('Los beneficios no pueden superar el monto del egreso');
+    mainAmount = +(mainAmount - benDet.total).toFixed(2);
     if(mainAmount < 0) mainAmount = 0;
   }
   // Desgloses: cada uno se resta del monto principal
@@ -339,24 +337,25 @@ function _submitEntry(){
   };
   data.unshift(entry);
 
-  if(curType==='egreso'&&benOn){
-    const ba=getBenAmount();
-    const bt=curBenType;
-    if(ba>0){
-      const baMXN=toMXN(ba,cur);
+  // R7.2 · Un registro hijo por CADA beneficio, en su orden de cálculo
+  // (porcentual primero, fijos después). Cada uno es independiente.
+  const benEntries=[];
+  if(curType==='egreso' && benDet.total>0){
+    benDet.items.forEach(({b, val})=>{
+      if(val<=0 || !b.category) return;
       const _bm={rel:'beneficio'};
-      if(benType==='pct'){
-        const pct=parseFloat(document.getElementById('ben-pct').value)||0;
-        _bm.ben={pct:pct, base:amount};
-      }
-      data.unshift({
+      if(b.mode==='pct') _bm.ben={pct:b.pct, base:amount};
+      benEntries.push({
         id:genId(), type:'beneficio',
-        amount:ba, amountMXN:baMXN, currency:cur,
-        desc:desc, category:bt, subcategory:'',
+        amount:val, amountMXN:toMXN(val,cur), currency:cur,
+        desc:desc, category:b.category, subcategory:'',
         method:null, date,
         note:'', meta:_bm, linkedTo:entry.id
       });
-    }
+    });
+    // Insertar en reversa: los unshift sucesivos invertían el orden — así los
+    // hijos quedan en `data` (y en el historial) en su orden de cálculo.
+    for(let _i=benEntries.length-1; _i>=0; _i--) data.unshift(benEntries[_i]);
   }
 
   // Propina entry
@@ -365,16 +364,18 @@ function _submitEntry(){
     const propinaAmt=getPropinaAmount();
     if(propinaAmt>0){
       const propinaAmtMXN=toMXN(propinaAmt,cur);
-      const _tm={rel:'propina', tip:{inc:!!propinaIncluida}};
+      // R7.2: el tagline del historial siempre muestra el monto total del egreso
+      // ("15% incluida en $X" / "Adicional a $X"), así que la base se guarda
+      // también cuando la propina se capturó como monto fijo.
+      const _tm={rel:'propina', tip:{inc:!!propinaIncluida, base:amount}};
       if(propinaType==='pct'){
         const pct=parseFloat(document.getElementById('propina-pct').value)||0;
         _tm.tip.pct=pct;
-        _tm.tip.base=amount;
       }
       propinaEntry={
         id:genId(), type:'egreso',
         amount:propinaAmt, amountMXN:propinaAmtMXN, currency:cur,
-        desc:desc, category:'Generosidad', subcategory:'Propinas',
+        desc:desc, category:'Generosidad', subcategory:'Propina',
         method:getPropinaMethod(), date,
         note:'', meta:_tm, linkedTo:entry.id
       };
@@ -407,10 +408,7 @@ function _submitEntry(){
   save();
   showSyncing('⟳ Guardando...');
   const saves = [saveEntryToSheets(entry)];
-  if(curType==='egreso'&&benOn){
-    const bonus = data.find(x=>x.linkedTo===entry.id&&x.type==='beneficio');
-    if(bonus) saves.push(saveEntryToSheets({...bonus, benType:'', benAmount:0, benDesc:''}));
-  }
+  benEntries.forEach(be=>saves.push(saveEntryToSheets({...be, benType:'', benAmount:0, benDesc:''})));
   if(propinaEntry) saves.push(saveEntryToSheets(propinaEntry));
   desgloseEntries.forEach(de=>saves.push(saveEntryToSheets(de)));
   // R2: el "✓ guardado" solo sale si la nube CONFIRMÓ la escritura. Si falló,
@@ -435,7 +433,7 @@ function _submitEntry(){
 }
 
 function resetForm(){
-  ['amount','desc','note','ben-amount','ben-pct','fx-manual'].forEach(id=>{const el=document.getElementById(id); if(el) el.value='';});
+  ['amount','desc','note','fx-manual'].forEach(id=>{const el=document.getElementById(id); if(el) el.value='';});
   // Tras guardar, los tres botones superiores vuelven a su estado inicial. (El de
   // Propina se ocultaba al activar Diferir y no regresaba tras el guardado.)
   try{
@@ -467,7 +465,7 @@ function resetForm(){
   const creditoBtn=document.getElementById('method-credito');
   if(creditoBtn) creditoBtn.classList.add('active');
   // Reset inline toggles
-  propinaOn=false; benOn=false;
+  propinaOn=false;
   _propinaVisible=false; _benVisible=false;
   // Reset Diferir
   diferirMonths=0; diferirCustom=false; _diferirVisible=false;
@@ -487,26 +485,17 @@ function resetForm(){
   updateInlineBtn('inline-propina-btn', false, false);
   updateInlineBtn('inline-ben-btn', false, false);
   const pp=document.getElementById('propina-panel');
-  const bp=document.getElementById('ben-panel');
   if(pp) pp.style.display='none';
-  if(bp) bp.style.display='none';
+  // R7.2: la Nota vive bajo Descripción y se oculta al quedar vacía
   const noteWrap=document.getElementById('note-field-wrap');
   if(noteWrap) noteWrap.style.display='none';
-  // Reset toggles Nota / Desglose
   _noteVisible=false; _desgloseVisible=false;
   const dsec=document.getElementById('desglose-section');
   if(dsec) dsec.style.display='none';
-  updateInlineBtn('note-toggle-btn', false, false);
   updateInlineBtn('desglose-toggle-btn', false, false);
-  curBenType='';
-  // Limpiar los bloques de tipo de beneficio para que se reconstruyan al reactivar
-  const benBlocks=document.getElementById('ben-type-blocks');
-  if(benBlocks){ benBlocks.innerHTML=''; benBlocks._benSelected=''; }
-  // Reset estado del beneficio a default (monto directo, adicional)
-  benType='monto';
-  setBenType('monto');
-  const benCalc=document.getElementById('ben-calc'); if(benCalc) benCalc.textContent='';
-  benOn=false; updateBenUI(); onCurChange(); resetPropina(); 
+  // R7.2: limpiar TODOS los bloques de beneficio (colapsa el módulo y apaga el botón)
+  if(typeof resetBeneficios==='function') resetBeneficios();
+  onCurChange(); resetPropina();
   desgloses=[]; renderDesgloses();
   setType('egreso');
 }
@@ -700,6 +689,9 @@ async function loadFromSheets(silent) {
         method:     r[9]||null,
         note:       r[10]||'',
       };
+      // R7.2: normalizar nombres renombrados ('Propinas'→'Propina', etc.) también
+      // al cargar de Sheets — la misma capa que ya corre en el arranque local.
+      try{ if(typeof applyNameMigrations==='function') applyNameMigrations(obj); }catch(_e){}
       // ── R6: dos esquemas. NUEVO (13 col, con `meta`) o LEGACY (19 col). ──
       if(_esquemaNuevo){
         obj.linkedTo = r[11]?cleanNum(r[11]):null;

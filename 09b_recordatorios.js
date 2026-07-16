@@ -481,13 +481,8 @@ function toggleRemPanel(){
         if(typeof refreshTopTabsVisibility==='function') refreshTopTabsVisibility();
       }
     }catch(e){}
-    // Mutuamente excluyente: cerrar Nota y Desglose (sus datos se conservan)
-    try{
-      if(typeof _noteVisible!=='undefined' && _noteVisible){
-        _noteVisible=false;
-        const w=document.getElementById('note-field-wrap'); if(w) w.style.display='none';
-      }
-    }catch(e){}
+    // Mutuamente excluyente: cerrar Desglose (sus datos se conservan).
+    // R7.2: la Nota ya no vive en este renglón (está bajo Descripción) y NO se toca.
     try{
       if(typeof _desgloseVisible!=='undefined' && _desgloseVisible){
         _desgloseVisible=false;
@@ -503,12 +498,26 @@ function toggleRemPanel(){
   try{ refreshTopTabsVisibility(); }catch(e){}
 }
 
-// Pinta el estado activo/inactivo de los 4 chips según la selección actual
+// yyyy-mm-dd → dd/mm/aaaa (para mostrar la fecha elegida DENTRO del chip)
+function _remFmtDDMM(iso){
+  const m=String(iso||'').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : '';
+}
+
+// Pinta el estado activo/inactivo de los 4 chips según la selección actual.
+// R7.2: es el punto ÚNICO de pintado — también actualiza el TEXTO del chip de
+// fecha: con fecha elegida muestra dd/mm/aaaa; sin fecha vuelve a "Hasta fecha".
+// (El ancho del chip es fijo por CSS, así que el texto no lo redimensiona.)
 function _remPaintChips(){
   document.getElementById('rem-freq-monthly')?.classList.toggle('active', _remFreq==='monthly');
   document.getElementById('rem-freq-weekly')?.classList.toggle('active', _remFreq==='weekly');
   document.getElementById('rem-until-inf')?.classList.toggle('active', _remUntilMode==='inf');
-  document.getElementById('rem-until-date')?.classList.toggle('active', _remUntilMode==='date');
+  const dateChip=document.getElementById('rem-until-date');
+  if(dateChip){
+    dateChip.classList.toggle('active', _remUntilMode==='date');
+    const v=(_remUntilMode==='date') ? (document.getElementById('rem-until-value')?.value||'') : '';
+    dateChip.textContent = v ? _remFmtDDMM(v) : 'Hasta fecha';
+  }
 }
 
 
@@ -556,6 +565,7 @@ function setRemUntil(mode){
         onPick: (d)=>{
           const v=document.getElementById('rem-until-value');
           if(v) v.value=_remFmt(d);
+          _remPaintChips();   // R7.2: el chip muestra la fecha dd/mm/aaaa
           _remHintUpdate();
           try{ updateNoteDesgloseIndicators(); }catch(e){}
           try{ refreshTopTabsVisibility(); }catch(e){}   // Bug 2
@@ -567,6 +577,13 @@ function setRemUntil(mode){
   _remHintUpdate();
   try{ updateNoteDesgloseIndicators(); }catch(e){}
   try{ refreshTopTabsVisibility(); }catch(e){}   // Bug 2
+}
+
+// R7.2 · ✕ del módulo Recordatorio: borra lo elegido, colapsa el panel y
+// desactiva el botón (mismo comportamiento que eliminar el único desglose).
+function clearRemModule(){
+  resetRemToggle();
+  try{ refreshTopTabsVisibility(); }catch(e){}
 }
 
 function resetRemToggle(){
@@ -717,8 +734,7 @@ function toggleERemPanel(){
   if (panel) panel.style.display = open ? 'block' : 'none';
   if (open){
     try{ revealAnimate(panel); }catch(e){}
-    try{ if(typeof _eNoteVisible!=='undefined' && _eNoteVisible){ _eNoteVisible=false;
-      const w=document.getElementById('e-note-field-wrap'); if(w) w.style.display='none'; } }catch(e){}
+    // R7.2: la Nota vive bajo Descripción y no se toca; solo Desglose se cierra
     try{ if(typeof _eDesgloseVisible!=='undefined' && _eDesgloseVisible){ _eDesgloseVisible=false;
       const s=document.getElementById('e-desglose-section'); if(s) s.style.display='none'; } }catch(e){}
     renderEditReminderSection();
@@ -787,7 +803,24 @@ function recreateRemFromEdit(){
 let _eRemFreq = null;
 let _eRemUntilMode = null;
 
-function resetEditRemState(){ _eRemFreq=null; _eRemUntilMode=null; }
+function resetEditRemState(){
+  _eRemFreq=null; _eRemUntilMode=null;
+  const v=document.getElementById('e-rem-until-value');
+  if(v) v.value='';
+}
+
+// R7.2 · ✕ del módulo Recordatorio en edición: borra lo elegido en el panel,
+// lo colapsa y desactiva el botón. (Quitar una REGLA ya guardada sigue siendo
+// la acción explícita "Quitar el recordatorio" de la caja e-rem-existing.)
+function clearEditRemModule(){
+  resetEditRemState();
+  _eRemPaint(); _eRemHint();
+  _eRemPanelVisible=false;
+  const panel=document.getElementById('e-rem-config');
+  if(panel) panel.style.display='none';
+  try{ updateEditNoteDesgloseIndicators(); }catch(e){}
+  try{ refreshEditTopTabs(); }catch(e){}
+}
 
 // ¿El panel 🔔 del modal tiene datos que se guardarán? (solo cuando el comercio
 // NO tiene regla y se eligieron ambas condiciones)
@@ -801,7 +834,12 @@ function _eRemPaint(){
   document.getElementById('e-rem-freq-monthly')?.classList.toggle('active', _eRemFreq==='monthly');
   document.getElementById('e-rem-freq-weekly')?.classList.toggle('active', _eRemFreq==='weekly');
   document.getElementById('e-rem-until-inf')?.classList.toggle('active', _eRemUntilMode==='inf');
-  document.getElementById('e-rem-until-date')?.classList.toggle('active', _eRemUntilMode==='date');
+  const dateChip=document.getElementById('e-rem-until-date');
+  if(dateChip){
+    dateChip.classList.toggle('active', _eRemUntilMode==='date');
+    const v=(_eRemUntilMode==='date') ? (document.getElementById('e-rem-until-value')?.value||'') : '';
+    dateChip.textContent = v ? _remFmtDDMM(v) : 'Hasta fecha';
+  }
 }
 
 function _eRemHint(){
@@ -865,6 +903,7 @@ function eSetRemUntil(mode){
         onPick:(d)=>{
           const v=document.getElementById('e-rem-until-value');
           if(v) v.value=_remFmt(d);
+          _eRemPaint();   // R7.2: el chip muestra la fecha dd/mm/aaaa
           _eRemHint();
           try{ refreshEditTopTabs(); }catch(e){}   // Bug 2
         }

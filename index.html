@@ -72,6 +72,12 @@
       <div class="field">
         <label>Descripción</label>
         <input type="text" id="desc" placeholder="¿En qué fue?" oninput="predictCategory()">
+        <!-- R7.2 · Nota (opcional): vive inmediatamente debajo de Descripción.
+             Se desliza al enfocar Descripción; permanece si tiene contenido;
+             se oculta al perder el foco estando vacía (ver 02_registro). -->
+        <div id="note-field-wrap" style="display:none;margin-top:10px">
+          <textarea id="note" placeholder="Nota (opcional)" oninput="onNoteInput()" style="width:100%;padding:11px 13px;border:none;border-radius:var(--radius-sm);background:var(--surface2);color:var(--text);font-family:inherit;font-size:15px;outline:none;resize:none;height:64px;"></textarea>
+        </div>
       </div>
 
       <div class="field">
@@ -83,7 +89,7 @@
             <option value="CAD">🇨🇦 CAD</option>
             <option value="EUR">🇪🇺 EUR</option>
           </select>
-          <input type="text" id="amount" placeholder="0.00" inputmode="decimal" oninput="handleAmountInput(this);calcPropinaPreview();updateDesgloseRemaining();renderDiferirPreview()">
+          <input type="text" id="amount" placeholder="0.00" inputmode="decimal" oninput="handleAmountInput(this);calcPropinaPreview();refreshBeneficioCalcs();updateDesgloseRemaining();renderDiferirPreview()">
         </div>
         <!-- TC manual: solo visible en moneda extranjera. Vacío = automático.
              R7 · fuera la etiqueta, fuera el "Vacío = usar el automático" y fuera
@@ -114,23 +120,26 @@
             <span>🗓️</span><span>Diferir</span>
           </button>
         </div>
-        <!-- Propina panel -->
-        <div id="propina-panel" style="display:none;margin-top:12px;padding:12px;background:var(--surface2);border-radius:var(--radius-sm);">
-          <!-- Row 1: adic/incl toggle + % / $ toggle -->
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
-            <div style="display:flex;background:var(--surface);border-radius:100px;padding:3px;gap:2px;flex-shrink:0;box-shadow:0 1px 3px rgba(0,0,0,0.08),0 0 0 1px var(--border2);">
-              <button id="propina-adic-btn" onclick="setPropinaIncluida(false)" style="padding:5px 10px;border-radius:100px;border:none;background:var(--accent);color:white;font-family:inherit;font-size:11px;font-weight:600;cursor:pointer;transition:all 0.18s;">Adicional</button>
-              <button id="propina-incl-btn" onclick="setPropinaIncluida(true)" style="padding:5px 10px;border-radius:100px;border:none;background:transparent;color:var(--text3);font-family:inherit;font-size:11px;font-weight:600;cursor:pointer;transition:all 0.18s;">Incluida</button>
-            </div>
+        <!-- Propina panel — R7.2: un solo renglón [%/$ · monto · Incluida/Adicional];
+             el cálculo vive DEBAJO y solo en modo %; en modo $ aparece el método
+             de pago. La ✕ limpia todo el módulo (mismo comportamiento que Desglose). -->
+        <div id="propina-panel" style="display:none;margin-top:12px;padding:12px;background:var(--surface2);border-radius:var(--radius-sm);position:relative;">
+          <button type="button" onclick="clearPropinaModule()" title="Quitar propina" style="position:absolute;top:8px;right:8px;background:none;border:none;cursor:pointer;color:var(--danger);font-size:16px;line-height:1;padding:2px;">✕</button>
+          <!-- Renglón único: toggle %/$ + campo + toggle Incluida/Adicional -->
+          <div style="display:flex;align-items:center;gap:8px;padding-right:20px;">
             <div style="display:flex;background:var(--surface);border-radius:100px;padding:3px;gap:2px;flex-shrink:0;box-shadow:0 1px 4px rgba(0,0,0,0.12),0 0 0 1px var(--border2);">
               <button id="propina-chip-pct" onclick="setPropinaType('pct')" style="padding:5px 12px;border-radius:100px;border:none;background:var(--accent);color:white;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;transition:all 0.18s;">%</button>
               <button id="propina-chip-monto" onclick="setPropinaType('monto')" style="padding:5px 12px;border-radius:100px;border:none;background:transparent;color:var(--text3);font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;transition:all 0.18s;">$</button>
             </div>
+            <input type="number" id="propina-pct" placeholder="" inputmode="decimal" step="0.5" min="0" max="100" oninput="calcPropinaPreview()" style="flex:1 1 0;min-width:0;padding:9px 12px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-family:inherit;font-size:15px;outline:none;-webkit-appearance:none;appearance:none;">
+            <input type="text" id="propina-monto" placeholder="0.00" inputmode="decimal" oninput="handleAmountInput(this);calcPropinaPreview()" style="flex:1 1 0;min-width:0;padding:9px 12px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-family:inherit;font-size:15px;outline:none;display:none;-webkit-appearance:none;appearance:none;">
+            <div style="display:flex;background:var(--surface);border-radius:100px;padding:3px;gap:2px;flex-shrink:0;box-shadow:0 1px 3px rgba(0,0,0,0.08),0 0 0 1px var(--border2);">
+              <button id="propina-incl-btn" onclick="setPropinaIncluida(true)" style="padding:5px 10px;border-radius:100px;border:none;background:transparent;color:var(--text3);font-family:inherit;font-size:11px;font-weight:600;cursor:pointer;transition:all 0.18s;">Incluida</button>
+              <button id="propina-adic-btn" onclick="setPropinaIncluida(false)" style="padding:5px 10px;border-radius:100px;border:none;background:var(--accent);color:white;font-family:inherit;font-size:11px;font-weight:600;cursor:pointer;transition:all 0.18s;">Adicional</button>
+            </div>
           </div>
-          <!-- Row 2: input + preview -->
-          <div style="display:flex;align-items:center;gap:10px;">
-            <input type="number" id="propina-pct" placeholder="" inputmode="decimal" step="0.5" min="0" max="100" oninput="calcPropinaPreview()" style="width:160px;padding:9px 12px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-family:inherit;font-size:15px;outline:none;-webkit-appearance:none;appearance:none;">
-            <input type="text" id="propina-monto" placeholder="0.00" inputmode="decimal" oninput="handleAmountInput(this);calcPropinaPreview()" style="width:160px;padding:9px 12px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-family:inherit;font-size:15px;outline:none;display:none;-webkit-appearance:none;appearance:none;">
+          <!-- Resultado del cálculo: debajo del renglón, solo en modo % -->
+          <div id="propina-calc-row" style="margin-top:8px;">
             <span id="propina-calc" style="font-size:13px;color:var(--text3);"></span>
           </div>
           <div id="propina-method-wrap" style="display:none;margin-top:10px;">
@@ -144,35 +153,23 @@
             </div>
           </div>
         </div>
-        <!-- Beneficio panel -->
+        <!-- Beneficio panel — R7.2: bloques MÚLTIPLES con la misma mecánica de
+             Desglose. Encabezado con la leyenda arriba; cada bloque trae
+             toggle %/$ + monto + dropdown de tipo, y su propia ✕. -->
         <div id="ben-panel" style="display:none;margin-top:12px;padding:12px;background:var(--surface2);border-radius:var(--radius-sm);">
-          <!-- Row 1: % / $ toggle -->
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
-            <div style="display:flex;background:var(--surface);border-radius:100px;padding:3px;gap:2px;flex-shrink:0;box-shadow:0 1px 4px rgba(0,0,0,0.12),0 0 0 1px var(--border2);">
-              <button id="ben-chip-pct" onclick="setBenType('pct')" style="padding:5px 12px;border-radius:100px;border:none;background:transparent;color:var(--text3);font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;transition:all 0.18s;">%</button>
-              <button id="ben-chip-monto" onclick="setBenType('monto')" style="padding:5px 12px;border-radius:100px;border:none;background:var(--accent);color:white;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;transition:all 0.18s;">$</button>
-            </div>
-            <span style="font-size:12px;color:var(--text3);">Se resta del monto y se suma a beneficios</span>
-          </div>
-          <!-- Row 2: input + preview -->
-          <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
-            <input type="number" id="ben-pct" placeholder="" inputmode="decimal" step="0.5" min="0" max="100" oninput="calcBenPreview()" style="width:160px;padding:9px 12px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-family:inherit;font-size:15px;outline:none;-webkit-appearance:none;appearance:none;display:none;">
-            <input type="text" id="ben-amount" placeholder="Ej. 45.00" inputmode="decimal" oninput="handleAmountInput(this);calcBenPreview()" style="width:160px;padding:9px 12px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-family:inherit;font-size:15px;outline:none;-webkit-appearance:none;appearance:none;">
-            <span id="ben-calc" style="font-size:13px;color:var(--text3);"></span>
-          </div>
-          <div>
-            <label style="font-size:13px;font-weight:600;color:var(--text2);display:block;margin-bottom:6px;">Tipo de beneficio</label>
-            <div class="cat-grid-ui" id="ben-type-blocks"></div>
-          </div>
-          <!-- Mes en que se acreditó el beneficio (solo si el gasto es diferido) -->
-          <div id="ben-month-row" style="display:none;margin-top:10px;">
-            <label style="font-size:13px;font-weight:600;color:var(--text2);display:block;margin-bottom:6px;">¿En qué mensualidad se te acreditó?</label>
-            <select id="ben-month" style="width:100%;padding:9px 12px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;"></select>
-          </div>
+          <div style="font-size:12px;color:var(--text3);margin-bottom:10px;">Se resta del monto y se suma a beneficios</div>
+          <div id="beneficio-list"></div>
+          <button type="button" id="add-beneficio-btn" onclick="addBeneficio()" style="display:none;background:none;border:1.5px dashed var(--border2);border-radius:var(--radius-sm);cursor:pointer;font-size:13px;color:var(--text2);padding:9px 0;font-family:inherit;width:100%;align-items:center;justify-content:center;gap:5px;margin-top:4px;">
+            <span style="font-size:15px;">＋</span> Agregar otro beneficio
+          </button>
+          <div id="beneficio-remaining" style="font-size:12px;color:var(--text3);margin-top:8px;text-align:right;display:none;"></div>
         </div>
-        <!-- Diferir panel -->
-        <div id="diferir-panel" style="display:none;margin-top:12px;padding:12px;background:var(--surface2);border-radius:var(--radius-sm);">
-          <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:3px;">Repartir en mensualidades</div>
+        <!-- Diferir panel — R7.2: la ✕ limpia todo el módulo (colapsa y desactiva
+             el botón), sustituyendo al antiguo enlace "Quitar diferido" que
+             hacía exactamente lo mismo. -->
+        <div id="diferir-panel" style="display:none;margin-top:12px;padding:12px;background:var(--surface2);border-radius:var(--radius-sm);position:relative;">
+          <button type="button" onclick="clearDiferir()" title="Quitar diferido" style="position:absolute;top:8px;right:8px;background:none;border:none;cursor:pointer;color:var(--danger);font-size:16px;line-height:1;padding:2px;">✕</button>
+          <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:3px;padding-right:20px;">Repartir en mensualidades</div>
           <div style="font-size:12px;color:var(--text3);margin-bottom:12px;line-height:1.4;">El monto total se divide en partes iguales, una por mes, empezando este mes.</div>
           <div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:10px;" id="diferir-presets"></div>
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
@@ -181,7 +178,6 @@
             <span style="font-size:13px;color:var(--text2);">meses</span>
           </div>
           <div id="diferir-preview" style="background:var(--surface);border-radius:10px;padding:12px 14px;border:1px solid var(--border2);display:none;"></div>
-          <button type="button" id="diferir-clear-btn" onclick="clearDiferir()" style="display:none;margin-top:10px;background:none;border:none;color:var(--danger);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;padding:4px 0;">Quitar diferido</button>
         </div>
       </div>
 
@@ -223,11 +219,10 @@
       </div>
 
       <div id="note-section" style="margin-bottom:0;display:none">
-        <!-- Botones toggle Nota / Desglose (mismo estilo que Propina/Beneficio) -->
+        <!-- R7.2 · Renglón inferior: solo Desglose y Recordar (la Nota vive ahora
+             bajo Descripción). Cada botón ocupa ~50%; con Diferido activo,
+             Recordar desaparece y Desglose toma el 100% (02_registro). -->
         <div class="inline-row" id="note-desglose-row">
-          <button type="button" id="note-toggle-btn" class="inline-tgl" onclick="toggleNoteField()">
-            <span>📝</span><span>Nota</span>
-          </button>
           <button type="button" id="desglose-toggle-btn" class="inline-tgl" onclick="toggleDesgloseSection()">
             <span>🧾</span><span>Desglose</span>
           </button>
@@ -235,22 +230,31 @@
             <span>🔔</span><span>Recordar</span>
           </button>
         </div>
-        <!-- Configuración del recordatorio manual (frecuencia y duración) -->
-        <div id="rem-config" style="display:none;margin-top:10px">
-          <div class="rem-cfg-hint" id="rem-freq-hint"></div>
-          <div class="rem-cfg-row" style="margin-top:6px">
-            <button type="button" class="chip" id="rem-freq-weekly" onclick="setRemFreq('weekly')">Semanal</button>
-            <button type="button" class="chip" id="rem-freq-monthly" onclick="setRemFreq('monthly')">Mensual</button>
-          </div>
-          <div class="rem-cfg-hint" id="rem-until-hint" style="margin-top:12px"></div>
-          <div class="rem-cfg-row" style="margin-top:6px">
-            <button type="button" class="chip" id="rem-until-inf" onclick="setRemUntil('inf')">Indefinido</button>
-            <button type="button" class="chip" id="rem-until-date" onclick="setRemUntil('date')">Hasta fecha…</button>
+        <!-- Configuración del recordatorio manual (frecuencia y fecha límite)
+             R7.2: un solo renglón en dos columnas con separador vertical, y una
+             ✕ que limpia todo el módulo (mismo comportamiento que Desglose). -->
+        <div id="rem-config" style="display:none;margin-top:10px;position:relative;padding:12px;background:var(--surface2);border-radius:var(--radius-sm);">
+          <button type="button" onclick="clearRemModule()" title="Quitar recordatorio" style="position:absolute;top:8px;right:8px;background:none;border:none;cursor:pointer;color:var(--danger);font-size:16px;line-height:1;padding:2px;">✕</button>
+          <div class="rem-two-cols">
+            <div class="rem-col">
+              <div class="rem-col-title">Frecuencia</div>
+              <div class="rem-cfg-row">
+                <button type="button" class="chip rem-chip" id="rem-freq-weekly" onclick="setRemFreq('weekly')">Semanal</button>
+                <button type="button" class="chip rem-chip" id="rem-freq-monthly" onclick="setRemFreq('monthly')">Mensual</button>
+              </div>
+              <div class="rem-cfg-hint" id="rem-freq-hint"></div>
+            </div>
+            <div class="rem-col-sep"></div>
+            <div class="rem-col">
+              <div class="rem-col-title">Fecha límite</div>
+              <div class="rem-cfg-row">
+                <button type="button" class="chip rem-chip" id="rem-until-inf" onclick="setRemUntil('inf')">Sin límite</button>
+                <button type="button" class="chip rem-chip" id="rem-until-date" onclick="setRemUntil('date')">Hasta fecha</button>
+              </div>
+              <div class="rem-cfg-hint" id="rem-until-hint"></div>
+            </div>
           </div>
           <input type="hidden" id="rem-until-value">
-        </div>
-        <div id="note-field-wrap" style="display:none;margin-top:10px">
-          <textarea id="note" placeholder="Nota opcional" oninput="onNoteInput()" style="width:100%;padding:11px 13px;border:none;border-radius:var(--radius-sm);background:var(--surface2);color:var(--text);font-family:inherit;font-size:15px;outline:none;resize:none;height:64px;"></textarea>
         </div>
         <!-- Desgloses -->
         <div id="desglose-section" style="display:none;margin-top:10px;">
@@ -518,6 +522,11 @@
             <input type="text" id="e-desc" placeholder="¿En qué fue?" oninput="refreshEditEmojiBtn();eRemSectionRefresh();predictEditNote()" style="flex:1;">
             <button type="button" id="e-emoji-btn" onclick="openEmojiPicker()" title="Personalizar emoji" style="flex:0 0 auto;width:46px;border:none;border-radius:var(--radius-sm);background:var(--surface2);font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center;">📌</button>
           </div>
+          <!-- R7.2 · Nota (opcional): vive inmediatamente debajo de Descripción,
+               con las mismas reglas de aparición/ocultamiento que el registro. -->
+          <div id="e-note-field-wrap" style="display:none;margin-top:10px">
+            <textarea id="e-note" placeholder="Nota (opcional)" oninput="onENoteInput()" style="width:100%;padding:11px 13px;border:none;border-radius:var(--radius-sm);background:var(--surface2);color:var(--text);font-family:inherit;font-size:15px;outline:none;resize:none;height:64px;"></textarea>
+          </div>
         </div>
 
         <div class="field">
@@ -529,7 +538,7 @@
               <option value="CAD">🇨🇦 CAD</option>
               <option value="EUR">🇪🇺 EUR</option>
             </select>
-            <input type="text" id="e-amount" placeholder="0.00" inputmode="decimal" oninput="handleAmountInput(this);calcEditBenPreview();updateEditDesgloseRemaining();calcEditPropinaPreview();renderEditDiferirPreview()">
+            <input type="text" id="e-amount" placeholder="0.00" inputmode="decimal" oninput="handleAmountInput(this);refreshEditBeneficioCalcs();updateEditDesgloseRemaining();calcEditPropinaPreview();renderEditDiferirPreview()">
           </div>
           <div class="fx-row" id="e-fx-row" style="display:none;">
             <input type="text" id="e-fx-manual" inputmode="decimal" placeholder="" oninput="onEFxManualInput()">
@@ -557,23 +566,24 @@
               <span>🗓️</span><span>Diferir</span>
             </button>
           </div>
-          <!-- Propina panel (misma estructura que en registro) -->
-          <div id="e-propina-panel" style="display:none;margin-top:12px;padding:12px;background:var(--surface2);border-radius:var(--radius-sm);">
-            <!-- Row 1: adic/incl toggle + % / $ toggle -->
-            <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
-              <div style="display:flex;background:var(--surface);border-radius:100px;padding:3px;gap:2px;flex-shrink:0;box-shadow:0 1px 3px rgba(0,0,0,0.08),0 0 0 1px var(--border2);">
-                <button id="e-propina-adic-btn" onclick="setEditPropinaIncluida(false)" style="padding:5px 10px;border-radius:100px;border:none;background:var(--accent);color:white;font-family:inherit;font-size:11px;font-weight:600;cursor:pointer;transition:all 0.18s;">Adicional</button>
-                <button id="e-propina-incl-btn" onclick="setEditPropinaIncluida(true)" style="padding:5px 10px;border-radius:100px;border:none;background:transparent;color:var(--text3);font-family:inherit;font-size:11px;font-weight:600;cursor:pointer;transition:all 0.18s;">Incluida</button>
-              </div>
+          <!-- Propina panel (misma estructura R7.2 que en registro) -->
+          <div id="e-propina-panel" style="display:none;margin-top:12px;padding:12px;background:var(--surface2);border-radius:var(--radius-sm);position:relative;">
+            <button type="button" onclick="clearEditPropinaModule()" title="Quitar propina" style="position:absolute;top:8px;right:8px;background:none;border:none;cursor:pointer;color:var(--danger);font-size:16px;line-height:1;padding:2px;">✕</button>
+            <!-- Renglón único: toggle %/$ + campo + toggle Incluida/Adicional -->
+            <div style="display:flex;align-items:center;gap:8px;padding-right:20px;">
               <div style="display:flex;background:var(--surface);border-radius:100px;padding:3px;gap:2px;flex-shrink:0;box-shadow:0 1px 4px rgba(0,0,0,0.12),0 0 0 1px var(--border2);">
                 <button id="e-propina-chip-pct" onclick="setEditPropinaType('pct')" style="padding:5px 12px;border-radius:100px;border:none;background:var(--accent);color:white;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;transition:all 0.18s;">%</button>
                 <button id="e-propina-chip-monto" onclick="setEditPropinaType('monto')" style="padding:5px 12px;border-radius:100px;border:none;background:transparent;color:var(--text3);font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;transition:all 0.18s;">$</button>
               </div>
+              <input type="number" id="e-propina-pct" placeholder="" inputmode="decimal" step="0.5" min="0" max="100" oninput="calcEditPropinaPreview()" style="flex:1 1 0;min-width:0;padding:9px 12px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-family:inherit;font-size:15px;outline:none;-webkit-appearance:none;appearance:none;">
+              <input type="text" id="e-propina-monto" placeholder="0.00" inputmode="decimal" oninput="handleAmountInput(this);calcEditPropinaPreview()" style="flex:1 1 0;min-width:0;padding:9px 12px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-family:inherit;font-size:15px;outline:none;display:none;-webkit-appearance:none;appearance:none;">
+              <div style="display:flex;background:var(--surface);border-radius:100px;padding:3px;gap:2px;flex-shrink:0;box-shadow:0 1px 3px rgba(0,0,0,0.08),0 0 0 1px var(--border2);">
+                <button id="e-propina-incl-btn" onclick="setEditPropinaIncluida(true)" style="padding:5px 10px;border-radius:100px;border:none;background:transparent;color:var(--text3);font-family:inherit;font-size:11px;font-weight:600;cursor:pointer;transition:all 0.18s;">Incluida</button>
+                <button id="e-propina-adic-btn" onclick="setEditPropinaIncluida(false)" style="padding:5px 10px;border-radius:100px;border:none;background:var(--accent);color:white;font-family:inherit;font-size:11px;font-weight:600;cursor:pointer;transition:all 0.18s;">Adicional</button>
+              </div>
             </div>
-            <!-- Row 2: input + preview -->
-            <div style="display:flex;align-items:center;gap:10px;">
-              <input type="number" id="e-propina-pct" placeholder="" inputmode="decimal" step="0.5" min="0" max="100" oninput="calcEditPropinaPreview()" style="width:160px;padding:9px 12px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-family:inherit;font-size:15px;outline:none;-webkit-appearance:none;appearance:none;">
-              <input type="text" id="e-propina-monto" placeholder="0.00" inputmode="decimal" oninput="handleAmountInput(this);calcEditPropinaPreview()" style="width:160px;padding:9px 12px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-family:inherit;font-size:15px;outline:none;display:none;-webkit-appearance:none;appearance:none;">
+            <!-- Resultado del cálculo: debajo del renglón, solo en modo % -->
+            <div id="e-propina-calc-row" style="margin-top:8px;">
               <span id="e-propina-calc" style="font-size:13px;color:var(--text3);"></span>
             </div>
             <div id="e-propina-method-wrap" style="display:none;margin-top:10px;">
@@ -587,35 +597,19 @@
               </div>
             </div>
           </div>
-          <!-- Beneficio panel -->
+          <!-- Beneficio panel — R7.2: bloques múltiples (espejo del registro) -->
           <div id="e-ben-panel" style="display:none;margin-top:12px;padding:12px;background:var(--surface2);border-radius:var(--radius-sm);">
-            <!-- Row 1: % / $ toggle -->
-            <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
-              <div style="display:flex;background:var(--surface);border-radius:100px;padding:3px;gap:2px;flex-shrink:0;box-shadow:0 1px 4px rgba(0,0,0,0.12),0 0 0 1px var(--border2);">
-                <button id="e-ben-chip-pct" onclick="setEditBenType('pct')" style="padding:5px 12px;border-radius:100px;border:none;background:transparent;color:var(--text3);font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;transition:all 0.18s;">%</button>
-                <button id="e-ben-chip-monto" onclick="setEditBenType('monto')" style="padding:5px 12px;border-radius:100px;border:none;background:var(--accent);color:white;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;transition:all 0.18s;">$</button>
-              </div>
-              <span style="font-size:12px;color:var(--text3);">Se resta del monto y se suma a beneficios</span>
-            </div>
-            <!-- Row 2: input + preview -->
-            <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
-              <input type="number" id="e-ben-pct" placeholder="" inputmode="decimal" step="0.5" min="0" max="100" oninput="calcEditBenPreview()" style="width:160px;padding:9px 12px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-family:inherit;font-size:15px;outline:none;-webkit-appearance:none;appearance:none;display:none;">
-              <input type="text" id="e-ben-amount" placeholder="Ej. 45.00" inputmode="decimal" oninput="handleAmountInput(this);calcEditBenPreview()" style="width:160px;padding:9px 12px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-family:inherit;font-size:15px;outline:none;-webkit-appearance:none;appearance:none;">
-              <span id="e-ben-calc" style="font-size:13px;color:var(--text3);"></span>
-            </div>
-            <div>
-              <label style="font-size:13px;font-weight:600;color:var(--text2);display:block;margin-bottom:6px;">Tipo de beneficio</label>
-              <div class="cat-grid-ui" id="e-ben-type-blocks"></div>
-            </div>
-          <!-- Mes en que se acreditó el beneficio (solo si el gasto es diferido) -->
-          <div id="e-ben-month-row" style="display:none;margin-top:10px;">
-            <label style="font-size:13px;font-weight:600;color:var(--text2);display:block;margin-bottom:6px;">¿En qué mensualidad se te acreditó?</label>
-            <select id="e-ben-month" style="width:100%;padding:9px 12px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;"></select>
+            <div style="font-size:12px;color:var(--text3);margin-bottom:10px;">Se resta del monto y se suma a beneficios</div>
+            <div id="e-beneficio-list"></div>
+            <button type="button" id="e-add-beneficio-btn" onclick="addEditBeneficio()" style="display:none;background:none;border:1.5px dashed var(--border2);border-radius:var(--radius-sm);cursor:pointer;font-size:13px;color:var(--text2);padding:9px 0;font-family:inherit;width:100%;align-items:center;justify-content:center;gap:5px;margin-top:4px;">
+            <span style="font-size:15px;">＋</span> Agregar otro beneficio
+            </button>
+            <div id="e-beneficio-remaining" style="font-size:12px;color:var(--text3);margin-top:8px;text-align:right;display:none;"></div>
           </div>
-          </div>
-          <!-- Diferir panel (edición) -->
-          <div id="e-diferir-panel" style="display:none;margin-top:12px;padding:12px;background:var(--surface2);border-radius:var(--radius-sm);">
-            <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:3px;">Repartir en mensualidades</div>
+          <!-- Diferir panel (edición) — R7.2: ✕ que limpia el módulo -->
+          <div id="e-diferir-panel" style="display:none;margin-top:12px;padding:12px;background:var(--surface2);border-radius:var(--radius-sm);position:relative;">
+            <button type="button" onclick="editClearDiferir()" title="Quitar diferido" style="position:absolute;top:8px;right:8px;background:none;border:none;cursor:pointer;color:var(--danger);font-size:16px;line-height:1;padding:2px;">✕</button>
+            <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:3px;padding-right:20px;">Repartir en mensualidades</div>
             <div style="font-size:12px;color:var(--text3);margin-bottom:12px;line-height:1.4;">El monto total se divide en partes iguales, una por mes, empezando este mes.</div>
             <div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:10px;" id="e-diferir-presets"></div>
             <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
@@ -624,7 +618,6 @@
               <span style="font-size:13px;color:var(--text2);">meses</span>
             </div>
             <div id="e-diferir-preview" style="background:var(--surface);border-radius:10px;padding:12px 14px;border:1px solid var(--border2);display:none;"></div>
-            <button type="button" id="e-diferir-clear-btn" onclick="editClearDiferir()" style="display:none;margin-top:10px;background:none;border:none;color:var(--danger);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;padding:4px 0;">Quitar diferido</button>
           </div>
         </div>
 
@@ -668,11 +661,8 @@
           </div>
         </div>
 
-        <!-- Botones toggle Nota / Desglose (mismo estilo que Propina/Beneficio) -->
+        <!-- R7.2 · Renglón inferior de edición: solo Desglose y Recordar -->
         <div class="inline-row" id="e-note-desglose-row" style="margin-bottom:0">
-          <button type="button" id="e-note-toggle-btn" class="inline-tgl" onclick="toggleENoteField()">
-            <span>📝</span><span>Nota</span>
-          </button>
           <button type="button" id="e-desglose-toggle-btn" class="inline-tgl" onclick="toggleEditDesgloseSection()">
             <span>🧾</span><span>Desglose</span>
           </button>
@@ -683,22 +673,29 @@
         <!-- Panel del recordatorio en edición/copia (gemelo del formulario) -->
         <div id="e-rem-config" style="display:none;margin-top:10px">
           <div id="e-rem-existing"></div>
-          <div id="e-rem-editor">
-            <div class="rem-cfg-hint" id="e-rem-freq-hint"></div>
-            <div class="rem-cfg-row" style="margin-top:6px">
-              <button type="button" class="chip" id="e-rem-freq-weekly" onclick="eSetRemFreq('weekly')">Semanal</button>
-              <button type="button" class="chip" id="e-rem-freq-monthly" onclick="eSetRemFreq('monthly')">Mensual</button>
-            </div>
-            <div class="rem-cfg-hint" id="e-rem-until-hint" style="margin-top:12px"></div>
-            <div class="rem-cfg-row" style="margin-top:6px">
-              <button type="button" class="chip" id="e-rem-until-inf" onclick="eSetRemUntil('inf')">Indefinido</button>
-              <button type="button" class="chip" id="e-rem-until-date" onclick="eSetRemUntil('date')">Hasta fecha…</button>
+          <div id="e-rem-editor" style="position:relative;padding:12px;background:var(--surface2);border-radius:var(--radius-sm);">
+            <button type="button" onclick="clearEditRemModule()" title="Quitar recordatorio" style="position:absolute;top:8px;right:8px;background:none;border:none;cursor:pointer;color:var(--danger);font-size:16px;line-height:1;padding:2px;">✕</button>
+            <div class="rem-two-cols">
+              <div class="rem-col">
+                <div class="rem-col-title">Frecuencia</div>
+                <div class="rem-cfg-row">
+                  <button type="button" class="chip rem-chip" id="e-rem-freq-weekly" onclick="eSetRemFreq('weekly')">Semanal</button>
+                  <button type="button" class="chip rem-chip" id="e-rem-freq-monthly" onclick="eSetRemFreq('monthly')">Mensual</button>
+                </div>
+                <div class="rem-cfg-hint" id="e-rem-freq-hint"></div>
+              </div>
+              <div class="rem-col-sep"></div>
+              <div class="rem-col">
+                <div class="rem-col-title">Fecha límite</div>
+                <div class="rem-cfg-row">
+                  <button type="button" class="chip rem-chip" id="e-rem-until-inf" onclick="eSetRemUntil('inf')">Sin límite</button>
+                  <button type="button" class="chip rem-chip" id="e-rem-until-date" onclick="eSetRemUntil('date')">Hasta fecha</button>
+                </div>
+                <div class="rem-cfg-hint" id="e-rem-until-hint"></div>
+              </div>
             </div>
             <input type="hidden" id="e-rem-until-value">
           </div>
-        </div>
-        <div id="e-note-field-wrap" style="display:none;margin-top:10px">
-          <textarea id="e-note" placeholder="Nota opcional" oninput="onENoteInput()" style="width:100%;padding:11px 13px;border:none;border-radius:var(--radius-sm);background:var(--surface2);color:var(--text);font-family:inherit;font-size:15px;outline:none;resize:none;height:64px;"></textarea>
         </div>
         <!-- Desgloses -->
         <div id="e-desglose-section" style="display:none;margin-top:10px;">

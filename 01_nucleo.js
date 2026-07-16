@@ -14,8 +14,22 @@ const _migrations = {
     'Puntos de Tarjeta de Crédito': 'Puntos TDC',
     'Puntos tarjeta': 'Puntos TDC',
     'Puntos': 'Puntos de lealtad',
+  },
+  // R7.2: la subcategoría se llama "Propina" (singular) en toda la app.
+  subcategory: {
+    'Propinas': 'Propina',
   }
 };
+
+// Aplica las migraciones de nombres a UN registro. Se usa al arrancar (cache
+// local) Y al cargar desde Sheets, para que los registros históricos con el
+// nombre viejo se muestren y comporten con el nombre nuevo en toda la app.
+function applyNameMigrations(e){
+  let changed=false;
+  if(_migrations.category[e.category]){ e.category=_migrations.category[e.category]; changed=true; }
+  if(_migrations.subcategory[e.subcategory]){ e.subcategory=_migrations.subcategory[e.subcategory]; changed=true; }
+  return changed;
+}
 
 // ══════════════════════════════════════════════════════════════════════════
 // R6 · MODELO DE DATOS — CAPA DE LECTURA (Entrega A)
@@ -88,7 +102,7 @@ function _deriveMeta(e){
 
   // Hijos legacy sin etiqueta (propinas viejas): la relación se infiere.
   if(e.linkedTo && !m.rel){
-    if(e.subcategory==='Propinas')        m.rel='propina';
+    if(e.subcategory==='Propina' || e.subcategory==='Propinas') m.rel='propina';
     else if(e.type==='beneficio' || e.type==='ahorro-pasivo') m.rel='beneficio';
     else                                  m.rel='desglose';
   }
@@ -160,10 +174,12 @@ function cargoBrutoDe(e){
   const prop = (e.type==='egreso') ? hijos.find(isPropina) : null;
   const propMeta = prop ? metaOf(prop) : null;
   if(propMeta && propMeta.tip && propMeta.tip.inc) t += prop.amount;
-  // En un diferido el beneficio se acredita aparte: no redujo la mensualidad.
+  // R7.2: TODO beneficio es un descuento aplicado (Cashback ya no existe como
+  // beneficio), así que siempre redujo el gasto y siempre se devuelve. Puede
+  // haber VARIOS beneficios por egreso: se suman todos. En un diferido el
+  // descuento redujo el total ANTES de prorratear, no esta mensualidad.
   if(!e.deferGroup){
-    const ben = hijos.find(x=>x.type==='beneficio');
-    if(ben && typeof benReduceGasto==='function' && benReduceGasto(ben.category)) t += ben.amount;
+    hijos.filter(x=>x.type==='beneficio').forEach(b=>{ t += b.amount; });
   }
   return +t.toFixed(2);
 }
@@ -172,12 +188,12 @@ function origAmountOf(e){
   if(!e || typeof e!=='object') return 0;
   if(e.linkedTo) return e.amount;
   if(e.deferGroup && e.deferOriginal){
-    // deferOriginal ya trae el descuento restado ANTES de prorratear: se suma
-    // de vuelta para llegar a lo que realmente escribiste.
+    // deferOriginal ya trae el descuento restado ANTES de prorratear: se suman
+    // de vuelta TODOS los beneficios del grupo para llegar a lo que escribiste.
     let t = e.deferOriginal;
     const ids = data.filter(x=>sameGroup(x.deferGroup, e.deferGroup)).map(x=>x.id);
-    const ben = data.find(x=>ids.includes(x.linkedTo) && x.type==='beneficio');
-    if(ben && typeof benReduceGasto==='function' && benReduceGasto(ben.category)) t += ben.amount;
+    data.filter(x=>ids.includes(x.linkedTo) && x.type==='beneficio')
+        .forEach(b=>{ t += b.amount; });
     return +t.toFixed(2);
   }
   return cargoBrutoDe(e);
@@ -198,10 +214,7 @@ function desgloseNamesOf(e){
 
 let _migrated = false;
 data.forEach(e => {
-  if(_migrations.category[e.category]){
-    e.category = _migrations.category[e.category];
-    _migrated = true;
-  }
+  if(applyNameMigrations(e)) _migrated = true;
   // R6.5: 'ahorro-pasivo' → 'beneficio' (nombre viejo del mismo tipo)
   if(e.type==='ahorro-pasivo'){ e.type='beneficio'; _migrated=true; }
   // R6: ya no se "limpia" la nota al arranque. Las etiquetas duplicadas se
@@ -212,7 +225,7 @@ if(_migrated) localStorage.setItem(SK, JSON.stringify(data));
 let curType = 'ingreso';
 let curCat = '';
 let selMethod = 'Tarjeta de crédito';
-let benOn = false;
+// R7.2: benOn desapareció — el estado vive en el arreglo `beneficios` (02_registro).
 let histFilter = 'todos';
 let histSelCats = [];
 let histSelSubcats = [];
@@ -296,9 +309,8 @@ let ratesLoaded = false;
 
 const CATS = {
   ingreso: {
-    'Sueldo':['—'],'Bono de despensa':['—'],'Aguinaldo':['—'],
-    'Utilidades':['—'],'Fondo de ahorro':['—'],'Reembolsos':['—'],
-    'Rendimientos':['—'],'Renta de propiedad':['—'],'Ventas':['—'],
+    'Sueldo':['—'],'Bono de despensa':['—'],'Cashback':['—'],
+    'Reembolsos':['—'],'Rendimientos':['—'],'Ventas':['—'],
     'Regalos':['—'],'Otros (Ingresos)':['—']
   },
   egreso: {
@@ -308,7 +320,7 @@ const CATS = {
     'Ocio':       ['Cine','Espectáculos y conciertos','Bares y antros','Videojuegos','Suscripciones','Renta y venta digital','Museos','Media física','Otros (Ocio)'],
     'Transporte': ['Gasolina','Uber / taxi','Transporte público','Mantenimiento de auto','Seguro de auto','Estacionamiento','Autopartes','Autolavado','Trámites vehiculares','Vuelos','Otros pasajes','Seguro de viaje','Otros (Transporte)'],
     'Mascotas':   ['Comida','Veterinario','Accesorios y juguetes','Estética / grooming','Medicamentos','Hospedaje','Otros (Mascotas)'],
-    'Generosidad':['Regalos','Donativos','Propinas','Préstamos','Otros (Generosidad)']
+    'Generosidad':['Regalos','Donativos','Propina','Préstamos','Otros (Generosidad)']
   },
   ahorro: {
     'Inversiones':['—'],'Otros (Ahorro)':['—']
@@ -336,7 +348,8 @@ const ICONS = {
   'Estacionamiento':'🅿️','Autolavado':'🚿','Trámites vehiculares':'📋','Autopartes':'⚙️','Vuelos':'✈️',
   'Otros pasajes':'🎫','Seguro de viaje':'🛡️','Comida':'🍖',
   'Veterinario':'💉','Accesorios y juguetes':'🦴','Estética / grooming':'✂️','Hospedaje':'🏨',
-  'Donativos':'❤️','Propinas':'💰','Préstamos':'🤝',
+  'Donativos':'❤️','Propina':'💰','Propinas':'💰','Préstamos':'🤝',
+  'Dinero electrónico':'📲',
   'Otros (Casa)':'📌','Otros (Personal)':'📌','Otros (Alimentos)':'📌',
   'Otros (Ocio)':'📌','Otros (Transporte)':'📌','Otros (Mascotas)':'📌',
   'Otros (Generosidad)':'📌','Otros (Ingresos)':'📌','Otros (Ahorro)':'📌'
@@ -533,8 +546,10 @@ const CAT_COLORS = {
   'Ventas':           '#ff3b30',
   'Regalos':          '#ff2d55',
   // Ahorros / Beneficios (nombres unificados con BEN_TYPES)
+  // R7.2: 'Cashback' es ahora categoría de INGRESO; conserva su color.
   'Inversiones':              '#007aff',
   'Cashback':                 '#ff9500',
+  'Dinero electrónico':       '#32ade6',
   'Puntos TDC':               '#af52de',
   'Puntos de lealtad':        '#ffcc00',
   'Millas aéreas':            '#00c7be',

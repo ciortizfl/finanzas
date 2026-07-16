@@ -30,6 +30,7 @@ function removeDesglose(id){
       if(addBtn){ addBtn.dataset.exceedHidden=''; addBtn.style.opacity=''; }
       updateNoteDesgloseIndicators();
       updateDesgloseRemaining();
+      updateDesgloseChipLabel();
     } else {
       renderDesgloses(false);
     }
@@ -232,13 +233,14 @@ function refreshAllDesgloseSubcatDropdowns(){
         subSelect.value=d.subcategory||'';
       } else {
         // No existía dropdown (la categoría no tenía subcats antes) → insertarlo
+        // R7.2: vive en la MITAD DERECHA del renglón de Categoría.
         const newSel=document.createElement('select');
+        newSel.setAttribute('data-desg-subcat','');
         newSel.setAttribute('onchange', `setDesgloseSubcat(${d.id},this.value)`);
-        newSel.style.cssText='width:100%;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;margin-bottom:8px;';
+        newSel.style.cssText='flex:1 1 0;min-width:0;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;';
         newSel.innerHTML=subInfo.html;
-        const rows=card.querySelectorAll(':scope > div');
-        const anchor=rows.length>=2?rows[1]:null;
-        if(anchor && anchor.nextSibling) card.insertBefore(newSel, anchor.nextSibling);
+        const catRow=card.querySelector('[data-desg-catrow]');
+        if(catRow) catRow.appendChild(newSel);
         else card.appendChild(newSel);
         newSel.value=d.subcategory||'';
         revealAnimate(newSel);
@@ -282,6 +284,25 @@ function buildDesgloseSubcatOptions(desgloseArr, d, parentCat, parentSubcat, typ
   return { hasSubs:true, html:optHtml.join('') };
 }
 
+// R7.2 · Etiqueta del botón Desglose: con un desglose dice "Desglose"; con dos
+// o más muestra el número real ("7 desgloses"). Aplica en registro y edición.
+function updateDesgloseChipLabel(){
+  const btn=document.getElementById('desglose-toggle-btn');
+  if(!btn) return;
+  const lbl=btn.querySelectorAll('span')[1];
+  if(!lbl) return;
+  const n=desgloses.length;
+  lbl.textContent = n>=2 ? `${n} desgloses` : 'Desglose';
+}
+function updateEditDesgloseChipLabel(){
+  const btn=document.getElementById('e-desglose-toggle-btn');
+  if(!btn) return;
+  const lbl=btn.querySelectorAll('span')[1];
+  if(!lbl) return;
+  const n=editDesgloses.length;
+  lbl.textContent = n>=2 ? `${n} desgloses` : 'Desglose';
+}
+
 function renderDesgloses(animateNew){
   const list=document.getElementById('desglose-list');
   if(!list) return;
@@ -308,15 +329,19 @@ function renderDesgloses(animateNew){
     card.innerHTML=`
       <button type="button" onclick="removeDesglose(${d.id})" style="position:absolute;top:8px;right:8px;background:none;border:none;cursor:pointer;color:var(--danger);font-size:16px;line-height:1;padding:2px;">✕</button>
       <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:8px;">Desglose ${idx+1}${curLabel}</div>
-      <!-- Nombre propio: vacío = hereda la descripción madre; con texto = ese será su nombre en el historial -->
-      <input data-desg-owndesc type="text" placeholder="Nombre propio (opcional)" value="${(d.desc||'').replace(/"/g,'&quot;')}" oninput="updateDesglose(${d.id},'desc',this.value)" style="width:100%;margin-bottom:8px;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
+      <!-- R7.2 · Renglón 1: Monto (≈⅓) + Nombre propio (≈⅔).
+           Nombre propio: vacío = hereda la descripción madre; con texto = ese será su nombre en el historial -->
       <div style="display:flex;gap:8px;margin-bottom:8px;">
-        <input data-desg-amount type="text" inputmode="decimal" placeholder="Monto${curLabel}" value="${d.amount?formatAmountString(String(d.amount)):''}" oninput="handleAmountInput(this);updateDesglose(${d.id},'amount',rawAmount(this.value))" style="width:110px;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
-        <select onchange="setDesgloseCat(${d.id},this.value)" style="flex:1;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
+        <input data-desg-amount type="text" inputmode="decimal" placeholder="Monto${curLabel}" value="${d.amount?formatAmountString(String(d.amount)):''}" oninput="handleAmountInput(this);updateDesglose(${d.id},'amount',rawAmount(this.value))" style="flex:1 1 0;min-width:0;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
+        <input data-desg-owndesc type="text" placeholder="Nombre propio (opcional)" value="${(d.desc||'').replace(/"/g,'&quot;')}" oninput="updateDesglose(${d.id},'desc',this.value)" style="flex:2 1 0;min-width:0;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
+      </div>
+      <!-- R7.2 · Renglón 2: Categoría (mitad izq) + Subcategoría (mitad der, solo tras elegir categoría) -->
+      <div data-desg-catrow style="display:flex;gap:8px;margin-bottom:8px;">
+        <select onchange="setDesgloseCat(${d.id},this.value)" style="flex:1 1 0;min-width:0;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
           <option value="">Categoría...</option>${catOpts}
         </select>
+        ${showSubcat?`<select data-desg-subcat onchange="setDesgloseSubcat(${d.id},this.value)" style="flex:1 1 0;min-width:0;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">${subOpts}</select>`:''}
       </div>
-      ${showSubcat?`<select data-desg-subcat onchange="setDesgloseSubcat(${d.id},this.value)" style="width:100%;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;margin-bottom:8px;">${subOpts}</select>`:''}
       ${showNote?`<input data-desg-note type="text" placeholder="Nota (opcional)" value="${d.note||''}" oninput="updateDesglose(${d.id},'note',this.value)" style="width:100%;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:13px;outline:none;">`:''}
     `;
     list.appendChild(card);
@@ -328,6 +353,7 @@ function renderDesgloses(animateNew){
   // El botón "Agregar desglose" solo aparece si el ÚLTIMO desglose está completo
   updateAddDesgloseBtnVisibility();
   updateDesgloseRemaining();
+  updateDesgloseChipLabel();
 }
 
 // Muestra el botón "Agregar desglose" solo si el último desglose está completo.
@@ -342,16 +368,29 @@ function updateAddDesgloseBtnVisibility(){
   btn.style.opacity=''; // asegurar visible sin opacidad residual
 }
 
-// Muestra cuánto queda del monto original tras restar desgloses
+// ── GUARDAR: desactivación combinada ──
+// Dos módulos pueden invalidar el registro a la vez (beneficios excedidos y/o
+// desgloses excedidos). Cada uno prende su bandera y el botón se desactiva si
+// CUALQUIERA está prendida — así corregir uno no re-habilita por error al otro.
+let _benExceed=false;
+let _desgExceed=false;
+function refreshSubmitDisabled(){ setSubmitDisabled(_benExceed || _desgExceed); }
+
+// Muestra cuánto queda del monto original tras restar desgloses.
+// R7.2: los beneficios tienen PRIORIDAD sobre los desgloses — el disponible
+// para desglosar es el monto MENOS los beneficios. Si un beneficio deja a un
+// desglose sin espacio, aquí se recalcula, se alerta y se desactiva Guardar.
 function updateDesgloseRemaining(){
   const remEl=document.getElementById('desglose-remaining');
   if(!remEl) return;
   const amount=parseFloat(rawAmount(document.getElementById('amount').value))||0;
+  const benTotal=(typeof beneficiosTotal==='function') ? beneficiosTotal() : 0;
+  const disponible=+(amount-benTotal).toFixed(2);
   const total=desglosesTotal();
-  const remaining=+(amount-total).toFixed(2); // evitar ruido de punto flotante
+  const remaining=+(disponible-total).toFixed(2); // evitar ruido de punto flotante
   if(desgloses.length===0){
     remEl.style.display='none';
-    setSubmitDisabled(false);
+    _desgExceed=false; refreshSubmitDisabled();
     setAddDesgloseHidden(false);
     return;
   }
@@ -367,14 +406,14 @@ function updateDesgloseRemaining(){
     // (Esto también cubre el caso de exceso total, donde remaining es negativo.)
     remEl.style.color='var(--danger)';
     remEl.textContent=`Ningún desglose puede superar el gasto principal (${fmtMoney(Math.max(remaining,0))})`;
-    setSubmitDisabled(true);
+    _desgExceed=true; refreshSubmitDisabled();
     setAddDesgloseHidden(true);
   } else {
     remEl.style.color='var(--text3)';
     // Gramática: "Quedan" si es > $1; "Queda" si es exactamente $1 o $0.
     const verbo = remaining>1 ? 'Quedan' : 'Queda';
     remEl.textContent=`${verbo} ${fmtMoney(remaining)}`;
-    setSubmitDisabled(false);
+    _desgExceed=false; refreshSubmitDisabled();
     // Ocultar "Agregar desglose" si ya no cabría otro sin romper la regla:
     // agregar un desglose adicional reduciría el remanente por debajo del mayor
     // desglose actual. Si el remanente ya es <= al mayor desglose (o es 0), se oculta.
@@ -467,6 +506,7 @@ function removeEditDesglose(id){
       if(addBtn){ addBtn.dataset.exceedHidden=''; addBtn.style.opacity=''; }
       updateEditNoteDesgloseIndicators();
       updateEditDesgloseRemaining();
+      updateEditDesgloseChipLabel();
     } else {
       renderEditDesgloses();
     }
@@ -650,13 +690,14 @@ function refreshAllEditDesgloseSubcatDropdowns(){
         subSelect.innerHTML=subInfo.html;
         subSelect.value=d.subcategory||'';
       } else {
+        // R7.2: el dropdown nuevo vive en la MITAD DERECHA del renglón de Categoría.
         const newSel=document.createElement('select');
+        newSel.setAttribute('data-desg-subcat','');
         newSel.setAttribute('onchange', `setEditDesgloseSubcat(${d.id},this.value)`);
-        newSel.style.cssText='width:100%;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;margin-bottom:8px;';
+        newSel.style.cssText='flex:1 1 0;min-width:0;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;';
         newSel.innerHTML=subInfo.html;
-        const rows=card.querySelectorAll(':scope > div');
-        const anchor=rows.length>=2?rows[1]:null;
-        if(anchor && anchor.nextSibling) card.insertBefore(newSel, anchor.nextSibling);
+        const catRow=card.querySelector('[data-desg-catrow]');
+        if(catRow) catRow.appendChild(newSel);
         else card.appendChild(newSel);
         newSel.value=d.subcategory||'';
         revealAnimate(newSel);
@@ -687,21 +728,26 @@ function renderEditDesgloses(){
     card.innerHTML=`
       <button type="button" onclick="removeEditDesglose(${d.id})" style="position:absolute;top:8px;right:8px;background:none;border:none;cursor:pointer;color:var(--danger);font-size:16px;line-height:1;padding:2px;">✕</button>
       <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:8px;">Desglose ${idx+1}</div>
-      <!-- Nombre propio: vacío = hereda la descripción madre; con texto = ese será su nombre en el historial -->
-      <input data-desg-owndesc type="text" placeholder="Nombre propio (opcional)" value="${(d.desc||'').replace(/"/g,'&quot;')}" oninput="updateEditDesglose(${d.id},'desc',this.value)" style="width:100%;margin-bottom:8px;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
+      <!-- R7.2 · Renglón 1: Monto (≈⅓) + Nombre propio (≈⅔).
+           Nombre propio: vacío = hereda la descripción madre; con texto = ese será su nombre en el historial -->
       <div style="display:flex;gap:8px;margin-bottom:8px;">
-        <input data-desg-amount type="text" inputmode="decimal" placeholder="Monto" value="${d.amount?formatAmountString(String(d.amount)):''}" oninput="handleAmountInput(this);updateEditDesglose(${d.id},'amount',rawAmount(this.value))" style="width:110px;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
-        <select onchange="setEditDesgloseCat(${d.id},this.value)" style="flex:1;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
+        <input data-desg-amount type="text" inputmode="decimal" placeholder="Monto" value="${d.amount?formatAmountString(String(d.amount)):''}" oninput="handleAmountInput(this);updateEditDesglose(${d.id},'amount',rawAmount(this.value))" style="flex:1 1 0;min-width:0;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
+        <input data-desg-owndesc type="text" placeholder="Nombre propio (opcional)" value="${(d.desc||'').replace(/"/g,'&quot;')}" oninput="updateEditDesglose(${d.id},'desc',this.value)" style="flex:2 1 0;min-width:0;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
+      </div>
+      <!-- R7.2 · Renglón 2: Categoría (mitad izq) + Subcategoría (mitad der) -->
+      <div data-desg-catrow style="display:flex;gap:8px;margin-bottom:8px;">
+        <select onchange="setEditDesgloseCat(${d.id},this.value)" style="flex:1 1 0;min-width:0;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
           <option value="">Categoría...</option>${catOpts}
         </select>
+        ${showSubcat?`<select data-desg-subcat onchange="setEditDesgloseSubcat(${d.id},this.value)" style="flex:1 1 0;min-width:0;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">${subOpts}</select>`:''}
       </div>
-      ${showSubcat?`<select onchange="setEditDesgloseSubcat(${d.id},this.value)" style="width:100%;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;margin-bottom:8px;">${subOpts}</select>`:''}
       ${isComplete?`<input data-desg-note type="text" placeholder="Nota (opcional)" value="${d.note||''}" oninput="updateEditDesglose(${d.id},'note',this.value)" style="width:100%;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:13px;outline:none;">`:''}
     `;
     list.appendChild(card);
   });
   updateEditAddDesgloseBtnVisibility();
   updateEditDesgloseRemaining();
+  updateEditDesgloseChipLabel();
 }
 
 function updateEditAddDesgloseBtnVisibility(){
@@ -719,13 +765,20 @@ function lastEditDesgloseComplete(){
   const hasSubs=subs && !(subs.length===1&&subs[0]==='—');
   return !!last.category && (!hasSubs || !!last.subcategory);
 }
+// Desactivación combinada del Guardar de EDICIÓN (beneficios y/o desgloses)
+let _eBenExceed=false;
+let _eDesgExceed=false;
+function refreshEditSubmitDisabled(){ setEditSubmitDisabled(_eBenExceed || _eDesgExceed); }
+
 function updateEditDesgloseRemaining(){
   const remEl=document.getElementById('e-desglose-remaining');
   if(!remEl) return;
   const amount=parseFloat(rawAmount(document.getElementById('e-amount').value))||0;
+  const benTotal=(typeof editBeneficiosTotal==='function') ? editBeneficiosTotal() : 0;
+  const disponible=+(amount-benTotal).toFixed(2);
   const total=editDesglosesTotal();
-  const remaining=+(amount-total).toFixed(2);
-  if(editDesgloses.length===0){ remEl.style.display='none'; setEditSubmitDisabled(false); setEditAddDesgloseHidden(false); return; }
+  const remaining=+(disponible-total).toFixed(2);
+  if(editDesgloses.length===0){ remEl.style.display='none'; _eDesgExceed=false; refreshEditSubmitDisabled(); setEditAddDesgloseHidden(false); return; }
   remEl.style.display='block';
   const cur=document.getElementById('e-currency')?.value||'MXN';
   const sym=cur==='MXN'?'$':`${cur} `;
@@ -734,13 +787,13 @@ function updateEditDesgloseRemaining(){
   if(remaining < maxDesglose){
     remEl.style.color='var(--danger)';
     remEl.textContent=`Ningún desglose puede superar el gasto principal (${fmtMoney(Math.max(remaining,0))})`;
-    setEditSubmitDisabled(true);
+    _eDesgExceed=true; refreshEditSubmitDisabled();
     setEditAddDesgloseHidden(true);
   } else {
     remEl.style.color='var(--text3)';
     const verbo = remaining>1 ? 'Quedan' : 'Queda';
     remEl.textContent=`${verbo} ${fmtMoney(remaining)}`;
-    setEditSubmitDisabled(false);
+    _eDesgExceed=false; refreshEditSubmitDisabled();
     setEditAddDesgloseHidden(remaining<=maxDesglose || remaining===0);
   }
 }
@@ -779,20 +832,13 @@ function setEditSubmitDisabled(disabled){
   btn.style.pointerEvents=disabled?'none':'';
 }
 function updateEditDesgloseVisibility(){
-  // El desglose solo aplica a egresos. En ingreso/beneficio se oculta el botón
-  // Desglose y la Nota ocupa todo el ancho.
+  // R7.2: el renglón inferior (Desglose + Recordar) solo aplica a egresos;
+  // en ingreso/beneficio se oculta completo. El desglose SÍ convive con
+  // diferidos (se prorratea entre las mensualidades).
   const desgBtn=document.getElementById('e-desglose-toggle-btn');
-  const noteBtn=document.getElementById('e-note-toggle-btn');
-  if(desgBtn && noteBtn){
-    // El desglose SÍ convive con diferidos (se prorratea entre las mensualidades)
-    if(editType==='egreso'){
-      desgBtn.style.display='';
-      noteBtn.style.flex='';
-    } else {
-      desgBtn.style.display='none';
-      noteBtn.style.flex='1 1 100%';
-    }
-  }
+  const bottomRow=document.getElementById('e-note-desglose-row');
+  if(desgBtn) desgBtn.style.display = (editType==='egreso') ? '' : 'none';
+  if(bottomRow) bottomRow.style.display = (editType==='egreso') ? '' : 'none';
   // Al abrir edición: si hay desgloses cargados, activar el toggle; si no, ocultar.
   const sec=document.getElementById('e-desglose-section');
   if(!sec) return;
@@ -800,96 +846,483 @@ function updateEditDesgloseVisibility(){
   _eDesgloseVisible = hasDesg;
   sec.style.display = hasDesg ? 'block' : 'none';
   updateEditNoteDesgloseIndicators();
-  updateEditNoteMode();
 }
 
 
-// Renderiza los tipos de beneficio con el mismo comportamiento colapsable y
-// animaciones que las categorías: todos visibles → al elegir uno, colapsa a ese solo.
-function buildBenTypeBlocks(containerId, selected, onSelect) {
-  const container = document.getElementById(containerId);
-  if(!container) return;
-  // Guardar callback y selección en el contenedor para re-renderizar en toggles
-  container._benOnSelect = onSelect;
-  container._benSelected = selected || '';
-  renderBenTypeUI(containerId);
+// ══════════════════════════════════════
+// R7.2 · BLOQUES DE BENEFICIO (registro)
+// Misma mecánica que los desgloses: tarjetas independientes, X por bloque,
+// "Agregar otro beneficio" cuando el último está completo, y colapso del
+// módulo al eliminar el último. El tipo se elige en un dropdown.
+// ══════════════════════════════════════
+
+function addBeneficio(){
+  // Si ya existe un porcentual, los nuevos bloques nacen (y se quedan) en $.
+  beneficios.push({ id: genId(), mode:'monto', pct:0, amount:0, category:'' });
+  renderBeneficios(true);
 }
 
-function renderBenTypeUI(containerId){
-  const container = document.getElementById(containerId);
-  if(!container) return;
-  const selected = container._benSelected || '';
-  const onSelect = container._benOnSelect || (()=>{});
-  container.innerHTML='';
-
-  // Estado 1: sin selección → mostrar todos con animación escalonada
-  if(!selected){
-    container.className='cat-grid-ui';
-    container.style.gridTemplateColumns='';
-    BEN_TYPES.forEach(t=>{
-      const b=makeBenButton(t, containerId);
-      container.appendChild(b);
-    });
-    revealGridByColumns(container, 2);
-    return;
-  }
-
-  // Estado 2: seleccionado → colapsar a ese solo, ocupando 100% ancho (no tiene subcats)
-  container.className='cat-grid-ui';
-  container.style.gridTemplateColumns='1fr';
-  const b=makeBenButton(selected, containerId);
-  b.classList.add('sel-pa');
-  const color='#af52de';
-  b.style.borderColor=color;
-  container.appendChild(b);
-  revealAnimate(container, true);
+function removeBeneficio(id){
+  const list=document.getElementById('beneficio-list');
+  const card=list?list.querySelector(`[data-ben-id="${id}"]`):null;
+  const isOnlyOne = beneficios.length<=1;
+  const applyRemoval=()=>{
+    beneficios = beneficios.filter(b=>b.id!==id);
+    if(isOnlyOne){
+      // Era el último beneficio: colapsar el módulo y desactivar el botón
+      _benVisible=false;
+      const panel=document.getElementById('ben-panel');
+      if(panel) panel.style.display='none';
+      const addBtn=document.getElementById('add-beneficio-btn');
+      if(addBtn){ addBtn.dataset.exceedHidden=''; addBtn.style.opacity=''; }
+      updateBeneficioRemaining();
+      try{ refreshTopTabsVisibility(); }catch(e){}
+    } else {
+      renderBeneficios(false);
+    }
+    // Los beneficios tienen prioridad: recalcular el disponible de los desgloses
+    try{ updateDesgloseRemaining(); }catch(e){}
+  };
+  animateDesgloseRemoval(card, isOnlyOne, applyRemoval);
 }
 
-function makeBenButton(name, containerId){
-  const b=document.createElement('button');
-  b.type='button';
-  b.className='cat-block';
-  b.innerHTML=`<span>${ICONS[name]||'💰'}</span><br>${name}`;
-  b.onclick=(ev)=>{ ev.stopPropagation(); selectBenType(name, containerId); };
-  return b;
+// Opciones del dropdown de tipo de beneficio
+function benTypeOptionsHtml(selected){
+  const opts=['<option value="">Tipo...</option>'];
+  BEN_TYPES.forEach(t=>{ opts.push(`<option value="${t}" ${selected===t?'selected':''}>${t}</option>`); });
+  return opts.join('');
 }
 
-function selectBenType(name, containerId){
-  const container=document.getElementById(containerId);
-  if(!container) return;
-  const wasAllShowing = !container._benSelected;
-  if(container._benSelected===name){
-    // Tocar el ya elegido → re-expandir (mostrar todos de nuevo).
-    // NO desactiva el beneficio: solo limpia la selección de tipo para re-elegir.
-    container._benSelected='';
-    if(container._benOnSelect) container._benOnSelect('');
-    renderBenTypeUI(containerId);
-    return;
-  }
-  // Elegir uno nuevo
-  if(wasAllShowing && container.children.length>1){
-    // Desde la vista de todos → animar salida inversa, luego colapsar
-    collapseGridReverse(container, 2, ()=>{
-      container._benSelected=name;
-      if(container._benOnSelect) container._benOnSelect(name);
-      renderBenTypeUI(containerId);
-    });
+function renderBeneficios(animateNew){
+  const list=document.getElementById('beneficio-list');
+  if(!list) return;
+  const cur=document.getElementById('currency')?.value||'MXN';
+  const curLabel = cur==='MXN' ? '' : ` (${cur})`;
+  const prevIds = new Set(Array.from(list.children).map(c=>c.dataset.benId));
+  list.innerHTML='';
+  beneficios.forEach((b,idx)=>{
+    const card=document.createElement('div');
+    card.dataset.benId=String(b.id);
+    card.style.cssText='background:var(--surface2);border-radius:var(--radius-sm);padding:11px;margin-bottom:8px;position:relative;';
+    // Solo puede existir UN porcentual: si otro bloque ya lo es, este solo permite $
+    const pctBloqueado = benPctTaken(beneficios, b.id);
+    const esPct = b.mode==='pct';
+    const inputVal = esPct
+      ? (b.pct ? String(b.pct) : '')
+      : (b.amount ? formatAmountString(String(b.amount)) : '');
+    const inputAttrs = esPct
+      ? `placeholder="%" oninput="updateBeneficio(${b.id},'pct',this.value)"`
+      : `placeholder="Monto${curLabel}" oninput="handleAmountInput(this);updateBeneficio(${b.id},'amount',rawAmount(this.value))"`;
+    card.innerHTML=`
+      <button type="button" onclick="removeBeneficio(${b.id})" style="position:absolute;top:8px;right:8px;background:none;border:none;cursor:pointer;color:var(--danger);font-size:16px;line-height:1;padding:2px;">✕</button>
+      <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:8px;">Beneficio ${idx+1}${curLabel}</div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <div style="display:flex;background:var(--surface);border-radius:100px;padding:3px;gap:2px;flex-shrink:0;box-shadow:0 1px 4px rgba(0,0,0,0.12),0 0 0 1px var(--border2);">
+          <button type="button" onclick="setBeneficioMode(${b.id},'pct')" ${pctBloqueado?'disabled':''} style="padding:5px 12px;border-radius:100px;border:none;background:${esPct?'var(--accent)':'transparent'};color:${esPct?'white':'var(--text3)'};font-family:inherit;font-size:12px;font-weight:700;cursor:${pctBloqueado?'default':'pointer'};opacity:${pctBloqueado?'0.35':'1'};transition:all 0.18s;">%</button>
+          <button type="button" onclick="setBeneficioMode(${b.id},'monto')" style="padding:5px 12px;border-radius:100px;border:none;background:${!esPct?'var(--accent)':'transparent'};color:${!esPct?'white':'var(--text3)'};font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;transition:all 0.18s;">$</button>
+        </div>
+        <input data-ben-amount type="text" inputmode="decimal" value="${inputVal}" ${inputAttrs} style="width:88px;flex:0 0 auto;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
+        <select onchange="setBeneficioCat(${b.id},this.value)" style="flex:1;min-width:0;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
+          ${benTypeOptionsHtml(b.category)}
+        </select>
+      </div>
+      <div data-ben-calc style="font-size:12px;color:var(--text3);margin-top:6px;display:none;"></div>
+    `;
+    list.appendChild(card);
+    if(animateNew && !prevIds.has(String(b.id))){
+      revealAnimate(card);
+    }
+    updateBeneficioCalc(b.id);
+  });
+  updateAddBeneficioBtnVisibility();
+  updateBeneficioRemaining();
+}
+
+// El "= $X" de un bloque porcentual (los fijos no lo necesitan: el monto ES el valor)
+function updateBeneficioCalc(id){
+  const b=beneficios.find(x=>x.id===id);
+  const el=document.querySelector(`#beneficio-list [data-ben-id="${id}"] [data-ben-calc]`);
+  if(!b || !el) return;
+  const amount=parseFloat(rawAmount(document.getElementById('amount')?.value))||0;
+  const cur=document.getElementById('currency')?.value||'MXN';
+  const sym=cur==='MXN'?'$':`${cur} `;
+  if(b.mode==='pct' && (b.pct||0)>0 && amount>0){
+    el.textContent=`= ${sym}${beneficioVal(b, amount).toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})}`;
+    el.style.display='block';
   } else {
-    // Cambiar de un tipo colapsado directo a otro (sin pasar por vista de todos)
-    container._benSelected=name;
-    if(container._benOnSelect) container._benOnSelect(name);
-    renderBenTypeUI(containerId);
+    el.textContent='';
+    el.style.display='none';
   }
 }
 
-
-function updateBenUI(){
-  const b=document.getElementById('t-box');
-  if(b){ b.classList.toggle('on',benOn); b.textContent=benOn?'✓':''; }
-  const extra=document.getElementById('ben-extra');
-  if(extra) extra.classList.toggle('vis',benOn);
+function setBeneficioMode(id, mode){
+  const b=beneficios.find(x=>x.id===id);
+  if(!b || b.mode===mode) return;
+  if(mode==='pct' && benPctTaken(beneficios, id)){
+    toast('Solo puede haber un beneficio porcentual');
+    return;
+  }
+  b.mode=mode;
+  // Cambiar de unidad invalida el valor anterior (un 15 de % no es un $15)
+  b.pct=0; b.amount=0;
+  renderBeneficios(false);
+  try{ updateDesgloseRemaining(); }catch(e){}
+  try{ refreshTopTabsVisibility(); }catch(e){}
 }
 
+function setBeneficioCat(id, cat){
+  const b=beneficios.find(x=>x.id===id);
+  if(!b) return;
+  b.category=cat;
+  updateAddBeneficioBtnVisibility();
+  updateBeneficioRemaining();
+  try{ refreshTopTabsVisibility(); }catch(e){}
+}
+
+function updateBeneficio(id, field, value){
+  const b=beneficios.find(x=>x.id===id);
+  if(!b) return;
+  if(field==='pct'){
+    let p=parseFloat(value)||0;
+    if(p<0) p=0; if(p>100) p=100;
+    b.pct=p;
+  } else if(field==='amount'){
+    b.amount=parseFloat(value)||0;
+  }
+  updateBeneficioCalc(id);
+  updateBeneficioRemaining();
+  try{ updateDesgloseRemaining(); }catch(e){}
+  try{ refreshTopTabsVisibility(); }catch(e){}
+}
+
+// ¿El último bloque está completo (monto/porcentaje + tipo)?
+function lastBeneficioComplete(){
+  if(beneficios.length===0) return false;
+  const last=beneficios[beneficios.length-1];
+  const val=(last.mode==='pct') ? (last.pct||0) : (last.amount||0);
+  return val>0 && !!last.category;
+}
+
+// "Agregar otro beneficio" — misma mecánica que el botón de desglose
+function updateAddBeneficioBtnVisibility(){
+  const btn=document.getElementById('add-beneficio-btn');
+  if(!btn) return;
+  if(btn.dataset.exceedHidden==='1'){ btn.style.display='none'; return; }
+  const complete = lastBeneficioComplete();
+  btn.style.display = complete ? 'flex' : 'none';
+  btn.style.opacity='';
+}
+
+function setAddBeneficioHidden(hidden){
+  const btn=document.getElementById('add-beneficio-btn');
+  if(!btn) return;
+  const currentlyHidden = btn.dataset.exceedHidden==='1';
+  if(hidden){
+    if(currentlyHidden) return;
+    btn.dataset.exceedHidden='1';
+    try{ btn.getAnimations().forEach(a=>a.cancel()); }catch(e){}
+    try{
+      const anim=btn.animate([{opacity:1},{opacity:0}],{duration:220,easing:'ease-out',fill:'forwards'});
+      anim.onfinish=()=>{ if(btn.dataset.exceedHidden==='1'){ btn.style.display='none'; btn.style.opacity=''; } };
+    }catch(e){ btn.style.display='none'; }
+  } else {
+    if(!currentlyHidden) return;
+    btn.dataset.exceedHidden='';
+    try{ btn.getAnimations().forEach(a=>a.cancel()); }catch(e){}
+    const shouldShow = lastBeneficioComplete();
+    if(shouldShow){
+      btn.style.display='flex';
+      btn.style.opacity='';
+      try{ btn.animate([{opacity:0},{opacity:1}],{duration:260,easing:'ease-out'}); }catch(e){}
+    } else {
+      btn.style.display='none';
+      btn.style.opacity='';
+    }
+  }
+}
+
+// Muestra el monto restante disponible tras aplicar los beneficios en orden.
+// Si se excede: alerta en rojo + Guardar desactivado + sin "Agregar otro".
+function updateBeneficioRemaining(){
+  const remEl=document.getElementById('beneficio-remaining');
+  if(!remEl) return;
+  const det=beneficiosDetalle();
+  if(beneficios.length===0){
+    remEl.style.display='none';
+    _benExceed=false; refreshSubmitDisabled();
+    setAddBeneficioHidden(false);
+    return;
+  }
+  remEl.style.display='block';
+  const cur=document.getElementById('currency')?.value||'MXN';
+  const sym=cur==='MXN'?'$':`${cur} `;
+  const fmtMoney = v => `${sym}${v.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})}`;
+  if(det.remaining < 0){
+    remEl.style.color='var(--danger)';
+    remEl.textContent=`Los beneficios no pueden superar el monto del egreso (${fmtMoney(det.amount)})`;
+    _benExceed=true; refreshSubmitDisabled();
+    setAddBeneficioHidden(true);
+  } else {
+    remEl.style.color='var(--text3)';
+    const verbo = det.remaining>1 ? 'Quedan' : 'Queda';
+    remEl.textContent=`${verbo} ${fmtMoney(det.remaining)}`;
+    _benExceed=false; refreshSubmitDisabled();
+    setAddBeneficioHidden(det.remaining<=0);
+  }
+}
+
+// Recalcula los "= $X" de los bloques porcentuales y el restante — se llama
+// cuando cambia el MONTO del egreso o el tipo de cambio (los valores dependen de él).
+function refreshBeneficioCalcs(){
+  beneficios.forEach(b=>updateBeneficioCalc(b.id));
+  updateBeneficioRemaining();
+}
+function refreshEditBeneficioCalcs(){
+  editBeneficios.forEach(b=>updateEditBeneficioCalc(b.id));
+  updateEditBeneficioRemaining();
+}
+
+// Limpia por completo el módulo de beneficios (guardado, cambio de tipo)
+function resetBeneficios(){
+  beneficios=[];
+  const list=document.getElementById('beneficio-list');
+  if(list) list.innerHTML='';
+  const panel=document.getElementById('ben-panel');
+  if(panel) panel.style.display='none';
+  _benVisible=false;
+  const addBtn=document.getElementById('add-beneficio-btn');
+  if(addBtn){ addBtn.dataset.exceedHidden=''; addBtn.style.display='none'; addBtn.style.opacity=''; }
+  const remEl=document.getElementById('beneficio-remaining');
+  if(remEl) remEl.style.display='none';
+  _benExceed=false;
+  try{ refreshSubmitDisabled(); }catch(e){}
+  try{ updateInlineBtn('inline-ben-btn', false, false); }catch(e){}
+}
+
+
+// ══════════════════════════════════════
+// R7.2 · BLOQUES DE BENEFICIO (edición) — espejo exacto del registro
+// ══════════════════════════════════════
+let editBeneficios = []; // {id, mode, pct, amount, category}
+
+function editBeneficiosDetalle(){
+  const amount=parseFloat(rawAmount(document.getElementById('e-amount')?.value))||0;
+  return _beneficiosDetalleDe(editBeneficios, amount);
+}
+function editBeneficiosTotal(){ return editBeneficiosDetalle().total; }
+
+function addEditBeneficio(){
+  editBeneficios.push({ id: genId(), mode:'monto', pct:0, amount:0, category:'' });
+  renderEditBeneficios(true);
+}
+
+function removeEditBeneficio(id){
+  const list=document.getElementById('e-beneficio-list');
+  const card=list?list.querySelector(`[data-ben-id="${id}"]`):null;
+  const isOnlyOne = editBeneficios.length<=1;
+  const applyRemoval=()=>{
+    editBeneficios = editBeneficios.filter(b=>b.id!==id);
+    if(isOnlyOne){
+      _eBenVisible=false;
+      const panel=document.getElementById('e-ben-panel');
+      if(panel) panel.style.display='none';
+      const addBtn=document.getElementById('e-add-beneficio-btn');
+      if(addBtn){ addBtn.dataset.exceedHidden=''; addBtn.style.opacity=''; }
+      updateEditBeneficioRemaining();
+      try{ refreshEditTopTabs(); }catch(e){}
+    } else {
+      renderEditBeneficios(false);
+    }
+    try{ updateEditDesgloseRemaining(); }catch(e){}
+  };
+  animateEditDesgloseRemoval(card, isOnlyOne, applyRemoval);
+}
+
+function renderEditBeneficios(animateNew){
+  const list=document.getElementById('e-beneficio-list');
+  if(!list) return;
+  const cur=document.getElementById('e-currency')?.value||'MXN';
+  const curLabel = cur==='MXN' ? '' : ` (${cur})`;
+  const prevIds = new Set(Array.from(list.children).map(c=>c.dataset.benId));
+  list.innerHTML='';
+  editBeneficios.forEach((b,idx)=>{
+    const card=document.createElement('div');
+    card.dataset.benId=String(b.id);
+    card.style.cssText='background:var(--surface2);border-radius:var(--radius-sm);padding:11px;margin-bottom:8px;position:relative;';
+    const pctBloqueado = benPctTaken(editBeneficios, b.id);
+    const esPct = b.mode==='pct';
+    const inputVal = esPct
+      ? (b.pct ? String(b.pct) : '')
+      : (b.amount ? formatAmountString(String(b.amount)) : '');
+    const inputAttrs = esPct
+      ? `placeholder="%" oninput="updateEditBeneficio(${b.id},'pct',this.value)"`
+      : `placeholder="Monto${curLabel}" oninput="handleAmountInput(this);updateEditBeneficio(${b.id},'amount',rawAmount(this.value))"`;
+    card.innerHTML=`
+      <button type="button" onclick="removeEditBeneficio(${b.id})" style="position:absolute;top:8px;right:8px;background:none;border:none;cursor:pointer;color:var(--danger);font-size:16px;line-height:1;padding:2px;">✕</button>
+      <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:8px;">Beneficio ${idx+1}${curLabel}</div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <div style="display:flex;background:var(--surface);border-radius:100px;padding:3px;gap:2px;flex-shrink:0;box-shadow:0 1px 4px rgba(0,0,0,0.12),0 0 0 1px var(--border2);">
+          <button type="button" onclick="setEditBeneficioMode(${b.id},'pct')" ${pctBloqueado?'disabled':''} style="padding:5px 12px;border-radius:100px;border:none;background:${esPct?'var(--accent)':'transparent'};color:${esPct?'white':'var(--text3)'};font-family:inherit;font-size:12px;font-weight:700;cursor:${pctBloqueado?'default':'pointer'};opacity:${pctBloqueado?'0.35':'1'};transition:all 0.18s;">%</button>
+          <button type="button" onclick="setEditBeneficioMode(${b.id},'monto')" style="padding:5px 12px;border-radius:100px;border:none;background:${!esPct?'var(--accent)':'transparent'};color:${!esPct?'white':'var(--text3)'};font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;transition:all 0.18s;">$</button>
+        </div>
+        <input data-ben-amount type="text" inputmode="decimal" value="${inputVal}" ${inputAttrs} style="width:88px;flex:0 0 auto;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
+        <select onchange="setEditBeneficioCat(${b.id},this.value)" style="flex:1;min-width:0;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
+          ${benTypeOptionsHtml(b.category)}
+        </select>
+      </div>
+      <div data-ben-calc style="font-size:12px;color:var(--text3);margin-top:6px;display:none;"></div>
+    `;
+    list.appendChild(card);
+    if(animateNew && !prevIds.has(String(b.id))){
+      revealAnimate(card);
+    }
+    updateEditBeneficioCalc(b.id);
+  });
+  updateEditAddBeneficioBtnVisibility();
+  updateEditBeneficioRemaining();
+}
+
+function updateEditBeneficioCalc(id){
+  const b=editBeneficios.find(x=>x.id===id);
+  const el=document.querySelector(`#e-beneficio-list [data-ben-id="${id}"] [data-ben-calc]`);
+  if(!b || !el) return;
+  const amount=parseFloat(rawAmount(document.getElementById('e-amount')?.value))||0;
+  const cur=document.getElementById('e-currency')?.value||'MXN';
+  const sym=cur==='MXN'?'$':`${cur} `;
+  if(b.mode==='pct' && (b.pct||0)>0 && amount>0){
+    el.textContent=`= ${sym}${beneficioVal(b, amount).toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})}`;
+    el.style.display='block';
+  } else {
+    el.textContent='';
+    el.style.display='none';
+  }
+}
+
+function setEditBeneficioMode(id, mode){
+  const b=editBeneficios.find(x=>x.id===id);
+  if(!b || b.mode===mode) return;
+  if(mode==='pct' && benPctTaken(editBeneficios, id)){
+    toast('Solo puede haber un beneficio porcentual');
+    return;
+  }
+  b.mode=mode;
+  b.pct=0; b.amount=0;
+  renderEditBeneficios(false);
+  try{ updateEditDesgloseRemaining(); }catch(e){}
+  try{ refreshEditTopTabs(); }catch(e){}
+}
+
+function setEditBeneficioCat(id, cat){
+  const b=editBeneficios.find(x=>x.id===id);
+  if(!b) return;
+  b.category=cat;
+  updateEditAddBeneficioBtnVisibility();
+  updateEditBeneficioRemaining();
+  try{ refreshEditTopTabs(); }catch(e){}
+}
+
+function updateEditBeneficio(id, field, value){
+  const b=editBeneficios.find(x=>x.id===id);
+  if(!b) return;
+  if(field==='pct'){
+    let p=parseFloat(value)||0;
+    if(p<0) p=0; if(p>100) p=100;
+    b.pct=p;
+  } else if(field==='amount'){
+    b.amount=parseFloat(value)||0;
+  }
+  updateEditBeneficioCalc(id);
+  updateEditBeneficioRemaining();
+  try{ updateEditDesgloseRemaining(); }catch(e){}
+  try{ refreshEditTopTabs(); }catch(e){}
+}
+
+function lastEditBeneficioComplete(){
+  if(editBeneficios.length===0) return false;
+  const last=editBeneficios[editBeneficios.length-1];
+  const val=(last.mode==='pct') ? (last.pct||0) : (last.amount||0);
+  return val>0 && !!last.category;
+}
+
+function updateEditAddBeneficioBtnVisibility(){
+  const btn=document.getElementById('e-add-beneficio-btn');
+  if(!btn) return;
+  if(btn.dataset.exceedHidden==='1'){ btn.style.display='none'; return; }
+  const complete = lastEditBeneficioComplete();
+  btn.style.display = complete ? 'flex' : 'none';
+  btn.style.opacity='';
+}
+
+function setEditAddBeneficioHidden(hidden){
+  const btn=document.getElementById('e-add-beneficio-btn');
+  if(!btn) return;
+  const currentlyHidden = btn.dataset.exceedHidden==='1';
+  if(hidden){
+    if(currentlyHidden) return;
+    btn.dataset.exceedHidden='1';
+    try{ btn.getAnimations().forEach(a=>a.cancel()); }catch(e){}
+    try{
+      const anim=btn.animate([{opacity:1},{opacity:0}],{duration:220,easing:'ease-out',fill:'forwards'});
+      anim.onfinish=()=>{ if(btn.dataset.exceedHidden==='1'){ btn.style.display='none'; btn.style.opacity=''; } };
+    }catch(e){ btn.style.display='none'; }
+  } else {
+    if(!currentlyHidden) return;
+    btn.dataset.exceedHidden='';
+    try{ btn.getAnimations().forEach(a=>a.cancel()); }catch(e){}
+    const shouldShow = lastEditBeneficioComplete();
+    if(shouldShow){
+      btn.style.display='flex';
+      btn.style.opacity='';
+      try{ btn.animate([{opacity:0},{opacity:1}],{duration:260,easing:'ease-out'}); }catch(e){}
+    } else {
+      btn.style.display='none';
+      btn.style.opacity='';
+    }
+  }
+}
+
+function updateEditBeneficioRemaining(){
+  const remEl=document.getElementById('e-beneficio-remaining');
+  if(!remEl) return;
+  const det=editBeneficiosDetalle();
+  if(editBeneficios.length===0){
+    remEl.style.display='none';
+    _eBenExceed=false; refreshEditSubmitDisabled();
+    setEditAddBeneficioHidden(false);
+    return;
+  }
+  remEl.style.display='block';
+  const cur=document.getElementById('e-currency')?.value||'MXN';
+  const sym=cur==='MXN'?'$':`${cur} `;
+  const fmtMoney = v => `${sym}${v.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})}`;
+  if(det.remaining < 0){
+    remEl.style.color='var(--danger)';
+    remEl.textContent=`Los beneficios no pueden superar el monto del egreso (${fmtMoney(det.amount)})`;
+    _eBenExceed=true; refreshEditSubmitDisabled();
+    setEditAddBeneficioHidden(true);
+  } else {
+    remEl.style.color='var(--text3)';
+    const verbo = det.remaining>1 ? 'Quedan' : 'Queda';
+    remEl.textContent=`${verbo} ${fmtMoney(det.remaining)}`;
+    _eBenExceed=false; refreshEditSubmitDisabled();
+    setEditAddBeneficioHidden(det.remaining<=0);
+  }
+}
+
+function resetEditBeneficios(){
+  editBeneficios=[];
+  const list=document.getElementById('e-beneficio-list');
+  if(list) list.innerHTML='';
+  const panel=document.getElementById('e-ben-panel');
+  if(panel) panel.style.display='none';
+  _eBenVisible=false;
+  const addBtn=document.getElementById('e-add-beneficio-btn');
+  if(addBtn){ addBtn.dataset.exceedHidden=''; addBtn.style.display='none'; addBtn.style.opacity=''; }
+  const remEl=document.getElementById('e-beneficio-remaining');
+  if(remEl) remEl.style.display='none';
+  _eBenExceed=false;
+  try{ refreshEditSubmitDisabled(); }catch(e){}
+}
 
 // ── VALIDACIÓN DE DESGLOSES ──
 // Una tarjeta "iniciada" (con monto, categoría o nombre propio) debe estar

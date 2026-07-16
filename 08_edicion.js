@@ -13,7 +13,7 @@ let editType = 'egreso';
 let editCat = '';
 let editSubcat = '';
 let editMethod = 'Tarjeta de crédito';
-let editBenOn = false;
+// R7.2: editBenOn desapareció — el estado vive en el arreglo `editBeneficios` (03_desgloses).
 
 let _eNoteVisible=false;
 let _eDesgloseVisible=false;
@@ -25,10 +25,10 @@ function eNoteHasData(){
 function eDesgloseHasData(){
   return editDesgloses.some(d=>d.amount>0);
 }
+// R7.2: la Nota ya no vive en el renglón inferior — solo Desglose y Recordar
 function updateEditNoteDesgloseIndicators(){
-  updateInlineBtn('e-note-toggle-btn', _eNoteVisible, eNoteHasData());
   updateInlineBtn('e-desglose-toggle-btn', _eDesgloseVisible, eDesgloseHasData());
-  // Tercer tab: 🔔 Recordar (con-datos = recordatorio armado o regla ya existente)
+  // 🔔 Recordar (con-datos = recordatorio armado o regla ya existente)
   try{
     const { type, desc } = _eRemTarget();
     const tieneRegla = (type==='egreso' && desc.length>=2 && !!getManualRule(type, desc));
@@ -38,49 +38,38 @@ function updateEditNoteDesgloseIndicators(){
   }catch(e){}
 }
 
-// Modo de la nota en EDICIÓN (análogo al registro):
-//  - DIRECTO: nota sola (ingreso, beneficio o egreso diferido) → textarea directo.
-//  - TOGGLE: egreso normal (Nota + Desglose) → botones.
-function updateEditNoteMode(){
-  const row=document.getElementById('e-note-desglose-row');
-  const noteBtn=document.getElementById('e-note-toggle-btn');
+// R7.2 · Nota bajo Descripción en EDICIÓN — mismas reglas de foco que el registro
+function showEditNoteField(){
   const wrap=document.getElementById('e-note-field-wrap');
-  if(!row || !noteBtn || !wrap) return;
-  const ta=document.getElementById('e-note');
-  const hasData = ta && ta.value.trim().length>0;
-  const noteDirecto = (editType!=='egreso');   // en diferidos la Nota sigue siendo tab
-  if(noteDirecto){
-    noteBtn.style.display='none';
-    wrap.style.display='block';
-    wrap.style.marginTop='0';
-    _eNoteVisible=true;
-  } else {
-    noteBtn.style.display='';
-    wrap.style.marginTop='10px';
-    if(!_eNoteVisible && !hasData){
-      wrap.style.display='none';
-    }
-  }
+  if(!wrap || _eNoteVisible) return;
+  _eNoteVisible=true;
+  wrap.style.display='block';
+  revealAnimate(wrap);
 }
-
-function toggleENoteField(open){
+function maybeHideEditNoteField(){
   const wrap=document.getElementById('e-note-field-wrap');
-  if(!wrap) return;
-  const isManual = open===undefined;
-  const show = isManual ? !_eNoteVisible : open;
-  _eNoteVisible=show;
-  wrap.style.display=show?'block':'none';
-  if(show){
-    revealAnimate(wrap);
-    if(isManual && _eDesgloseVisible){
-      _eDesgloseVisible=false;
-      const dsec=document.getElementById('e-desglose-section');
-      if(dsec) dsec.style.display='none';
-    }
-    try{ if(typeof _eRemPanelVisible!=='undefined' && _eRemPanelVisible){ _eRemPanelVisible=false;
-      const rp=document.getElementById('e-rem-config'); if(rp) rp.style.display='none'; } }catch(_e){}
-  }
-  updateEditNoteDesgloseIndicators();
+  if(!wrap || !_eNoteVisible) return;
+  if(eNoteHasData()) return;
+  _eNoteVisible=false;
+  hideAnimate(wrap);
+}
+let _editNoteBehaviorReady=false;
+function initEditNoteBehavior(){
+  if(_editNoteBehaviorReady) return;
+  const desc=document.getElementById('e-desc');
+  const note=document.getElementById('e-note');
+  if(!desc || !note) return;
+  _editNoteBehaviorReady=true;
+  desc.addEventListener('focus', showEditNoteField);
+  const onOut=()=>{
+    setTimeout(()=>{
+      const ae=document.activeElement;
+      if(ae===desc || ae===note) return;
+      maybeHideEditNoteField();
+    }, 0);
+  };
+  desc.addEventListener('blur', onOut);
+  note.addEventListener('blur', onOut);
 }
 
 function toggleEditDesgloseSection(open){
@@ -92,11 +81,9 @@ function toggleEditDesgloseSection(open){
   sec.style.display=show?'block':'none';
   if(show){
     revealAnimate(sec);
-    if(isManual && _eNoteVisible){
-      _eNoteVisible=false;
-      const nwrap=document.getElementById('e-note-field-wrap');
-      if(nwrap) nwrap.style.display='none';
-    }
+    // Mutuamente excluyente (solo en clic manual): cerrar Recordar si estaba abierto
+    try{ if(isManual && typeof _eRemPanelVisible!=='undefined' && _eRemPanelVisible){ _eRemPanelVisible=false;
+      const rp=document.getElementById('e-rem-config'); if(rp) rp.style.display='none'; } }catch(_e){}
     if(editDesgloses.length===0) addEditDesglose();
   }
   updateEditNoteDesgloseIndicators();
@@ -111,7 +98,6 @@ function openEdit(id) {
   editType = e.type;
   updateEditMethodLabel();
   _ePropinaVisible=false; _eBenVisible=false;
-  try{ updateEditBenMonthSelector(); }catch(_e){}
   // TC manual: leer la etiqueta de sistema TCauto (si el registro se guardó con TC manual)
   try{
     _fxOverrideEdit=null;
@@ -133,7 +119,6 @@ function openEdit(id) {
   editCat  = e.category;
   editSubcat = e.subcategory||'';
   editMethod = e.method||'Tarjeta de crédito';
-  editBenOn  = false;
   // Mostrar el estado del recordatorio de este comercio (si tiene regla)
   try{
     if(typeof resetEditRemState==='function') resetEditRemState();
@@ -178,9 +163,11 @@ function openEdit(id) {
   const _grupoIds = e.deferGroup
     ? data.filter(x=>sameGroup(x.deferGroup, e.deferGroup)).map(x=>x.id)
     : [id];
-  const _linkedBen = e.type==='egreso'
-    ? data.find(x=>_grupoIds.includes(x.linkedTo) && x.type==='beneficio')
-    : null;
+  // R7.2: puede haber VARIOS beneficios vinculados (en un diferido viven en la
+  // mensualidad 1, pero se buscan en todo el grupo por robustez con datos viejos).
+  const _linkedBens = e.type==='egreso'
+    ? data.filter(x=>_grupoIds.includes(x.linkedTo) && x.type==='beneficio')
+    : [];
   let _realDesgloses;
   if(e.deferGroup){
     const agrupados = {};
@@ -222,15 +209,14 @@ function openEdit(id) {
   const cleanNote = userNote(e);
   document.getElementById('e-note').value = cleanNote;
   try{ _eNotePredicted=false; }catch(_e){}
-  // Nota y Desglose son mutuamente excluyentes. Si el registro tiene desgloses,
-  // se muestra el desglose por defecto; la nota queda disponible en su botón.
+  // R7.2: con contenido, la Nota permanece visible bajo Descripción; vacía,
+  // arranca oculta y aparecerá al enfocar Descripción.
+  initEditNoteBehavior();
+  const _eNoteWrap=document.getElementById('e-note-field-wrap');
+  _eNoteVisible = !!cleanNote;
+  if(_eNoteWrap) _eNoteWrap.style.display = cleanNote ? 'block' : 'none';
+  // Si hay desgloses, la sección se muestra por defecto (comportamiento previo)
   const hasEditDesgloses = editDesgloses.length>0;
-  if(cleanNote && !hasEditDesgloses){
-    toggleENoteField(true);
-  } else {
-    toggleENoteField(false);
-  }
-  updateEditNoteMode();
 
   // --- Método de pago ---
   document.getElementById('e-method-field').style.display = e.type==='beneficio'?'none':'block';
@@ -245,37 +231,18 @@ function openEdit(id) {
   // --- Inline toggles (solo egreso) ---
   document.getElementById('e-inline-toggles').style.display = (e.type==='egreso')?'block':'none';
 
-  // --- Beneficio ---
-  // R5: reutilizamos _linkedBen (ya buscado arriba en TODO el grupo diferido)
-  // en vez de buscar solo en este id. Antes, si abrías un mes DISTINTO al que
-  // tiene el beneficio acreditado, esta búsqueda más estrecha no lo encontraba
-  // y el beneficio parecía no existir al editar ese mes.
-  if(_linkedBen){
-    editBenOn=true; editBenType=_linkedBen.category;
-    document.getElementById('e-ben-amount').value = formatAmountString(String(_linkedBen.amount));
-    // R5: reconstruir si se capturó como % (y con qué valor), leyendo la
-    // etiqueta "X% de $Y" que el guardado ya escribe en la nota del beneficio.
-    // Sin esto, la edición siempre mostraba modo "$" con el resultado ya
-    // calculado, perdiendo la forma en que realmente lo capturaste.
-    const _pctMatch = (_linkedBen.note||'').match(/(\d+(?:\.\d+)?)%\s+de\s+/);
-    const ePctInput = document.getElementById('e-ben-pct');
-    if(_pctMatch){
-      editBenType_mode='pct';
-      if(ePctInput) ePctInput.value = _pctMatch[1];
-    } else {
-      editBenType_mode='monto';
-      if(ePctInput) ePctInput.value='';
+  // --- Beneficios (R7.2: bloques múltiples) ---
+  // Cada hijo tipo 'beneficio' se convierte en un bloque. Si su meta trae
+  // ben:{pct} (capturado como porcentaje), el bloque se reconstruye en modo %;
+  // metaOf también deriva ese dato de las notas legacy "X% de $Y".
+  editBeneficios = _linkedBens.map(b=>{
+    const _bm=metaOf(b);
+    if(_bm.ben && isFinite(_bm.ben.pct) && _bm.ben.pct>0){
+      return { id:genId(), mode:'pct', pct:_bm.ben.pct, amount:0, category:b.category||'' };
     }
-  } else {
-    editBenOn=false; editBenType='Cashback';
-    document.getElementById('e-ben-amount').value='';
-    editBenType_mode='monto';
-    const ePctInput=document.getElementById('e-ben-pct'); if(ePctInput) ePctInput.value='';
-  }
-  setEditBenType(editBenType_mode);
-  buildBenTypeBlocks('e-ben-type-blocks', editBenType, t=>{ editBenType=t; try{ updateEditBenMonthSelector(); }catch(e){} });
-  updateEBenUI();
-  try{ updateEditBenMonthSelector(); }catch(e){}
+    return { id:genId(), mode:'monto', pct:0, amount:b.amount, category:b.category||'' };
+  });
+  renderEditBeneficios(false);
   onECurChange();
 
   // --- Propina (solo egreso) ---
@@ -431,7 +398,7 @@ function setEditType(t,btn){
   document.getElementById('e-ahorro-type-lbl').textContent = t==='beneficio'?'Beneficio':'Ahorro';
   document.getElementById('e-inline-toggles').style.display=t==='egreso'?'block':'none';
   document.getElementById('e-method-field').style.display=t==='beneficio'?'none':'block';
-  if(t!=='egreso'){ editBenOn=false; updateEBenUI(); editDesgloses=[]; renderEditDesgloses(); }
+  if(t!=='egreso'){ if(typeof resetEditBeneficios==='function') resetEditBeneficios(); editDesgloses=[]; renderEditDesgloses(); }
   updateEditDesgloseVisibility();
   renderEditCatUI();
 }
@@ -450,7 +417,7 @@ function setEditAhorroSubType(sub){
   pasivo.style.color      = sub==='beneficio'?'white':'var(--text3)';
   document.getElementById('e-inline-toggles').style.display='none';
   document.getElementById('e-method-field').style.display=sub==='beneficio'?'none':'block';
-  editBenOn=false; updateEBenUI();
+  if(typeof resetEditBeneficios==='function') resetEditBeneficios();
   buildEditCatBlocks(sub,'','');
 }
 
@@ -467,25 +434,14 @@ function toggleEBen(){
   const panel=document.getElementById('e-ben-panel');
   if(panel){
     panel.style.display = abrir ? 'block' : 'none';
-    if(abrir) revealAnimate(panel);
-  }
-  if(abrir){
-    // Solo al ABRIR por primera vez (sin beneficio previo) se limpia el tipo,
-    // para que se muestren todos como en las categorías.
-    if(!editBenOn){
-      editBenOn=true;
-      editBenType='';
-      buildBenTypeBlocks('e-ben-type-blocks', '', t=>{ editBenType=t; });
+    if(abrir){
+      revealAnimate(panel);
+      // Igual que Desglose: si no hay ningún bloque aún, agregar uno para agilizar
+      if(editBeneficios.length===0) addEditBeneficio();
+      else renderEditBeneficios(false);
     }
   }
   refreshEditTopTabs();
-}
-// Se conserva el nombre porque otros flujos la llaman (cambio de tipo, reset).
-function updateEBenUI(){
-  const panel=document.getElementById('e-ben-panel');
-  if(!editBenOn){ _eBenVisible=false; }
-  if(panel) panel.style.display = _eBenVisible ? 'block' : 'none';
-  try{ refreshEditTopTabs(); }catch(e){}
 }
 
 function onECurChange(){
@@ -562,40 +518,8 @@ function playDeleteAnimation(entryId, onComplete){
 let propinaOn=false;
 let propinaType='pct'; // 'pct' | 'monto'
 
-// ── Estado del beneficio (espejo de propina) ──
-let benType='monto';       // 'pct' | 'monto' — default monto directo
-
-function setBenType(t){
-  benType=t;
-  const pctBtn=document.getElementById('ben-chip-pct');
-  const montoBtn=document.getElementById('ben-chip-monto');
-  const pctInput=document.getElementById('ben-pct');
-  const montoInput=document.getElementById('ben-amount');
-  if(pctBtn){ pctBtn.style.background=t==='pct'?'var(--accent)':'transparent'; pctBtn.style.color=t==='pct'?'white':'var(--text3)'; }
-  if(montoBtn){ montoBtn.style.background=t==='monto'?'var(--accent)':'transparent'; montoBtn.style.color=t==='monto'?'white':'var(--text3)'; }
-  if(pctInput) pctInput.style.display=t==='pct'?'':'none';
-  if(montoInput) montoInput.style.display=t==='monto'?'':'none';
-  calcBenPreview();
-}
-
-function getBenAmount(){
-  if(!benOn) return 0;
-  if(benType==='monto') return parseFloat(rawAmount(document.getElementById('ben-amount').value))||0;
-  // Porcentaje: siempre directo sobre el monto registrado
-  const pct=parseFloat(document.getElementById('ben-pct').value)||0;
-  const amount=parseFloat(rawAmount(document.getElementById('amount').value))||0;
-  return +(amount * pct / 100).toFixed(2);
-}
-
-
-
-
-function updatePropinaUI(){
-  const box=document.getElementById('t-box-propina');
-  const extra=document.getElementById('propina-extra');
-  if(box) box.classList.toggle('on', propinaOn);
-  if(extra) extra.style.display=propinaOn?'block':'none';
-}
+// R7.2: setBenType/getBenAmount desaparecieron — el beneficio del registro vive
+// ahora en bloques múltiples (ver 02_registro y 03_desgloses).
 
 let propinaSelMethod = null;
 let propinaIncluida = false; // false = adicional (default), true = incluida en monto
@@ -626,10 +550,14 @@ function setPropinaType(t){
   const pctInput=document.getElementById('propina-pct');
   const montoInput=document.getElementById('propina-monto');
   const methodWrap=document.getElementById('propina-method-wrap');
+  const calcRow=document.getElementById('propina-calc-row');
   if(pctBtn){ pctBtn.style.background=t==='pct'?'var(--accent)':'transparent'; pctBtn.style.color=t==='pct'?'white':'var(--text3)'; }
   if(montoBtn){ montoBtn.style.background=t==='monto'?'var(--accent)':'transparent'; montoBtn.style.color=t==='monto'?'white':'var(--text3)'; }
   if(pctInput) pctInput.style.display=t==='pct'?'':'none';
   if(montoInput) montoInput.style.display=t==='monto'?'':'none';
+  // R7.2: el cálculo vive debajo del renglón y SOLO en modo %; en $ desaparece
+  // y en su lugar aparecen las opciones del método de pago de la propina.
+  if(calcRow) calcRow.style.display=t==='pct'?'':'none';
   if(methodWrap) methodWrap.style.display=t==='monto'?'block':'none';
   if(t==='pct'){ propinaSelMethod=null; document.querySelectorAll('#propina-method-chips .chip').forEach(c=>c.classList.remove('active')); }
   calcPropinaPreview();
@@ -675,7 +603,6 @@ function resetPropina(){
   propinaOn=false;
   propinaType='pct';
   propinaIncluida=true;
-  updatePropinaUI();
   const pctEl=document.getElementById('propina-pct');
   const montoEl=document.getElementById('propina-monto');
   const calcEl=document.getElementById('propina-calc');
@@ -711,7 +638,7 @@ function ePropinaHasData(){
   try{ return editPropinaOn && getEditPropinaAmount()>0; }catch(e){ return false; }
 }
 function eBenHasData(){
-  try{ return editType==='egreso' && editBenOn && getEditBenAmount()>0; }catch(e){ return false; }
+  try{ return editType==='egreso' && editBeneficiosDetalle().total>0; }catch(e){ return false; }
 }
 
 // Cierra los paneles de los otros dos tabs, SIN tocar sus datos
@@ -758,11 +685,30 @@ function _refreshEditTopTabs(){
   updateInlineBtn('e-inline-propina-btn', _ePropinaVisible, ePropinaHasData() && !_ePropinaVisible);
   updateInlineBtn('e-inline-ben-btn', _eBenVisible, eBenHasData() && !_eBenVisible);
   updateInlineBtn('e-inline-diferir-btn', (typeof _eDiferirVisible!=='undefined' && _eDiferirVisible), editDiferirHasData() && !(typeof _eDiferirVisible!=='undefined' && _eDiferirVisible));
-  try{ updateEditBenMonthSelector(); }catch(e){}
   try{ editUpdateDesgloseForDiferir(); }catch(e){}
   // Diferir → Recordar: recalcula si 🔔 debe estar visible (antes solo miraba si
   // el registro YA era diferido, no si acababas de activar el diferido aquí).
   try{ renderEditReminderSection(); }catch(e){}
+}
+
+// R7.2 · ✕ del módulo Propina en edición: borra la info, colapsa y desactiva el botón
+function clearEditPropinaModule(){
+  editPropinaOn=false;
+  editPropinaType='monto';
+  editPropinaIncluida=false;
+  editPropinaMethod=null;
+  const pctEl=document.getElementById('e-propina-pct');
+  const montoEl=document.getElementById('e-propina-monto');
+  if(pctEl) pctEl.value='';
+  if(montoEl) montoEl.value='';
+  document.querySelectorAll('#e-propina-method-chips .chip').forEach(c=>c.classList.remove('active'));
+  setEditPropinaType('pct');
+  setEditPropinaIncluida(false);
+  _ePropinaVisible=false;
+  const panel=document.getElementById('e-propina-panel');
+  if(panel) panel.style.display='none';
+  updateInlineBtn('e-inline-propina-btn', false, false);
+  refreshEditTopTabs();
 }
 
 function toggleEPropina(){
@@ -785,10 +731,14 @@ function setEditPropinaType(t){
   const pctInput=document.getElementById('e-propina-pct');
   const montoInput=document.getElementById('e-propina-monto');
   const methodWrap=document.getElementById('e-propina-method-wrap');
+  const calcRow=document.getElementById('e-propina-calc-row');
   if(pctBtn){ pctBtn.style.background=t==='pct'?'var(--accent)':'transparent'; pctBtn.style.color=t==='pct'?'white':'var(--text3)'; }
   if(montoBtn){ montoBtn.style.background=t==='monto'?'var(--accent)':'transparent'; montoBtn.style.color=t==='monto'?'white':'var(--text3)'; }
   if(pctInput) pctInput.style.display=t==='pct'?'':'none';
   if(montoInput) montoInput.style.display=t==='monto'?'':'none';
+  // R7.2: el cálculo vive debajo del renglón y SOLO en modo %; en $ desaparece
+  // y en su lugar aparecen las opciones del método de pago de la propina.
+  if(calcRow) calcRow.style.display=t==='pct'?'':'none';
   if(methodWrap) methodWrap.style.display=t==='monto'?'block':'none';
   if(t==='pct'){ editPropinaMethod=null; document.querySelectorAll('#e-propina-method-chips .chip').forEach(c=>c.classList.remove('active')); }
   calcEditPropinaPreview();
@@ -845,10 +795,11 @@ function loadEditPropina(parentId){
   editPropinaIncluida=false;
   editPropinaMethod=null;
   // Buscar propina vinculada: identificada por categoría/subcategoría (robusto ante
-  // cambios de formato de nota entre versiones).
+  // cambios de formato de nota entre versiones). R7.2: la subcategoría es
+  // 'Propina'; se acepta 'Propinas' por si un registro legacy llegara sin migrar.
   const prop = data.find(x=>
     x.linkedTo===parentId &&
-    x.subcategory==='Propinas' &&
+    (x.subcategory==='Propina' || x.subcategory==='Propinas') &&
     x.category==='Generosidad' &&
     !isDesglose(x)
   );
@@ -862,14 +813,13 @@ function loadEditPropina(parentId){
   if(prop){
     editPropinaOn=true;
     editPropinaExistingId=prop.id;
-    const note=prop.note||'';
-    // Detectar incluida/adicional (cualquier formato de nota)
-    editPropinaIncluida = note.includes('incluida');
-    // Detectar si fue porcentaje (la nota menciona "X%")
-    const pctMatch=note.match(/(\d+(?:\.\d+)?)\s*%/);
-    if(pctMatch){
+    // Estado desde metaOf: cubre el formato nuevo (meta.tip) Y las notas legacy
+    // que la capa de lectura ya sabe interpretar.
+    const _tip=metaOf(prop).tip||{};
+    editPropinaIncluida = !!_tip.inc;
+    if(_tip.pct!=null && isFinite(_tip.pct)){
       editPropinaType='pct';
-      if(pctEl) pctEl.value=pctMatch[1];
+      if(pctEl) pctEl.value=String(_tip.pct);
     } else {
       // Monto directo: usar el monto guardado del registro de propina
       editPropinaType='monto';
@@ -900,38 +850,8 @@ function updateEditMethodLabel(){
 }
 
 
-// Selector "¿en qué mensualidad se te acreditó?" del beneficio (solo diferidos)
-function updateEditBenMonthSelector(){
-  const row=document.getElementById('e-ben-month-row');
-  const sel=document.getElementById('e-ben-month');
-  if(!row || !sel) return;
-  const grupo = editDeferGroup ? data.filter(x=>sameGroup(x.deferGroup, editDeferGroup)) : [];
-  const n = (editDiferirMonths && editDiferirMonths>=2)
-    ? editDiferirMonths
-    : (grupo.length ? (grupo[0].deferTotal||grupo.length) : 0);
-  if(!n || n<2){ row.style.display='none'; return; }
-  // R5: solo aplica a beneficios tipo crédito recibido (Cashback). Un descuento
-  // aplicado ya redujo el total antes de prorratear; no se "acredita" en un mes.
-  if(!editBenType || (typeof benReduceGasto==='function' && benReduceGasto(editBenType))){
-    row.style.display='none'; return;
-  }
-  // Mes donde está hoy el beneficio (si ya existe)
-  let actual=1;
-  const madres=grupo.slice().sort((a,b)=>a.deferIndex-b.deferIndex);
-  madres.forEach(m=>{
-    const ben=data.find(x=>x.linkedTo===m.id && x.type==='beneficio');
-    if(ben) actual=m.deferIndex;
-  });
-  sel.innerHTML='';
-  for(let i=1;i<=n;i++){
-    const o=document.createElement('option');
-    o.value=String(i);
-    o.textContent=`Mensualidad ${i} de ${n}`;
-    sel.appendChild(o);
-  }
-  sel.value=String(Math.min(actual,n));
-  row.style.display='block';
-}
+// R7.2: el selector "¿en qué mensualidad se te acreditó?" desapareció junto con
+// Cashback-como-beneficio (todo beneficio descuenta el total antes de prorratear).
 
 
 // ══════════ TC MANUAL EN EL MODAL DE EDICIÓN ══════════
@@ -999,7 +919,7 @@ function updateEditFxRow(){
 function onEFxManualInput(){
   _fxOverrideEdit=_eFxParse(document.getElementById('e-fx-manual')?.value);
   updateEditFxRow();
-  try{ calcEditPropinaPreview(); calcEditBenPreview(); updateEditDesgloseRemaining(); renderEditDiferirPreview(); }catch(e){}
+  try{ calcEditPropinaPreview(); refreshEditBeneficioCalcs(); updateEditDesgloseRemaining(); renderEditDiferirPreview(); }catch(e){}
 }
 // Vaciar el campo: al guardar, todo se recalcula con el TC automático original
 function revertFxToHistoric(){
