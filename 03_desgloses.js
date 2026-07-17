@@ -236,8 +236,9 @@ function refreshAllDesgloseSubcatDropdowns(){
         // R7.2: vive en la MITAD DERECHA del renglón de Categoría.
         const newSel=document.createElement('select');
         newSel.setAttribute('data-desg-subcat','');
+        newSel.classList.add('desg-subcat');
         newSel.setAttribute('onchange', `setDesgloseSubcat(${d.id},this.value)`);
-        newSel.style.cssText='flex:1 1 0;min-width:0;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;';
+        newSel.style.cssText='min-width:0;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;';
         newSel.innerHTML=subInfo.html;
         const catRow=card.querySelector('[data-desg-catrow]');
         if(catRow) catRow.appendChild(newSel);
@@ -329,18 +330,20 @@ function renderDesgloses(animateNew){
     card.innerHTML=`
       <button type="button" onclick="removeDesglose(${d.id})" style="position:absolute;top:8px;right:8px;background:none;border:none;cursor:pointer;color:var(--danger);font-size:16px;line-height:1;padding:2px;">✕</button>
       <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:8px;">Desglose ${idx+1}${curLabel}</div>
-      <!-- R7.2 · Renglón 1: Monto (≈⅓) + Nombre propio (≈⅔).
+      <!-- R8 · Renglón 1: Monto (20%) + Nombre propio (80%).
            Nombre propio: vacío = hereda la descripción madre; con texto = ese será su nombre en el historial -->
       <div style="display:flex;gap:8px;margin-bottom:8px;">
-        <input data-desg-amount type="text" inputmode="decimal" placeholder="Monto${curLabel}" value="${d.amount?formatAmountString(String(d.amount)):''}" oninput="handleAmountInput(this);updateDesglose(${d.id},'amount',rawAmount(this.value))" style="flex:1 1 0;min-width:0;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
-        <input data-desg-owndesc type="text" placeholder="Nombre propio (opcional)" value="${(d.desc||'').replace(/"/g,'&quot;')}" oninput="updateDesglose(${d.id},'desc',this.value)" style="flex:2 1 0;min-width:0;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
+        <input data-desg-amount type="text" inputmode="decimal" placeholder="Monto${curLabel}" value="${d.amount?formatAmountString(String(d.amount)):''}" oninput="handleAmountInput(this);updateDesglose(${d.id},'amount',rawAmount(this.value))" style="flex:0 0 20%;min-width:0;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
+        <input data-desg-owndesc type="text" placeholder="Nombre propio (opcional)" value="${(d.desc||'').replace(/"/g,'&quot;')}" oninput="updateDesglose(${d.id},'desc',this.value)" style="flex:1 1 0;min-width:0;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
       </div>
-      <!-- R7.2 · Renglón 2: Categoría (mitad izq) + Subcategoría (mitad der, solo tras elegir categoría) -->
-      <div data-desg-catrow style="display:flex;gap:8px;margin-bottom:8px;">
-        <select onchange="setDesgloseCat(${d.id},this.value)" style="flex:1 1 0;min-width:0;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
+      <!-- R8 · Renglón 2: Categoría + Subcategoría. En escritorio ambos 50%; en
+           móvil ambos inician 50% pero Subcategoría cede a Categoría si esta lo
+           necesita (Categoría nunca se trunca; si falta espacio, se trunca Subcat). -->
+      <div data-desg-catrow class="desg-catrow" style="display:flex;gap:8px;margin-bottom:8px;">
+        <select class="desg-cat" onchange="setDesgloseCat(${d.id},this.value)" style="min-width:0;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
           <option value="">Categoría...</option>${catOpts}
         </select>
-        ${showSubcat?`<select data-desg-subcat onchange="setDesgloseSubcat(${d.id},this.value)" style="flex:1 1 0;min-width:0;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">${subOpts}</select>`:''}
+        ${showSubcat?`<select data-desg-subcat class="desg-subcat" onchange="setDesgloseSubcat(${d.id},this.value)" style="min-width:0;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">${subOpts}</select>`:''}
       </div>
       ${showNote?`<input data-desg-note type="text" placeholder="Nota (opcional)" value="${d.note||''}" oninput="updateDesglose(${d.id},'note',this.value)" style="width:100%;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:13px;outline:none;">`:''}
     `;
@@ -693,8 +696,9 @@ function refreshAllEditDesgloseSubcatDropdowns(){
         // R7.2: el dropdown nuevo vive en la MITAD DERECHA del renglón de Categoría.
         const newSel=document.createElement('select');
         newSel.setAttribute('data-desg-subcat','');
+        newSel.classList.add('desg-subcat');
         newSel.setAttribute('onchange', `setEditDesgloseSubcat(${d.id},this.value)`);
-        newSel.style.cssText='flex:1 1 0;min-width:0;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;';
+        newSel.style.cssText='min-width:0;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;';
         newSel.innerHTML=subInfo.html;
         const catRow=card.querySelector('[data-desg-catrow]');
         if(catRow) catRow.appendChild(newSel);
@@ -731,15 +735,15 @@ function renderEditDesgloses(){
       <!-- R7.2 · Renglón 1: Monto (≈⅓) + Nombre propio (≈⅔).
            Nombre propio: vacío = hereda la descripción madre; con texto = ese será su nombre en el historial -->
       <div style="display:flex;gap:8px;margin-bottom:8px;">
-        <input data-desg-amount type="text" inputmode="decimal" placeholder="Monto" value="${d.amount?formatAmountString(String(d.amount)):''}" oninput="handleAmountInput(this);updateEditDesglose(${d.id},'amount',rawAmount(this.value))" style="flex:1 1 0;min-width:0;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
-        <input data-desg-owndesc type="text" placeholder="Nombre propio (opcional)" value="${(d.desc||'').replace(/"/g,'&quot;')}" oninput="updateEditDesglose(${d.id},'desc',this.value)" style="flex:2 1 0;min-width:0;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
+        <input data-desg-amount type="text" inputmode="decimal" placeholder="Monto" value="${d.amount?formatAmountString(String(d.amount)):''}" oninput="handleAmountInput(this);updateEditDesglose(${d.id},'amount',rawAmount(this.value))" style="flex:0 0 20%;min-width:0;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
+        <input data-desg-owndesc type="text" placeholder="Nombre propio (opcional)" value="${(d.desc||'').replace(/"/g,'&quot;')}" oninput="updateEditDesglose(${d.id},'desc',this.value)" style="flex:1 1 0;min-width:0;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
       </div>
       <!-- R7.2 · Renglón 2: Categoría (mitad izq) + Subcategoría (mitad der) -->
       <div data-desg-catrow style="display:flex;gap:8px;margin-bottom:8px;">
-        <select onchange="setEditDesgloseCat(${d.id},this.value)" style="flex:1 1 0;min-width:0;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
+        <select class="desg-cat" onchange="setEditDesgloseCat(${d.id},this.value)" style="min-width:0;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
           <option value="">Categoría...</option>${catOpts}
         </select>
-        ${showSubcat?`<select data-desg-subcat onchange="setEditDesgloseSubcat(${d.id},this.value)" style="flex:1 1 0;min-width:0;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">${subOpts}</select>`:''}
+        ${showSubcat?`<select data-desg-subcat class="desg-subcat" onchange="setEditDesgloseSubcat(${d.id},this.value)" style="min-width:0;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">${subOpts}</select>`:''}
       </div>
       ${isComplete?`<input data-desg-note type="text" placeholder="Nota (opcional)" value="${d.note||''}" oninput="updateEditDesglose(${d.id},'note',this.value)" style="width:100%;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:13px;outline:none;">`:''}
     `;
@@ -857,8 +861,10 @@ function updateEditDesgloseVisibility(){
 // ══════════════════════════════════════
 
 function addBeneficio(){
-  // Si ya existe un porcentual, los nuevos bloques nacen (y se quedan) en $.
-  beneficios.push({ id: genId(), mode:'monto', pct:0, amount:0, category:'' });
+  // R8: el modo por defecto es porcentaje. Pero solo puede existir UN bloque
+  // porcentual: si ya hay uno, este nace en monto (la regla de "un solo %").
+  const yaHayPct = beneficios.some(b=>b.mode==='pct');
+  beneficios.push({ id: genId(), mode: yaHayPct?'monto':'pct', pct:0, amount:0, category:'' });
   renderBeneficios(true);
 }
 
@@ -869,12 +875,13 @@ function removeBeneficio(id){
   const applyRemoval=()=>{
     beneficios = beneficios.filter(b=>b.id!==id);
     if(isOnlyOne){
-      // Era el último beneficio: colapsar el módulo y desactivar el botón
+      // Era el último beneficio: colapsar el módulo y desactivar el botón.
+      // R8: el colapso usa hideAnimate (la misma animación suave de ocultar del
+      // resto de la app) en vez de un display:none abrupto.
       _benVisible=false;
-      const panel=document.getElementById('ben-panel');
-      if(panel) panel.style.display='none';
       const addBtn=document.getElementById('add-beneficio-btn');
       if(addBtn){ addBtn.dataset.exceedHidden=''; addBtn.style.opacity=''; }
+      hideAnimate(document.getElementById('ben-panel'));
       updateBeneficioRemaining();
       try{ refreshTopTabsVisibility(); }catch(e){}
     } else {
@@ -887,10 +894,41 @@ function removeBeneficio(id){
 }
 
 // Opciones del dropdown de tipo de beneficio
+// R8 · Orden de los tipos de beneficio — MISMA lógica que sortedSubcats():
+//   1) por recurrencia de uso (mayor → menor)
+//   2) los empatados, alfabético (es)
+//   3) "Otros (beneficios)" SIEMPRE al final
+// El uso se registra con trackUsage bajo la clave 'beneficio:<tipo>' (el mismo
+// contador de categorías, ya que los tipos de beneficio SON categorías del
+// tipo 'beneficio' — ver más abajo cómo se registran al guardar).
+function sortedBenTypes(){
+  const otros = BEN_TYPES.filter(t=>t==='Otros (beneficios)');
+  const rest = BEN_TYPES.filter(t=>t!=='Otros (beneficios)');
+  rest.sort((a,b)=>{
+    const ua = usage[`beneficio:${a}`]||0;
+    const ub = usage[`beneficio:${b}`]||0;
+    if(ub!==ua) return ub-ua;
+    return a.localeCompare(b,'es');
+  });
+  return [...rest, ...otros];
+}
+
 function benTypeOptionsHtml(selected){
   const opts=['<option value="">Tipo...</option>'];
-  BEN_TYPES.forEach(t=>{ opts.push(`<option value="${t}" ${selected===t?'selected':''}>${t}</option>`); });
+  sortedBenTypes().forEach(t=>{ opts.push(`<option value="${t}" ${selected===t?'selected':''}>${t}</option>`); });
   return opts.join('');
+}
+
+// R8 · Chips de tipo de beneficio (solo visibles en web; en móvil se usa el
+// dropdown). Un chip por tipo, en el mismo orden que el dropdown. onclick llama
+// a la MISMA función setBeneficioCat/setEditBeneficioCat, así el estado y el
+// resto de la lógica no cambian. `setFn` es el nombre de esa función.
+function benChipsHtml(selected, benId, setFn){
+  return sortedBenTypes().map(t=>{
+    const active = selected===t;
+    const esc = t.replace(/'/g,"\\'");
+    return `<button type="button" class="ben-type-chip${active?' active':''}" onclick="${setFn}(${benId},'${esc}')">${t}</button>`;
+  }).join('');
 }
 
 function renderBeneficios(animateNew){
@@ -922,10 +960,11 @@ function renderBeneficios(animateNew){
           <button type="button" onclick="setBeneficioMode(${b.id},'monto')" style="padding:5px 12px;border-radius:100px;border:none;background:${!esPct?'var(--accent)':'transparent'};color:${!esPct?'white':'var(--text3)'};font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;transition:all 0.18s;">$</button>
         </div>
         <input data-ben-amount type="text" inputmode="decimal" value="${inputVal}" ${inputAttrs} style="width:88px;flex:0 0 auto;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
-        <select onchange="setBeneficioCat(${b.id},this.value)" style="flex:1;min-width:0;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
+        <select class="ben-type-select" onchange="setBeneficioCat(${b.id},this.value)" style="flex:1;min-width:0;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
           ${benTypeOptionsHtml(b.category)}
         </select>
       </div>
+      <div class="ben-type-chips">${benChipsHtml(b.category, b.id, 'setBeneficioCat')}</div>
       <div data-ben-calc style="font-size:12px;color:var(--text3);margin-top:6px;display:none;"></div>
     `;
     list.appendChild(card);
@@ -974,9 +1013,23 @@ function setBeneficioCat(id, cat){
   const b=beneficios.find(x=>x.id===id);
   if(!b) return;
   b.category=cat;
+  // R8: repintar el estado activo de los chips de ESTE bloque (web) sin
+  // re-renderizar la tarjeta (para no perder el foco de otros campos).
+  paintBenChips('beneficio-list', id, cat);
   updateAddBeneficioBtnVisibility();
   updateBeneficioRemaining();
   try{ refreshTopTabsVisibility(); }catch(e){}
+}
+
+// Marca como activo el chip del tipo elegido dentro de un bloque de beneficio.
+function paintBenChips(listId, benId, cat){
+  const card=document.querySelector(`#${listId} [data-ben-id="${benId}"]`);
+  if(!card) return;
+  card.querySelectorAll('.ben-type-chip').forEach(ch=>{
+    ch.classList.toggle('active', ch.textContent===cat);
+  });
+  const sel=card.querySelector('.ben-type-select');
+  if(sel && sel.value!==cat) sel.value=cat;
 }
 
 function updateBeneficio(id, field, value){
@@ -1112,7 +1165,9 @@ function editBeneficiosDetalle(){
 function editBeneficiosTotal(){ return editBeneficiosDetalle().total; }
 
 function addEditBeneficio(){
-  editBeneficios.push({ id: genId(), mode:'monto', pct:0, amount:0, category:'' });
+  // R8: default porcentaje, salvo que ya exista un bloque porcentual.
+  const yaHayPct = editBeneficios.some(b=>b.mode==='pct');
+  editBeneficios.push({ id: genId(), mode: yaHayPct?'monto':'pct', pct:0, amount:0, category:'' });
   renderEditBeneficios(true);
 }
 
@@ -1124,10 +1179,9 @@ function removeEditBeneficio(id){
     editBeneficios = editBeneficios.filter(b=>b.id!==id);
     if(isOnlyOne){
       _eBenVisible=false;
-      const panel=document.getElementById('e-ben-panel');
-      if(panel) panel.style.display='none';
       const addBtn=document.getElementById('e-add-beneficio-btn');
       if(addBtn){ addBtn.dataset.exceedHidden=''; addBtn.style.opacity=''; }
+      hideAnimate(document.getElementById('e-ben-panel'));   // R8: colapso suave
       updateEditBeneficioRemaining();
       try{ refreshEditTopTabs(); }catch(e){}
     } else {
@@ -1166,10 +1220,11 @@ function renderEditBeneficios(animateNew){
           <button type="button" onclick="setEditBeneficioMode(${b.id},'monto')" style="padding:5px 12px;border-radius:100px;border:none;background:${!esPct?'var(--accent)':'transparent'};color:${!esPct?'white':'var(--text3)'};font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;transition:all 0.18s;">$</button>
         </div>
         <input data-ben-amount type="text" inputmode="decimal" value="${inputVal}" ${inputAttrs} style="width:88px;flex:0 0 auto;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
-        <select onchange="setEditBeneficioCat(${b.id},this.value)" style="flex:1;min-width:0;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
+        <select class="ben-type-select" onchange="setEditBeneficioCat(${b.id},this.value)" style="flex:1;min-width:0;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
           ${benTypeOptionsHtml(b.category)}
         </select>
       </div>
+      <div class="ben-type-chips">${benChipsHtml(b.category, b.id, 'setEditBeneficioCat')}</div>
       <div data-ben-calc style="font-size:12px;color:var(--text3);margin-top:6px;display:none;"></div>
     `;
     list.appendChild(card);
@@ -1216,6 +1271,7 @@ function setEditBeneficioCat(id, cat){
   const b=editBeneficios.find(x=>x.id===id);
   if(!b) return;
   b.category=cat;
+  paintBenChips('e-beneficio-list', id, cat);   // R8: repintar chips (web)
   updateEditAddBeneficioBtnVisibility();
   updateEditBeneficioRemaining();
   try{ refreshEditTopTabs(); }catch(e){}

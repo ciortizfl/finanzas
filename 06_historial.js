@@ -1195,8 +1195,12 @@ function txEl(e, showDelete){
 
     // Etiqueta de gasto diferido: "Diferido · mes X/N · de $Total"
     if(e.deferGroup && e.deferTotal){
+      // R8 · Formato de la moneda del total en el diferido:
+      //   · MXN → sin identificador de moneda: "de $6,054" (formato pesos)
+      //   · extranjera → identificador + $: "de USD $900" (antes "de USD 900")
+      const symDefer = e.currency==='MXN' ? '$' : `${e.currency} $`;
       // "Mensualidad 1/6 de $6,054" — el total de la compra, no el cargo del mes
-      metaParts.push(`Mensualidad ${e.deferIndex}/${e.deferTotal} de ${tagAmt(e.deferOriginal||0, sym)}`);
+      metaParts.push(`Mensualidad ${e.deferIndex}/${e.deferTotal} de ${tagAmt(e.deferOriginal||0, symDefer)}`);
     }
 
     // R7 · 6a: el "Monto original" ahora sale de cargoBrutoDe() (01_nucleo), el

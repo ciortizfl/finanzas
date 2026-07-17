@@ -53,6 +53,14 @@ function maybeHideEditNoteField(){
   _eNoteVisible=false;
   hideAnimate(wrap);
 }
+// R8 · ✕ de la Nota en edición (espejo del registro): vacía y colapsa sin confirmar.
+function clearEditNoteField(){
+  const el=document.getElementById('e-note');
+  if(el) el.value='';
+  try{ _eNotePredicted=false; }catch(_e){}
+  _eNoteVisible=false;
+  hideAnimate(document.getElementById('e-note-field-wrap'));
+}
 let _editNoteBehaviorReady=false;
 function initEditNoteBehavior(){
   if(_editNoteBehaviorReady) return;
@@ -263,20 +271,26 @@ function openEdit(id) {
   document.body.style.overflow='hidden';
   refreshEditEmojiBtn();
   setupEditDiferirPanel();
-  // TAB INICIAL del renglón superior: si es diferido, se muestra el diferido;
-  // si no, el beneficio o la propina que ya tenga. Los demás quedan cerrados
-  // pero con su indicador de "contiene datos".
+  // R8 · TEMA 8 — Al abrir para editar, TODOS los módulos expandibles inician
+  // COLAPSADOS (beneficios, propina, desglose, diferido, recordatorio). Sus
+  // botones reflejan si contienen datos vía refreshEditTopTabs / los indicadores
+  // "con datos". La ÚNICA excepción es la Nota, que se abre sola si tiene texto
+  // (eso lo maneja su propia lógica al cargar el registro, más arriba).
   try{
-    if(!editDeferGroup){
-      _eDiferirVisible=false;
-      if(eBenHasData()){
-        _eBenVisible=true;
-        const bp=document.getElementById('e-ben-panel'); if(bp) bp.style.display='block';
-      } else if(ePropinaHasData()){
-        _ePropinaVisible=true;
-        const pp=document.getElementById('e-propina-panel'); if(pp) pp.style.display='block';
-      }
-    }
+    _eDiferirVisible=false;
+    _eBenVisible=false;
+    _ePropinaVisible=false;
+    const bp=document.getElementById('e-ben-panel'); if(bp) bp.style.display='none';
+    const pp=document.getElementById('e-propina-panel'); if(pp) pp.style.display='none';
+    // Diferido: colapsar el panel también (su indicador "con datos" lo pinta
+    // refreshEditTopTabs a partir de editDiferirHasData()). setupEditDiferirPanel
+    // ya cargó los meses/preset, así que al re-expandirlo estarán listos.
+    const dp=document.getElementById('e-diferir-panel'); if(dp) dp.style.display='none';
+    // Desglose: colapsar el panel pero conservar el indicador "con datos" del
+    // botón (updateEditNoteDesgloseIndicators ya lo pinta según eDesgloseHasData).
+    _eDesgloseVisible=false;
+    const ds=document.getElementById('e-desglose-section'); if(ds) ds.style.display='none';
+    try{ updateEditNoteDesgloseIndicators(); }catch(_e2){}
     refreshEditTopTabs();
   }catch(_e){}
 }
@@ -522,7 +536,7 @@ let propinaType='pct'; // 'pct' | 'monto'
 // ahora en bloques múltiples (ver 02_registro y 03_desgloses).
 
 let propinaSelMethod = null;
-let propinaIncluida = false; // false = adicional (default), true = incluida en monto
+let propinaIncluida = true; // R8: default = incluida en monto (antes: adicional)
 
 function setPropinaIncluida(val){
   propinaIncluida=val;
@@ -613,8 +627,9 @@ function resetPropina(){
   const methodWrap=document.getElementById('propina-method-wrap');
   if(methodWrap) methodWrap.style.display='none';
   document.querySelectorAll('#propina-method-chips .chip').forEach(c=>c.classList.remove('active'));
-  // Reset incl/adic buttons
-  setPropinaIncluida(false); // Adicional by default
+  // R8: defaults de propina = Porcentaje + Incluida
+  setPropinaType('pct');
+  setPropinaIncluida(true);
 }
 
 // ══════════════════════════════════════
@@ -674,14 +689,16 @@ function _refreshEditTopTabs(){
   // El botón ancho del crossfade viejo queda retirado: la fila de tabs manda
   if(full){ try{ full.getAnimations().forEach(a=>a.cancel()); }catch(e){} full.style.opacity='0'; full.style.pointerEvents='none'; }
   if(row){ try{ row.getAnimations().forEach(a=>a.cancel()); }catch(e){} row.style.opacity=''; row.style.pointerEvents=''; }
-  const propinaActiva = _ePropinaVisible || ePropinaHasData();
-  const diferirActivo = (typeof _eDiferirVisible!=='undefined' && _eDiferirVisible) || editDiferirHasData();
-  // Recordar activo (panel abierto o ya armado) esconde Diferir. Si Diferir está
-  // activo, él manda y renderEditReminderSection() apaga a Recordar.
-  const remActivo = (typeof _eRemPanelVisible!=='undefined' && _eRemPanelVisible)
-                 || (typeof eRemHasData==='function' && eRemHasData());
-  if(pbn) pbn.style.display = diferirActivo ? 'none' : '';
-  if(dbn) dbn.style.display = (propinaActiva || (remActivo && !diferirActivo)) ? 'none' : '';
+  // R8: el ocultamiento MUTUO de los tabs Propina/Diferir depende de que el otro
+  // panel esté ABIERTO, no de que tenga datos. Así, con todo colapsado (tema 8),
+  // ambos botones se ven con su indicador "con datos" en vez de esconderse.
+  // (La exclusión Diferir↔Recordar y Diferir↔Desglose por DATOS vive en
+  // editUpdateDesgloseForDiferir y renderEditReminderSection, más abajo.)
+  const propinaAbierta = _ePropinaVisible;
+  const diferirAbierto = (typeof _eDiferirVisible!=='undefined' && _eDiferirVisible);
+  const remAbierto = (typeof _eRemPanelVisible!=='undefined' && _eRemPanelVisible);
+  if(pbn) pbn.style.display = diferirAbierto ? 'none' : '';
+  if(dbn) dbn.style.display = (propinaAbierta || (remAbierto && !diferirAbierto)) ? 'none' : '';
   updateInlineBtn('e-inline-propina-btn', _ePropinaVisible, ePropinaHasData() && !_ePropinaVisible);
   updateInlineBtn('e-inline-ben-btn', _eBenVisible, eBenHasData() && !_eBenVisible);
   updateInlineBtn('e-inline-diferir-btn', (typeof _eDiferirVisible!=='undefined' && _eDiferirVisible), editDiferirHasData() && !(typeof _eDiferirVisible!=='undefined' && _eDiferirVisible));

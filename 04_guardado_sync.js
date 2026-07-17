@@ -405,6 +405,9 @@ function _submitEntry(){
   }
 
   trackUsage(curType, curCat, subcat);
+  // R8: registrar el uso de cada tipo de beneficio para que el orden por
+  // recurrencia (sortedBenTypes) refleje los más usados primero.
+  benEntries.forEach(be=>{ if(be.category) trackUsage('beneficio', be.category, ''); });
   save();
   showSyncing('⟳ Guardando...');
   const saves = [saveEntryToSheets(entry)];

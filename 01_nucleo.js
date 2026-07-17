@@ -14,6 +14,8 @@ const _migrations = {
     'Puntos de Tarjeta de Crédito': 'Puntos TDC',
     'Puntos tarjeta': 'Puntos TDC',
     'Puntos': 'Puntos de lealtad',
+    // R8: tipo de beneficio renombrado por consistencia con "Otros (x)".
+    'Otros beneficios': 'Otros (beneficios)',
   },
   // R7.2: la subcategoría se llama "Propina" (singular) en toda la app.
   subcategory: {
@@ -334,7 +336,7 @@ const ICONS = {
   'Aguinaldo':'🎄','Utilidades':'📊','Fondo de ahorro':'🏦','Reembolsos':'↩️',
   'Rendimientos':'📈','Renta de propiedad':'🏢','Ventas':'🛍️','Regalos':'🎁',
   'Inversiones':'💹','Cashback':'💳','Puntos TDC':'💎',
-  'Puntos de lealtad':'⭐','Millas aéreas':'✈️','Descuentos y promociones':'🏷️','Otros beneficios':'🎁','Descuento':'🏷️','Otro beneficio':'🎁',
+  'Puntos de lealtad':'⭐','Millas aéreas':'✈️','Descuentos y promociones':'🏷️','Otros (beneficios)':'🎁','Otros beneficios':'🎁','Descuento':'🏷️','Otro beneficio':'🎁',
   'Renta':'🏠','Hipoteca':'🔑','Mantenimiento':'🔧','Servicios':'⚡',
   'Seguridad':'🔒','Muebles y decoración':'🛋️','Servicio de limpieza':'🧹',
   'Equipamiento':'📦','Salud y médicos':'🏥','Dentista':'🦷','Medicamentos':'💊','Gimnasio':'💪','Finanzas / Impuestos':'💼',
@@ -554,6 +556,7 @@ const CAT_COLORS = {
   'Puntos de lealtad':        '#ffcc00',
   'Millas aéreas':            '#00c7be',
   'Descuentos y promociones': '#ff2d55',
+  'Otros (beneficios)':       '#a2845e',
   'Otros beneficios':         '#a2845e',
   // Nombres antiguos (por si hay registros históricos)
   'Descuento':                '#ff2d55',

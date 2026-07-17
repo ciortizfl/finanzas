@@ -72,11 +72,13 @@
       <div class="field">
         <label>Descripción</label>
         <input type="text" id="desc" placeholder="¿En qué fue?" oninput="predictCategory()">
-        <!-- R7.2 · Nota (opcional): vive inmediatamente debajo de Descripción.
-             Se desliza al enfocar Descripción; permanece si tiene contenido;
-             se oculta al perder el foco estando vacía (ver 02_registro). -->
-        <div id="note-field-wrap" style="display:none;margin-top:10px">
-          <textarea id="note" placeholder="Nota (opcional)" oninput="onNoteInput()" style="width:100%;padding:11px 13px;border:none;border-radius:var(--radius-sm);background:var(--surface2);color:var(--text);font-family:inherit;font-size:15px;outline:none;resize:none;height:64px;"></textarea>
+        <!-- R8 · Nota (opcional): vive "oculta" justo debajo de Descripción, sin
+             separación de bloque. El campo Descripción proyecta una sombra sobre
+             ella como separador visual. Se desliza al enfocar Descripción y trae
+             su propia ✕ que la vacía y colapsa (ver 02_registro). -->
+        <div id="note-field-wrap" class="note-slot" style="display:none;">
+          <input id="note" type="text" placeholder="Nota (opcional)" oninput="onNoteInput()" class="note-input">
+          <button type="button" class="note-clear" onclick="clearNoteField()" title="Quitar nota" aria-label="Quitar nota">✕</button>
         </div>
       </div>
 
@@ -131,11 +133,11 @@
               <button id="propina-chip-pct" onclick="setPropinaType('pct')" style="padding:5px 12px;border-radius:100px;border:none;background:var(--accent);color:white;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;transition:all 0.18s;">%</button>
               <button id="propina-chip-monto" onclick="setPropinaType('monto')" style="padding:5px 12px;border-radius:100px;border:none;background:transparent;color:var(--text3);font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;transition:all 0.18s;">$</button>
             </div>
-            <input type="number" id="propina-pct" placeholder="" inputmode="decimal" step="0.5" min="0" max="100" oninput="calcPropinaPreview()" style="flex:1 1 0;min-width:0;padding:9px 12px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-family:inherit;font-size:15px;outline:none;-webkit-appearance:none;appearance:none;">
-            <input type="text" id="propina-monto" placeholder="0.00" inputmode="decimal" oninput="handleAmountInput(this);calcPropinaPreview()" style="flex:1 1 0;min-width:0;padding:9px 12px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-family:inherit;font-size:15px;outline:none;display:none;-webkit-appearance:none;appearance:none;">
+            <input type="number" id="propina-pct" class="propina-val" placeholder="" inputmode="decimal" step="0.5" min="0" max="100" oninput="calcPropinaPreview()" style="padding:9px 12px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-family:inherit;font-size:15px;outline:none;-webkit-appearance:none;appearance:none;">
+            <input type="text" id="propina-monto" class="propina-val" placeholder="0.00" inputmode="decimal" oninput="handleAmountInput(this);calcPropinaPreview()" style="padding:9px 12px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-family:inherit;font-size:15px;outline:none;display:none;-webkit-appearance:none;appearance:none;">
             <div style="display:flex;background:var(--surface);border-radius:100px;padding:3px;gap:2px;flex-shrink:0;box-shadow:0 1px 3px rgba(0,0,0,0.08),0 0 0 1px var(--border2);">
-              <button id="propina-incl-btn" onclick="setPropinaIncluida(true)" style="padding:5px 10px;border-radius:100px;border:none;background:transparent;color:var(--text3);font-family:inherit;font-size:11px;font-weight:600;cursor:pointer;transition:all 0.18s;">Incluida</button>
-              <button id="propina-adic-btn" onclick="setPropinaIncluida(false)" style="padding:5px 10px;border-radius:100px;border:none;background:var(--accent);color:white;font-family:inherit;font-size:11px;font-weight:600;cursor:pointer;transition:all 0.18s;">Adicional</button>
+              <button id="propina-incl-btn" onclick="setPropinaIncluida(true)" style="padding:5px 10px;border-radius:100px;border:none;background:var(--accent);color:white;font-family:inherit;font-size:11px;font-weight:600;cursor:pointer;transition:all 0.18s;">Incluida</button>
+              <button id="propina-adic-btn" onclick="setPropinaIncluida(false)" style="padding:5px 10px;border-radius:100px;border:none;background:transparent;color:var(--text3);font-family:inherit;font-size:11px;font-weight:600;cursor:pointer;transition:all 0.18s;">Adicional</button>
             </div>
           </div>
           <!-- Resultado del cálculo: debajo del renglón, solo en modo % -->
@@ -171,12 +173,11 @@
           <button type="button" onclick="clearDiferir()" title="Quitar diferido" style="position:absolute;top:8px;right:8px;background:none;border:none;cursor:pointer;color:var(--danger);font-size:16px;line-height:1;padding:2px;">✕</button>
           <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:3px;padding-right:20px;">Repartir en mensualidades</div>
           <div style="font-size:12px;color:var(--text3);margin-bottom:12px;line-height:1.4;">El monto total se divide en partes iguales, una por mes, empezando este mes.</div>
-          <div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:10px;" id="diferir-presets"></div>
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
-            <span style="font-size:13px;color:var(--text2);">Personalizado:</span>
-            <input type="number" id="diferir-custom" min="2" max="120" placeholder="Ej. 18" inputmode="numeric" oninput="onDiferirCustomInput()" style="width:78px;padding:8px 10px;border:1.5px solid var(--border2);border-radius:10px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;-webkit-appearance:none;appearance:none;">
-            <span style="font-size:13px;color:var(--text2);">meses</span>
-          </div>
+          <!-- R8 · Diferir simplificado: 3 presets + un 4º "preset" que en realidad
+               es el campo personalizado (mismo aspecto que los presets). Debajo,
+               solo la palabra "Meses" centrada. El segundo renglón desapareció. -->
+          <div style="display:flex;gap:7px;align-items:stretch;margin-bottom:6px;" id="diferir-presets"></div>
+          <div id="diferir-custom-label" style="display:none;font-size:12px;color:var(--text3);text-align:center;margin-bottom:12px;">Meses</div>
           <div id="diferir-preview" style="background:var(--surface);border-radius:10px;padding:12px 14px;border:1px solid var(--border2);display:none;"></div>
         </div>
       </div>
@@ -522,10 +523,11 @@
             <input type="text" id="e-desc" placeholder="¿En qué fue?" oninput="refreshEditEmojiBtn();eRemSectionRefresh();predictEditNote()" style="flex:1;">
             <button type="button" id="e-emoji-btn" onclick="openEmojiPicker()" title="Personalizar emoji" style="flex:0 0 auto;width:46px;border:none;border-radius:var(--radius-sm);background:var(--surface2);font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center;">📌</button>
           </div>
-          <!-- R7.2 · Nota (opcional): vive inmediatamente debajo de Descripción,
-               con las mismas reglas de aparición/ocultamiento que el registro. -->
-          <div id="e-note-field-wrap" style="display:none;margin-top:10px">
-            <textarea id="e-note" placeholder="Nota (opcional)" oninput="onENoteInput()" style="width:100%;padding:11px 13px;border:none;border-radius:var(--radius-sm);background:var(--surface2);color:var(--text);font-family:inherit;font-size:15px;outline:none;resize:none;height:64px;"></textarea>
+          <!-- R8 · Nota (opcional) en edición: mismo tratamiento que el registro
+               (oculta bajo Descripción, sombra separadora, ✕ propia). -->
+          <div id="e-note-field-wrap" class="note-slot" style="display:none;">
+            <input id="e-note" type="text" placeholder="Nota (opcional)" oninput="onENoteInput()" class="note-input">
+            <button type="button" class="note-clear" onclick="clearEditNoteField()" title="Quitar nota" aria-label="Quitar nota">✕</button>
           </div>
         </div>
 
@@ -575,11 +577,11 @@
                 <button id="e-propina-chip-pct" onclick="setEditPropinaType('pct')" style="padding:5px 12px;border-radius:100px;border:none;background:var(--accent);color:white;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;transition:all 0.18s;">%</button>
                 <button id="e-propina-chip-monto" onclick="setEditPropinaType('monto')" style="padding:5px 12px;border-radius:100px;border:none;background:transparent;color:var(--text3);font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;transition:all 0.18s;">$</button>
               </div>
-              <input type="number" id="e-propina-pct" placeholder="" inputmode="decimal" step="0.5" min="0" max="100" oninput="calcEditPropinaPreview()" style="flex:1 1 0;min-width:0;padding:9px 12px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-family:inherit;font-size:15px;outline:none;-webkit-appearance:none;appearance:none;">
-              <input type="text" id="e-propina-monto" placeholder="0.00" inputmode="decimal" oninput="handleAmountInput(this);calcEditPropinaPreview()" style="flex:1 1 0;min-width:0;padding:9px 12px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-family:inherit;font-size:15px;outline:none;display:none;-webkit-appearance:none;appearance:none;">
+              <input type="number" id="e-propina-pct" class="propina-val" placeholder="" inputmode="decimal" step="0.5" min="0" max="100" oninput="calcEditPropinaPreview()" style="padding:9px 12px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-family:inherit;font-size:15px;outline:none;-webkit-appearance:none;appearance:none;">
+              <input type="text" id="e-propina-monto" class="propina-val" placeholder="0.00" inputmode="decimal" oninput="handleAmountInput(this);calcEditPropinaPreview()" style="padding:9px 12px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-family:inherit;font-size:15px;outline:none;display:none;-webkit-appearance:none;appearance:none;">
               <div style="display:flex;background:var(--surface);border-radius:100px;padding:3px;gap:2px;flex-shrink:0;box-shadow:0 1px 3px rgba(0,0,0,0.08),0 0 0 1px var(--border2);">
-                <button id="e-propina-incl-btn" onclick="setEditPropinaIncluida(true)" style="padding:5px 10px;border-radius:100px;border:none;background:transparent;color:var(--text3);font-family:inherit;font-size:11px;font-weight:600;cursor:pointer;transition:all 0.18s;">Incluida</button>
-                <button id="e-propina-adic-btn" onclick="setEditPropinaIncluida(false)" style="padding:5px 10px;border-radius:100px;border:none;background:var(--accent);color:white;font-family:inherit;font-size:11px;font-weight:600;cursor:pointer;transition:all 0.18s;">Adicional</button>
+                <button id="e-propina-incl-btn" onclick="setEditPropinaIncluida(true)" style="padding:5px 10px;border-radius:100px;border:none;background:var(--accent);color:white;font-family:inherit;font-size:11px;font-weight:600;cursor:pointer;transition:all 0.18s;">Incluida</button>
+                <button id="e-propina-adic-btn" onclick="setEditPropinaIncluida(false)" style="padding:5px 10px;border-radius:100px;border:none;background:transparent;color:var(--text3);font-family:inherit;font-size:11px;font-weight:600;cursor:pointer;transition:all 0.18s;">Adicional</button>
               </div>
             </div>
             <!-- Resultado del cálculo: debajo del renglón, solo en modo % -->
@@ -611,12 +613,8 @@
             <button type="button" onclick="editClearDiferir()" title="Quitar diferido" style="position:absolute;top:8px;right:8px;background:none;border:none;cursor:pointer;color:var(--danger);font-size:16px;line-height:1;padding:2px;">✕</button>
             <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:3px;padding-right:20px;">Repartir en mensualidades</div>
             <div style="font-size:12px;color:var(--text3);margin-bottom:12px;line-height:1.4;">El monto total se divide en partes iguales, una por mes, empezando este mes.</div>
-            <div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:10px;" id="e-diferir-presets"></div>
-            <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
-              <span style="font-size:13px;color:var(--text2);">Personalizado:</span>
-              <input type="number" id="e-diferir-custom" min="2" max="120" placeholder="Ej. 18" inputmode="numeric" oninput="onEditDiferirCustomInput()" style="width:78px;padding:8px 10px;border:1.5px solid var(--border2);border-radius:10px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;-webkit-appearance:none;appearance:none;">
-              <span style="font-size:13px;color:var(--text2);">meses</span>
-            </div>
+            <div style="display:flex;gap:7px;align-items:stretch;margin-bottom:6px;" id="e-diferir-presets"></div>
+            <div id="e-diferir-custom-label" style="display:none;font-size:12px;color:var(--text3);text-align:center;margin-bottom:12px;">Meses</div>
             <div id="e-diferir-preview" style="background:var(--surface);border-radius:10px;padding:12px 14px;border:1px solid var(--border2);display:none;"></div>
           </div>
         </div>

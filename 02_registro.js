@@ -81,6 +81,17 @@ function maybeHideNoteField(){
   _noteVisible=false;
   hideAnimate(wrap);
 }
+// R8 · ✕ de la Nota: vacía el contenido y colapsa de inmediato (sin confirmar),
+// con la misma animación de ocultar. Para volver a mostrarla se usa el mismo
+// mecanismo de siempre: enfocar el campo Descripción.
+function clearNoteField(){
+  const el=document.getElementById('note');
+  if(el) el.value='';
+  if(typeof _notePredicted!=='undefined') _notePredicted=false;
+  _noteVisible=false;
+  hideAnimate(document.getElementById('note-field-wrap'));
+  updateNoteDesgloseIndicators();
+}
 function initNoteBehavior(){
   const desc=document.getElementById('desc');
   const note=document.getElementById('note');
@@ -700,7 +711,7 @@ function inlineToggleDiferir(){
 // ══════════════════════════════════════
 // DIFERIR (repartir un gasto en N mensualidades)
 // ══════════════════════════════════════
-const DIFERIR_PRESETS=[3,6,12,24];
+const DIFERIR_PRESETS=[3,6,12]; // R8: el 4º slot es el campo personalizado
 let _diferirVisible=false;   // panel abierto
 let diferirMonths=0;         // 0 = sin selección; >0 = meses elegidos
 let diferirCustom=false;     // si el valor viene del campo personalizado
@@ -756,6 +767,7 @@ function renderDiferirPresets(){
   const cont=document.getElementById('diferir-presets');
   if(!cont) return;
   cont.innerHTML='';
+  // 3 presets fijos
   DIFERIR_PRESETS.forEach(p=>{
     const b=document.createElement('button');
     b.type='button';
@@ -764,6 +776,18 @@ function renderDiferirPresets(){
     b.onclick=()=>toggleDiferirPreset(p);
     cont.appendChild(b);
   });
+  // R8 · 4º slot = campo personalizado con el MISMO aspecto que un preset.
+  // Placeholder "Elegir". Se marca activo (.on) cuando hay un valor custom.
+  const inp=document.createElement('input');
+  inp.type='number'; inp.id='diferir-custom';
+  inp.min='2'; inp.max='120'; inp.placeholder='Elegir'; inp.inputMode='numeric';
+  inp.className='month-preset month-preset-input'+(diferirCustom?' on':'');
+  if(diferirCustom && diferirMonths) inp.value=diferirMonths;
+  inp.oninput=onDiferirCustomInput;
+  cont.appendChild(inp);
+  // La etiqueta "Meses" solo se muestra cuando el campo personalizado está activo
+  const lbl=document.getElementById('diferir-custom-label');
+  if(lbl) lbl.style.display = diferirCustom ? '' : 'none';
 }
 
 // Alterna un preset: si ya estaba activo, lo desactiva (vuelve a 0)
@@ -783,7 +807,8 @@ function toggleDiferirPreset(p){
 }
 
 function onDiferirCustomInput(){
-  const v=parseInt(document.getElementById('diferir-custom').value);
+  const inp=document.getElementById('diferir-custom');
+  const v=parseInt(inp?inp.value:'');
   if(v && v>=2){
     diferirMonths=v;
     // Si el número coincide con un preset, activar ese preset (no marcar como custom)
@@ -792,7 +817,18 @@ function onDiferirCustomInput(){
     diferirMonths=0;
     diferirCustom=false;
   }
-  renderDiferirPresets();
+  // R8: NO re-crear el input (perdería el foco mientras se escribe). Solo
+  // actualizar el resaltado de los presets, el del propio campo y la etiqueta.
+  const cont=document.getElementById('diferir-presets');
+  if(cont){
+    const btns=cont.querySelectorAll('.month-preset');
+    DIFERIR_PRESETS.forEach((p,i)=>{
+      if(btns[i]) btns[i].classList.toggle('on', !diferirCustom && diferirMonths===p);
+    });
+  }
+  if(inp) inp.classList.toggle('on', diferirCustom);
+  const lbl=document.getElementById('diferir-custom-label');
+  if(lbl) lbl.style.display = diferirCustom ? '' : 'none';
   renderDiferirPreview();
   updateInlineBtn('inline-diferir-btn', true, diferirHasData());
   try{ refreshTopTabsVisibility(); }catch(e){}   // Bug 2: mantener la exclusión al vuelo
@@ -1284,7 +1320,8 @@ function setMethod(m,el){
 
 // R7.2: 'Cashback' dejó de ser beneficio (ahora es categoría de INGRESO) y se
 // agregó 'Dinero electrónico', que se comporta igual que cualquier otro.
-const BEN_TYPES = ['Dinero electrónico','Puntos de lealtad','Puntos TDC','Millas aéreas','Descuentos y promociones','Otros beneficios'];
+// R8: 'Otros beneficios' → 'Otros (beneficios)' por consistencia con el resto.
+const BEN_TYPES = ['Dinero electrónico','Puntos de lealtad','Puntos TDC','Millas aéreas','Descuentos y promociones','Otros (beneficios)'];
 // Unificar: las categorías del tipo "beneficio" SON los tipos de beneficio.
 // Así coinciden sin importar si se registra dentro de un gasto o por separado.
 BEN_TYPES.forEach(t=>{ CATS['beneficio'][t]=['—']; });

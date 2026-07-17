@@ -104,6 +104,77 @@ nav {
   border: none; padding: 18px 16px; box-shadow: var(--shadow);
 }
 
+/* ── R8 · NOTA OPCIONAL bajo Descripción ──
+   Se siente "oculta" debajo del campo Descripción: sin separación de bloque
+   (margen negativo que la mete bajo el borde inferior de Descripción) y una
+   sombra interior arriba que simula que el campo Descripción proyecta sombra
+   sobre ella. Altura reducida, similar al campo de nota de los desgloses. */
+.note-slot {
+  position: relative;
+  margin-top: -2px;          /* la mete "debajo" de Descripción, sin hueco de bloque */
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+  overflow: hidden;
+}
+.note-input {
+  width: 100%;
+  padding: 9px 34px 9px 14px; /* espacio a la derecha para la ✕ */
+  border: none;
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+  background: var(--surface2);
+  color: var(--text);
+  font-family: inherit; font-size: 13px; font-weight: 400;
+  outline: none;
+  /* Sombra que "cae" desde el campo Descripción sobre la Nota */
+  box-shadow: inset 0 6px 8px -6px rgba(0,0,0,0.22);
+}
+@media (prefers-color-scheme: dark) {
+  .note-input { box-shadow: inset 0 6px 9px -6px rgba(0,0,0,0.5); }
+}
+.note-clear {
+  position: absolute; top: 50%; right: 8px; transform: translateY(-50%);
+  background: none; border: none; cursor: pointer;
+  color: var(--text3); font-size: 14px; line-height: 1; padding: 4px;
+  transition: color 0.15s;
+}
+.note-clear:hover, .note-clear:active { color: var(--danger); }
+
+/* R8 · Propina: en móvil el campo del monto ocupa el flex disponible (default).
+   En web ese ancho resultaba excesivo, así que se limita a un tamaño razonable;
+   el espacio recuperado lo absorbe el flex del renglón, balanceando los tres
+   controles hacia la izquierda. Solo afecta escritorio. */
+/* R8 · Propina: en móvil el campo del monto ocupa el flex disponible (base).
+   En web ese ancho resultaba excesivo, así que se limita a un tamaño razonable;
+   el espacio recuperado lo absorbe el flex del renglón, balanceando los tres
+   controles hacia la izquierda. El flex vive AQUÍ (no inline) para que la media
+   query pueda ganarle. */
+.propina-val { flex: 1 1 0; min-width: 0; }
+@media (min-width: 768px) {
+  .propina-val { flex: 0 1 160px; }
+}
+
+/* R8 · Tipo de beneficio: dropdown en móvil, chips en web.
+   Por defecto (móvil) se ve el <select> y se ocultan los chips. En web se
+   invierte: los chips ocupan un solo renglón y el select se oculta. */
+.ben-type-chips { display: none; }
+@media (min-width: 768px) {
+  .ben-type-select { display: none; }
+  .ben-type-chips {
+    display: flex; flex-wrap: nowrap; gap: 6px; margin-top: 8px;
+    overflow-x: auto; -webkit-overflow-scrolling: touch;
+  }
+  .ben-type-chips::-webkit-scrollbar { display: none; }
+  /* Misma altura que los campos del bloque (input: padding 8px 10px, 14px). */
+  .ben-type-chip {
+    flex: 0 0 auto; white-space: nowrap;
+    padding: 8px 12px; border-radius: 100px;
+    border: none; background: var(--surface); color: var(--text2);
+    font-family: inherit; font-size: 13px; font-weight: 500;
+    cursor: pointer; transition: all 0.18s cubic-bezier(0.34,1.56,0.64,1);
+  }
+  .ben-type-chip:active { transform: scale(0.95); }
+  .ben-type-chip.active { background: var(--accent); color: white; font-weight: 600; }
+}
+
 /* TYPE SELECTOR */
 .type-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 6px; margin-bottom: 28px; }
 .type-btn {
@@ -322,6 +393,38 @@ nav {
   cursor:pointer;transition:all 0.15s;text-align:center;
 }
 .month-preset.on{background:var(--accent);color:#fff;border-color:var(--accent);}
+/* R8 · El campo personalizado del 4º slot se ve idéntico a un preset. */
+.month-preset-input{
+  width:0; /* que el flex mande, como los demás presets */
+  -webkit-appearance:none; appearance:none;
+  -moz-appearance:textfield;
+}
+.month-preset-input::-webkit-outer-spin-button,
+.month-preset-input::-webkit-inner-spin-button{ -webkit-appearance:none; margin:0; }
+.month-preset-input::placeholder{ color:var(--text3); font-weight:600; }
+.month-preset-input.on::placeholder{ color:rgba(255,255,255,0.85); }
+
+/* ── R8 · Desglose: Categoría vs Subcategoría ──
+   MÓVIL (base): ambos parten de 50%, pero Categoría NUNCA se encoge por debajo
+   de su contenido (min-width:max-content), así siempre se muestra completa;
+   Subcategoría absorbe el sobrante y se trunca con ellipsis cuando falta espacio
+   (min-width:0 permite que un flex item se encoja por debajo de su contenido). */
+.desg-catrow .desg-cat {
+  flex: 0 1 50%;
+  min-width: max-content;   /* prioridad: mostrar Categoría completa */
+}
+.desg-catrow .desg-subcat {
+  flex: 1 1 0;
+  min-width: 0;             /* puede encogerse por debajo de su contenido */
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+/* ESCRITORIO: ambos exactamente 50%, sin la asimetría de prioridad. */
+@media (min-width: 768px) {
+  .desg-catrow .desg-cat,
+  .desg-catrow .desg-subcat {
+    flex: 1 1 0; min-width: 0;
+  }
+}
 
 /* Stack para el crossfade de Diferir (renglón de 3 botones + botón completo encima) */
 .stack{ position:relative; }
@@ -1049,7 +1152,13 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
   flex: 1 1 0; min-width: 0; text-align: center;
   font-size: 12px; padding: 6px 4px;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  /* R8: fondo propio para que se lean como chips inactivos (el panel es
+     surface2, así que sin esto se fundían y parecían texto plano). El estado
+     activo lo pinta .chip.active (fondo accent). */
+  background: var(--surface);
+  box-shadow: 0 0 0 1px var(--border2);
 }
+.rem-chip.active { box-shadow: none; }
 
 /* ── Representación de recordatorios ── */
 .tx-rem-ico { font-size: 10px; margin-left: 5px; opacity: 0.55; vertical-align: 1px; }

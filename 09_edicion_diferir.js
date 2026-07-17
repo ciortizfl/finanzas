@@ -112,6 +112,16 @@ function renderEditDiferirPresets(){
     b.onclick=()=>toggleEditDiferirPreset(p);
     cont.appendChild(b);
   });
+  // R8 · 4º slot = campo personalizado (mismo aspecto que un preset)
+  const inp=document.createElement('input');
+  inp.type='number'; inp.id='e-diferir-custom';
+  inp.min='2'; inp.max='120'; inp.placeholder='Elegir'; inp.inputMode='numeric';
+  inp.className='month-preset month-preset-input'+(editDiferirCustom?' on':'');
+  if(editDiferirCustom && editDiferirMonths) inp.value=editDiferirMonths;
+  inp.oninput=onEditDiferirCustomInput;
+  cont.appendChild(inp);
+  const lbl=document.getElementById('e-diferir-custom-label');
+  if(lbl) lbl.style.display = editDiferirCustom ? '' : 'none';
 }
 
 function toggleEditDiferirPreset(p){
@@ -131,7 +141,8 @@ function toggleEditDiferirPreset(p){
 }
 
 function onEditDiferirCustomInput(){
-  const v=parseInt(document.getElementById('e-diferir-custom').value);
+  const inp=document.getElementById('e-diferir-custom');
+  const v=parseInt(inp?inp.value:'');
   if(v && v>=2){
     editDiferirMonths=v;
     editDiferirCustom=!DIFERIR_PRESETS.includes(v);
@@ -139,7 +150,17 @@ function onEditDiferirCustomInput(){
     editDiferirMonths=0;
     editDiferirCustom=false;
   }
-  renderEditDiferirPresets();
+  // R8: actualizar resaltado sin re-crear el input (preserva el foco)
+  const cont=document.getElementById('e-diferir-presets');
+  if(cont){
+    const btns=cont.querySelectorAll('.month-preset');
+    DIFERIR_PRESETS.forEach((p,i)=>{
+      if(btns[i]) btns[i].classList.toggle('on', !editDiferirCustom && editDiferirMonths===p);
+    });
+  }
+  if(inp) inp.classList.toggle('on', editDiferirCustom);
+  const lbl=document.getElementById('e-diferir-custom-label');
+  if(lbl) lbl.style.display = editDiferirCustom ? '' : 'none';
   renderEditDiferirPreview();
   updateInlineBtn('e-inline-diferir-btn', true, editDiferirHasData());
   editUpdateDesgloseForDiferir();
@@ -779,24 +800,40 @@ function highlightUpdatedRecord(id, delay){
   if(reduced) return;
   const wait = (typeof delay === 'number') ? delay : 833;
   setTimeout(()=>{
-    const rows=document.querySelectorAll('#hist-list .tx-item');
-    let targetEl=null;
-    rows.forEach(el=>{ if(el._entryId===id || el._parentId===id) targetEl=el; });
-    if(!targetEl) return;
-    const e=data.find(x=>x.id===id);
-    // Color sólido del tipo para el destello (visible en claro y oscuro)
-    const flash = e ? (e.type==='ingreso'?'52,199,89' : e.type==='beneficio'?'175,82,222' : e.type==='egreso'?'255,59,48' : '0,113,227') : '0,113,227';
-    const prevZ=targetEl.style.zIndex, prevPos=targetEl.style.position;
-    targetEl.style.position='relative';
-    targetEl.style.zIndex='5';
-    try{
-      targetEl.animate([
-        { transform:'scale(1)',   boxShadow:`0 0 0 0 rgba(${flash},0)` },
-        { transform:'scale(1.045)', boxShadow:`0 0 0 3px rgba(${flash},0.6), 0 6px 22px rgba(${flash},0.28)`, offset:0.42 },
-        { transform:'scale(1)',   boxShadow:`0 0 0 0 rgba(${flash},0)` }
-      ],{ duration:950, easing:'cubic-bezier(0.34,1.4,0.64,1)' });
-    }catch(err){}
-    setTimeout(()=>{ targetEl.style.zIndex=prevZ; targetEl.style.position=prevPos; }, 1000);
+    const rows=Array.from(document.querySelectorAll('#hist-list .tx-item'));
+    if(!rows.length) return;
+    // R8 · El "Ver" no resalta solo la madre: recorre TODO el conjunto (madre +
+    // desgloses/propinas/beneficios/mensualidades visibles) como una ola de
+    // arriba hacia abajo, para que se sienta como un grupo relacionado.
+    //
+    // El grupo son las filas cuyo _parentId apunta a la madre (los hijos ya lo
+    // llevan; la madre tiene _parentId = su propio id). En un diferido, `id` es
+    // la mensualidad 1 (la "compra"), y sus hijos cuelgan de ella.
+    const groupEls = rows.filter(el => el._entryId===id || el._parentId===id);
+    const targets = groupEls.length ? groupEls
+                                    : rows.filter(el => el._entryId===id);
+    if(!targets.length) return;
+    // Orden visual (de arriba a abajo) para la ola
+    targets.sort((a,b)=> a.getBoundingClientRect().top - b.getBoundingClientRect().top);
+    const colorOf = (el)=>{
+      const e = data.find(x=>x.id===el._entryId);
+      return e ? (e.type==='ingreso'?'52,199,89' : e.type==='beneficio'?'175,82,222' : e.type==='egreso'?'255,59,48' : '0,113,227') : '0,113,227';
+    };
+    targets.forEach((el, i)=>{
+      const flash = colorOf(el);
+      const prevZ=el.style.zIndex, prevPos=el.style.position;
+      el.style.position='relative';
+      el.style.zIndex=String(5 + (targets.length - i)); // los de arriba, encima
+      const delayMs = i * 90; // escalonado = sensación de ola
+      try{
+        el.animate([
+          { transform:'scale(1)',    boxShadow:`0 0 0 0 rgba(${flash},0)` },
+          { transform:'scale(1.045)', boxShadow:`0 0 0 3px rgba(${flash},0.6), 0 6px 22px rgba(${flash},0.28)`, offset:0.42 },
+          { transform:'scale(1)',    boxShadow:`0 0 0 0 rgba(${flash},0)` }
+        ],{ duration:950, delay:delayMs, easing:'cubic-bezier(0.34,1.4,0.64,1)', fill:'backwards' });
+      }catch(err){}
+      setTimeout(()=>{ el.style.zIndex=prevZ; el.style.position=prevPos; }, 1000 + delayMs);
+    });
   }, wait);
 }
 
