@@ -306,15 +306,14 @@ nav {
   outline: none; transition: background 0.15s, box-shadow 0.15s;
   -webkit-appearance: none; appearance: none;
 }
+/* R8.5 · Los campos editables NO cambian nada al enfocar: sin anillo azul y sin
+   aclarado de fondo — conservan su color "desactivado" (var(--surface2)), igual
+   que los inputs de Beneficio/Desglose. (Antes esta regla aclaraba el fondo a
+   --surface y añadía un anillo de 3px.) Aplica a todos los campos del
+   formulario de registro y edición. */
 .field input:focus, .field select:focus, .field textarea:focus {
-  background: var(--surface); box-shadow: 0 0 0 3px rgba(0,113,227,0.18);
+  background: var(--surface2); box-shadow: none;
 }
-/* R8.4 · SOLO Descripción, al enfocar: sin el anillo azul Y sin el cambio de
-   fondo — conserva su color "desactivado" (var(--surface2), el mismo que la
-   Nota). Ambos rompían la ilusión de la Nota emergiendo por debajo (el anillo
-   cercaba el campo y el aclarado del fondo delataba que eran dos elementos).
-   Aplica a registro (#desc) y edición (#e-desc). */
-#desc:focus, #e-desc:focus { box-shadow: none; background: var(--surface2); }
 .field textarea { resize: none; height: 64px; }
 
 .amount-row { display: flex; gap: 8px; }
@@ -955,8 +954,7 @@ nav {
   background-position: right 12px center;
 }
 .month-sel-row select:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(0,113,227,0.15);
+  border-color: var(--border2);   /* R8.5: sin anillo azul ni realce al enfocar */
 }
 .tx-note { font-size: 11px; color: var(--text3); margin-top: 2px; font-style: italic; }/* BUDGET */
 .bud-cat-row {
@@ -973,7 +971,7 @@ nav {
 .bud-field { margin-bottom: 10px; }
 .bud-field label { font-size: 12px; font-weight: 600; color: var(--text2); display: block; margin-bottom: 4px; }
 .bud-field input { width: 100%; padding: 9px 12px; border: none; border-radius: var(--radius-xs); background: var(--surface2); color: var(--text); font-family: inherit; font-size: 14px; outline: none; }
-.bud-field input:focus { box-shadow: 0 0 0 2px var(--accent); }
+.bud-field input:focus { box-shadow: none; }   /* R8.5: sin anillo al enfocar */
 .bud-progress-wrap { height: 4px; background: var(--surface2); border-radius: 100px; margin-top: 6px; overflow: hidden; }
 .bud-progress-bar { height: 100%; border-radius: 100px; transition: width 0.4s ease; }
 .bud-label-row { display: flex; justify-content: space-between; font-size: 11px; color: var(--text3); margin-top: 3px; }
@@ -1354,7 +1352,7 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
   -webkit-appearance: none; appearance: none;
 }
 .fx-row input::placeholder { color: var(--text3); }
-.fx-row input:focus { border-color: var(--accent); }
+.fx-row input:focus { border-color: var(--border2); }   /* R8.5: sin realce al enfocar */
 .fx-unit { font-size: 11.5px; color: var(--text3); font-weight: 600; flex: 0 0 auto; }
 .fx-hint { flex-basis: 100%; font-size: 11.5px; color: var(--text3); line-height: 1.35; margin-top: 2px; }
 .fx-revert {
