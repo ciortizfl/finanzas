@@ -309,6 +309,11 @@ nav {
 .field input:focus, .field select:focus, .field textarea:focus {
   background: var(--surface); box-shadow: 0 0 0 3px rgba(0,113,227,0.18);
 }
+/* R8.4 · SOLO Descripción no lleva el anillo azul de foco: rompía la ilusión
+   de la Nota emergiendo por debajo (el anillo cercaba el campo entero, dejando
+   ver que Nota era un elemento aparte). El leve cambio de fondo al enfocar sí
+   se conserva. Aplica a registro (#desc) y edición (#e-desc). */
+#desc:focus, #e-desc:focus { box-shadow: none; }
 .field textarea { resize: none; height: 64px; }
 
 .amount-row { display: flex; gap: 8px; }
