@@ -43,15 +43,15 @@ function showEditNoteField(){
   const wrap=document.getElementById('e-note-field-wrap');
   if(!wrap || _eNoteVisible) return;
   _eNoteVisible=true;
-  wrap.style.display='block';
-  revealAnimate(wrap);
+  // R8.1: emerge deslizándose POR DEBAJO de Descripción (ver noteReveal en 02)
+  noteReveal(wrap);
 }
 function maybeHideEditNoteField(){
   const wrap=document.getElementById('e-note-field-wrap');
   if(!wrap || !_eNoteVisible) return;
   if(eNoteHasData()) return;
   _eNoteVisible=false;
-  hideAnimate(wrap);
+  noteHide(wrap);
 }
 // R8 · ✕ de la Nota en edición (espejo del registro): vacía y colapsa sin confirmar.
 function clearEditNoteField(){
@@ -59,7 +59,7 @@ function clearEditNoteField(){
   if(el) el.value='';
   try{ _eNotePredicted=false; }catch(_e){}
   _eNoteVisible=false;
-  hideAnimate(document.getElementById('e-note-field-wrap'));
+  noteHide(document.getElementById('e-note-field-wrap'));
 }
 let _editNoteBehaviorReady=false;
 function initEditNoteBehavior(){
@@ -572,7 +572,8 @@ function setPropinaType(t){
   // R7.2: el cálculo vive debajo del renglón y SOLO en modo %; en $ desaparece
   // y en su lugar aparecen las opciones del método de pago de la propina.
   if(calcRow) calcRow.style.display=t==='pct'?'':'none';
-  if(methodWrap) methodWrap.style.display=t==='monto'?'block':'none';
+  // R8.1: display '' para que el CSS decida (flex en línea en web; renglón propio en móvil)
+  if(methodWrap) methodWrap.style.display=t==='monto'?'':'none';
   if(t==='pct'){ propinaSelMethod=null; document.querySelectorAll('#propina-method-chips .chip').forEach(c=>c.classList.remove('active')); }
   calcPropinaPreview();
 }
@@ -756,7 +757,8 @@ function setEditPropinaType(t){
   // R7.2: el cálculo vive debajo del renglón y SOLO en modo %; en $ desaparece
   // y en su lugar aparecen las opciones del método de pago de la propina.
   if(calcRow) calcRow.style.display=t==='pct'?'':'none';
-  if(methodWrap) methodWrap.style.display=t==='monto'?'block':'none';
+  // R8.1: display '' para que el CSS decida (flex en línea en web; renglón propio en móvil)
+  if(methodWrap) methodWrap.style.display=t==='monto'?'':'none';
   if(t==='pct'){ editPropinaMethod=null; document.querySelectorAll('#e-propina-method-chips .chip').forEach(c=>c.classList.remove('active')); }
   calcEditPropinaPreview();
 }

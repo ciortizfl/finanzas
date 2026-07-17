@@ -178,6 +178,7 @@ function setDesgloseCat(id, cat){
   revealDesgloseFields(id);
   updateAddDesgloseBtnVisibility();
   updateDesgloseRemaining();
+  try{ fitDesgCatSelects(); }catch(e){}   // R8.1: el ancho sigue a la selección
 }
 function setDesgloseSubcat(id, sub){
   const d=desgloses.find(x=>x.id===id);
@@ -304,6 +305,31 @@ function updateEditDesgloseChipLabel(){
   lbl.textContent = n>=2 ? `${n} desgloses` : 'Desglose';
 }
 
+// ══ R8.1 · Categoría a la medida de su opción SELECCIONADA (solo móvil) ══
+// Un <select> nativo se dimensiona según su opción MÁS LARGA, no la elegida.
+// Aquí se mide el texto de la opción seleccionada (canvas con la misma fuente)
+// y se fija como width inline; la Subcategoría (flex:1) absorbe el resto.
+// En web (≥768px) se limpia el width y ambos vuelven al 50/50 del CSS.
+let _fitCatCanvas=null;
+function fitDesgCatSelects(){
+  const desktop = window.matchMedia && window.matchMedia('(min-width: 768px)').matches;
+  document.querySelectorAll('.desg-catrow .desg-cat').forEach(sel=>{
+    if(desktop){ sel.style.width=''; return; }
+    const opt=sel.options[sel.selectedIndex];
+    const txt=(opt && opt.text) || 'Categoría...';
+    const cs=getComputedStyle(sel);
+    if(!_fitCatCanvas) _fitCatCanvas=document.createElement('canvas');
+    const ctx=_fitCatCanvas.getContext('2d');
+    ctx.font=`${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+    const textW=ctx.measureText(txt).width;
+    // + padding izq/der (10+10) + flecha nativa y aire (~18)
+    const row=sel.closest('.desg-catrow');
+    const maxW=row ? Math.floor(row.clientWidth*0.62) : 220;
+    sel.style.width=Math.min(Math.ceil(textW+38), maxW)+'px';
+  });
+}
+window.addEventListener('resize', ()=>{ try{ fitDesgCatSelects(); }catch(e){} });
+
 function renderDesgloses(animateNew){
   const list=document.getElementById('desglose-list');
   if(!list) return;
@@ -330,15 +356,15 @@ function renderDesgloses(animateNew){
     card.innerHTML=`
       <button type="button" onclick="removeDesglose(${d.id})" style="position:absolute;top:8px;right:8px;background:none;border:none;cursor:pointer;color:var(--danger);font-size:16px;line-height:1;padding:2px;">✕</button>
       <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:8px;">Desglose ${idx+1}${curLabel}</div>
-      <!-- R8 · Renglón 1: Monto (20%) + Nombre propio (80%).
+      <!-- R8.1 · Renglón 1: Monto (25% en móvil, 20% en web) + Nombre propio (resto).
            Nombre propio: vacío = hereda la descripción madre; con texto = ese será su nombre en el historial -->
       <div style="display:flex;gap:8px;margin-bottom:8px;">
-        <input data-desg-amount type="text" inputmode="decimal" placeholder="Monto${curLabel}" value="${d.amount?formatAmountString(String(d.amount)):''}" oninput="handleAmountInput(this);updateDesglose(${d.id},'amount',rawAmount(this.value))" style="flex:0 0 20%;min-width:0;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
-        <input data-desg-owndesc type="text" placeholder="Nombre propio (opcional)" value="${(d.desc||'').replace(/"/g,'&quot;')}" oninput="updateDesglose(${d.id},'desc',this.value)" style="flex:1 1 0;min-width:0;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
+        <input data-desg-amount class="desg-amt" type="text" inputmode="decimal" placeholder="Monto${curLabel}" value="${d.amount?formatAmountString(String(d.amount)):''}" oninput="handleAmountInput(this);updateDesglose(${d.id},'amount',rawAmount(this.value))" style="padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
+        <input data-desg-owndesc class="desg-owndesc" type="text" placeholder="Nombre propio (opcional)" value="${(d.desc||'').replace(/"/g,'&quot;')}" oninput="updateDesglose(${d.id},'desc',this.value)" style="padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
       </div>
-      <!-- R8 · Renglón 2: Categoría + Subcategoría. En escritorio ambos 50%; en
-           móvil ambos inician 50% pero Subcategoría cede a Categoría si esta lo
-           necesita (Categoría nunca se trunca; si falta espacio, se trunca Subcat). -->
+      <!-- R8.1 · Renglón 2: Categoría + Subcategoría. En escritorio ambos 50%; en
+           móvil Categoría se ajusta al ancho de SU opción elegida (fitDesgCatSelects)
+           y Subcategoría absorbe todo el resto para mostrarse completa. -->
       <div data-desg-catrow class="desg-catrow" style="display:flex;gap:8px;margin-bottom:8px;">
         <select class="desg-cat" onchange="setDesgloseCat(${d.id},this.value)" style="min-width:0;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
           <option value="">Categoría...</option>${catOpts}
@@ -357,6 +383,7 @@ function renderDesgloses(animateNew){
   updateAddDesgloseBtnVisibility();
   updateDesgloseRemaining();
   updateDesgloseChipLabel();
+  try{ fitDesgCatSelects(); }catch(e){}
 }
 
 // Muestra el botón "Agregar desglose" solo si el último desglose está completo.
@@ -643,6 +670,7 @@ function setEditDesgloseCat(id, cat){
   revealEditDesgloseFields(id);
   updateEditAddDesgloseBtnVisibility();
   updateEditDesgloseRemaining();
+  try{ fitDesgCatSelects(); }catch(e){}   // R8.1: el ancho sigue a la selección
 }
 function setEditDesgloseSubcat(id, sub){
   const d=editDesgloses.find(x=>x.id===id);
@@ -735,11 +763,11 @@ function renderEditDesgloses(){
       <!-- R7.2 · Renglón 1: Monto (≈⅓) + Nombre propio (≈⅔).
            Nombre propio: vacío = hereda la descripción madre; con texto = ese será su nombre en el historial -->
       <div style="display:flex;gap:8px;margin-bottom:8px;">
-        <input data-desg-amount type="text" inputmode="decimal" placeholder="Monto" value="${d.amount?formatAmountString(String(d.amount)):''}" oninput="handleAmountInput(this);updateEditDesglose(${d.id},'amount',rawAmount(this.value))" style="flex:0 0 20%;min-width:0;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
-        <input data-desg-owndesc type="text" placeholder="Nombre propio (opcional)" value="${(d.desc||'').replace(/"/g,'&quot;')}" oninput="updateEditDesglose(${d.id},'desc',this.value)" style="flex:1 1 0;min-width:0;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
+        <input data-desg-amount class="desg-amt" type="text" inputmode="decimal" placeholder="Monto" value="${d.amount?formatAmountString(String(d.amount)):''}" oninput="handleAmountInput(this);updateEditDesglose(${d.id},'amount',rawAmount(this.value))" style="padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
+        <input data-desg-owndesc class="desg-owndesc" type="text" placeholder="Nombre propio (opcional)" value="${(d.desc||'').replace(/"/g,'&quot;')}" oninput="updateEditDesglose(${d.id},'desc',this.value)" style="padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
       </div>
-      <!-- R7.2 · Renglón 2: Categoría (mitad izq) + Subcategoría (mitad der) -->
-      <div data-desg-catrow style="display:flex;gap:8px;margin-bottom:8px;">
+      <!-- R8.1 · Renglón 2: Categoría a la medida de su selección (móvil) + Subcategoría con el resto -->
+      <div data-desg-catrow class="desg-catrow" style="display:flex;gap:8px;margin-bottom:8px;">
         <select class="desg-cat" onchange="setEditDesgloseCat(${d.id},this.value)" style="min-width:0;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
           <option value="">Categoría...</option>${catOpts}
         </select>
@@ -752,6 +780,7 @@ function renderEditDesgloses(){
   updateEditAddDesgloseBtnVisibility();
   updateEditDesgloseRemaining();
   updateEditDesgloseChipLabel();
+  try{ fitDesgCatSelects(); }catch(e){}
 }
 
 function updateEditAddDesgloseBtnVisibility(){
@@ -931,9 +960,37 @@ function benChipsHtml(selected, benId, setFn){
   }).join('');
 }
 
+// ── R8.1 · El renglón inferior de un bloque solo se muestra si tiene contenido
+// visible (el "= $X" del porcentaje y/o el "Quedan $Y" mudado al último bloque).
+function _syncBenCalcRow(row){
+  if(!row) return;
+  const vis=Array.from(row.children).some(ch=>ch.style.display!=='none' && (ch.textContent||'').trim()!=='');
+  row.style.display = vis ? 'flex' : 'none';
+}
+// Regresa "Quedan $Y" a su sitio original (tras el botón "Agregar otro
+// beneficio") — necesario ANTES de que renderBeneficios limpie la lista, o el
+// nodo moriría con innerHTML=''.
+function _rehomeBeneficioRemaining(){
+  const remEl=document.getElementById('beneficio-remaining');
+  const home=document.getElementById('add-beneficio-btn');
+  if(remEl && home && remEl.parentElement!==home.parentElement){
+    home.parentElement.insertBefore(remEl, home.nextSibling);
+    remEl.style.marginLeft=''; remEl.style.marginTop='';
+  }
+}
+function _rehomeEditBeneficioRemaining(){
+  const remEl=document.getElementById('e-beneficio-remaining');
+  const home=document.getElementById('e-add-beneficio-btn');
+  if(remEl && home && remEl.parentElement!==home.parentElement){
+    home.parentElement.insertBefore(remEl, home.nextSibling);
+    remEl.style.marginLeft=''; remEl.style.marginTop='';
+  }
+}
+
 function renderBeneficios(animateNew){
   const list=document.getElementById('beneficio-list');
   if(!list) return;
+  _rehomeBeneficioRemaining();   // R8.1: rescatar "Quedan" antes de limpiar
   const cur=document.getElementById('currency')?.value||'MXN';
   const curLabel = cur==='MXN' ? '' : ` (${cur})`;
   const prevIds = new Set(Array.from(list.children).map(c=>c.dataset.benId));
@@ -965,7 +1022,12 @@ function renderBeneficios(animateNew){
         </select>
       </div>
       <div class="ben-type-chips">${benChipsHtml(b.category, b.id, 'setBeneficioCat')}</div>
-      <div data-ben-calc style="font-size:12px;color:var(--text3);margin-top:6px;display:none;"></div>
+      <!-- R8.1 · Renglón inferior del bloque: "= $X" a la izquierda y, en el
+           ÚLTIMO bloque, "Quedan $Y" a la derecha (updateBeneficioRemaining lo
+           muda aquí) — un solo renglón visual, sin espacio vertical extra. -->
+      <div data-ben-calcrow style="display:none;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:10px;margin-top:6px;">
+        <span data-ben-calc style="font-size:12px;color:var(--text3);"></span>
+      </div>
     `;
     list.appendChild(card);
     if(animateNew && !prevIds.has(String(b.id))){
@@ -987,11 +1049,12 @@ function updateBeneficioCalc(id){
   const sym=cur==='MXN'?'$':`${cur} `;
   if(b.mode==='pct' && (b.pct||0)>0 && amount>0){
     el.textContent=`= ${sym}${beneficioVal(b, amount).toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})}`;
-    el.style.display='block';
+    el.style.display='';
   } else {
     el.textContent='';
     el.style.display='none';
   }
+  _syncBenCalcRow(el.closest('[data-ben-calcrow]'));
 }
 
 function setBeneficioMode(id, mode){
@@ -1100,13 +1163,21 @@ function updateBeneficioRemaining(){
   const remEl=document.getElementById('beneficio-remaining');
   if(!remEl) return;
   const det=beneficiosDetalle();
-  if(beneficios.length===0){
+  // R8.1: "Quedan $Y" ya no genera renglón propio — comparte el renglón
+  // inferior del ÚLTIMO bloque ("= $X" a la izquierda, esto a la derecha) y
+  // viaja con él conforme se agregan bloques.
+  const lastRow=document.querySelector('#beneficio-list [data-ben-id]:last-child [data-ben-calcrow]');
+  if(beneficios.length===0 || !lastRow){
     remEl.style.display='none';
+    _rehomeBeneficioRemaining();
     _benExceed=false; refreshSubmitDisabled();
     setAddBeneficioHidden(false);
     return;
   }
-  remEl.style.display='block';
+  if(remEl.parentElement!==lastRow) lastRow.appendChild(remEl);
+  remEl.style.display='';
+  remEl.style.marginTop='0';
+  remEl.style.marginLeft='auto';   // pegado a la derecha aunque no haya "= $X"
   const cur=document.getElementById('currency')?.value||'MXN';
   const sym=cur==='MXN'?'$':`${cur} `;
   const fmtMoney = v => `${sym}${v.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})}`;
@@ -1122,6 +1193,7 @@ function updateBeneficioRemaining(){
     _benExceed=false; refreshSubmitDisabled();
     setAddBeneficioHidden(det.remaining<=0);
   }
+  _syncBenCalcRow(lastRow);
 }
 
 // Recalcula los "= $X" de los bloques porcentuales y el restante — se llama
@@ -1138,6 +1210,7 @@ function refreshEditBeneficioCalcs(){
 // Limpia por completo el módulo de beneficios (guardado, cambio de tipo)
 function resetBeneficios(){
   beneficios=[];
+  _rehomeBeneficioRemaining();   // R8.1: rescatar "Quedan" antes de limpiar
   const list=document.getElementById('beneficio-list');
   if(list) list.innerHTML='';
   const panel=document.getElementById('ben-panel');
@@ -1197,6 +1270,7 @@ function renderEditBeneficios(animateNew){
   if(!list) return;
   const cur=document.getElementById('e-currency')?.value||'MXN';
   const curLabel = cur==='MXN' ? '' : ` (${cur})`;
+  _rehomeEditBeneficioRemaining();   // R8.1: rescatar "Quedan" antes de limpiar
   const prevIds = new Set(Array.from(list.children).map(c=>c.dataset.benId));
   list.innerHTML='';
   editBeneficios.forEach((b,idx)=>{
@@ -1225,7 +1299,10 @@ function renderEditBeneficios(animateNew){
         </select>
       </div>
       <div class="ben-type-chips">${benChipsHtml(b.category, b.id, 'setEditBeneficioCat')}</div>
-      <div data-ben-calc style="font-size:12px;color:var(--text3);margin-top:6px;display:none;"></div>
+      <!-- R8.1 · Renglón inferior (espejo del registro): "= $X" izq + "Quedan" der en el último bloque -->
+      <div data-ben-calcrow style="display:none;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:10px;margin-top:6px;">
+        <span data-ben-calc style="font-size:12px;color:var(--text3);"></span>
+      </div>
     `;
     list.appendChild(card);
     if(animateNew && !prevIds.has(String(b.id))){
@@ -1246,11 +1323,12 @@ function updateEditBeneficioCalc(id){
   const sym=cur==='MXN'?'$':`${cur} `;
   if(b.mode==='pct' && (b.pct||0)>0 && amount>0){
     el.textContent=`= ${sym}${beneficioVal(b, amount).toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})}`;
-    el.style.display='block';
+    el.style.display='';
   } else {
     el.textContent='';
     el.style.display='none';
   }
+  _syncBenCalcRow(el.closest('[data-ben-calcrow]'));
 }
 
 function setEditBeneficioMode(id, mode){
@@ -1341,13 +1419,19 @@ function updateEditBeneficioRemaining(){
   const remEl=document.getElementById('e-beneficio-remaining');
   if(!remEl) return;
   const det=editBeneficiosDetalle();
-  if(editBeneficios.length===0){
+  // R8.1: espejo del registro — "Quedan" comparte renglón con el último bloque
+  const lastRow=document.querySelector('#e-beneficio-list [data-ben-id]:last-child [data-ben-calcrow]');
+  if(editBeneficios.length===0 || !lastRow){
     remEl.style.display='none';
+    _rehomeEditBeneficioRemaining();
     _eBenExceed=false; refreshEditSubmitDisabled();
     setEditAddBeneficioHidden(false);
     return;
   }
-  remEl.style.display='block';
+  if(remEl.parentElement!==lastRow) lastRow.appendChild(remEl);
+  remEl.style.display='';
+  remEl.style.marginTop='0';
+  remEl.style.marginLeft='auto';
   const cur=document.getElementById('e-currency')?.value||'MXN';
   const sym=cur==='MXN'?'$':`${cur} `;
   const fmtMoney = v => `${sym}${v.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})}`;
@@ -1363,10 +1447,12 @@ function updateEditBeneficioRemaining(){
     _eBenExceed=false; refreshEditSubmitDisabled();
     setEditAddBeneficioHidden(det.remaining<=0);
   }
+  _syncBenCalcRow(lastRow);
 }
 
 function resetEditBeneficios(){
   editBeneficios=[];
+  _rehomeEditBeneficioRemaining();   // R8.1: rescatar "Quedan" antes de limpiar
   const list=document.getElementById('e-beneficio-list');
   if(list) list.innerHTML='';
   const panel=document.getElementById('e-ben-panel');

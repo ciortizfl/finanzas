@@ -127,8 +127,11 @@
              de pago. La ✕ limpia todo el módulo (mismo comportamiento que Desglose). -->
         <div id="propina-panel" style="display:none;margin-top:12px;padding:12px;background:var(--surface2);border-radius:var(--radius-sm);position:relative;">
           <button type="button" onclick="clearPropinaModule()" title="Quitar propina" style="position:absolute;top:8px;right:8px;background:none;border:none;cursor:pointer;color:var(--danger);font-size:16px;line-height:1;padding:2px;">✕</button>
-          <!-- Renglón único: toggle %/$ + campo + toggle Incluida/Adicional -->
-          <div style="display:flex;align-items:center;gap:8px;padding-right:20px;">
+          <!-- R8.1 · Renglón único: toggle %/$ + campo + toggle Incluida/Adicional
+               y, en modo $, los métodos de pago de la propina: en WEB dentro del
+               MISMO renglón tras una línea divisoria; en MÓVIL saltan a su propio
+               renglón (flex-basis 100%) con los chips justificados. -->
+          <div class="propina-row" style="display:flex;align-items:center;gap:8px;padding-right:20px;">
             <div style="display:flex;background:var(--surface);border-radius:100px;padding:3px;gap:2px;flex-shrink:0;box-shadow:0 1px 4px rgba(0,0,0,0.12),0 0 0 1px var(--border2);">
               <button id="propina-chip-pct" onclick="setPropinaType('pct')" style="padding:5px 12px;border-radius:100px;border:none;background:var(--accent);color:white;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;transition:all 0.18s;">%</button>
               <button id="propina-chip-monto" onclick="setPropinaType('monto')" style="padding:5px 12px;border-radius:100px;border:none;background:transparent;color:var(--text3);font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;transition:all 0.18s;">$</button>
@@ -139,20 +142,20 @@
               <button id="propina-incl-btn" onclick="setPropinaIncluida(true)" style="padding:5px 10px;border-radius:100px;border:none;background:var(--accent);color:white;font-family:inherit;font-size:11px;font-weight:600;cursor:pointer;transition:all 0.18s;">Incluida</button>
               <button id="propina-adic-btn" onclick="setPropinaIncluida(false)" style="padding:5px 10px;border-radius:100px;border:none;background:transparent;color:var(--text3);font-family:inherit;font-size:11px;font-weight:600;cursor:pointer;transition:all 0.18s;">Adicional</button>
             </div>
+            <div id="propina-method-wrap" class="propina-method-wrap" style="display:none;">
+              <div class="propina-method-lbl" style="font-size:12px;color:var(--text3);margin-bottom:6px;font-weight:600;">Método de pago de la propina</div>
+              <div class="chips" id="propina-method-chips">
+                <button class="chip" onclick="setPropinaMethod('Tarjeta de crédito',this)">Crédito</button>
+                <button class="chip" onclick="setPropinaMethod('Efectivo',this)">Efectivo</button>
+                <button class="chip" onclick="setPropinaMethod('Bono de despensa',this)">Bono</button>
+                <button class="chip" onclick="setPropinaMethod('SPEI',this)">SPEI</button>
+                <button class="chip" onclick="setPropinaMethod('Débito',this)">Débito</button>
+              </div>
+            </div>
           </div>
           <!-- Resultado del cálculo: debajo del renglón, solo en modo % -->
           <div id="propina-calc-row" style="margin-top:8px;">
             <span id="propina-calc" style="font-size:13px;color:var(--text3);"></span>
-          </div>
-          <div id="propina-method-wrap" style="display:none;margin-top:10px;">
-            <div style="font-size:12px;color:var(--text3);margin-bottom:6px;font-weight:600;">Método de pago de la propina</div>
-            <div class="chips" id="propina-method-chips">
-              <button class="chip" onclick="setPropinaMethod('Tarjeta de crédito',this)">Crédito</button>
-              <button class="chip" onclick="setPropinaMethod('Efectivo',this)">Efectivo</button>
-              <button class="chip" onclick="setPropinaMethod('Bono de despensa',this)">Bono</button>
-              <button class="chip" onclick="setPropinaMethod('SPEI',this)">SPEI</button>
-              <button class="chip" onclick="setPropinaMethod('Débito',this)">Débito</button>
-            </div>
           </div>
         </div>
         <!-- Beneficio panel — R7.2: bloques MÚLTIPLES con la misma mecánica de
@@ -177,7 +180,6 @@
                es el campo personalizado (mismo aspecto que los presets). Debajo,
                solo la palabra "Meses" centrada. El segundo renglón desapareció. -->
           <div style="display:flex;gap:7px;align-items:stretch;margin-bottom:6px;" id="diferir-presets"></div>
-          <div id="diferir-custom-label" style="display:none;font-size:12px;color:var(--text3);text-align:center;margin-bottom:12px;">Meses</div>
           <div id="diferir-preview" style="background:var(--surface);border-radius:10px;padding:12px 14px;border:1px solid var(--border2);display:none;"></div>
         </div>
       </div>
@@ -250,7 +252,7 @@
               <div class="rem-col-title">Fecha límite</div>
               <div class="rem-cfg-row">
                 <button type="button" class="chip rem-chip" id="rem-until-inf" onclick="setRemUntil('inf')">Sin límite</button>
-                <button type="button" class="chip rem-chip" id="rem-until-date" onclick="setRemUntil('date')">Hasta fecha</button>
+                <button type="button" class="chip rem-chip" id="rem-until-date" onclick="setRemUntil('date')">Elegir</button>
               </div>
               <div class="rem-cfg-hint" id="rem-until-hint"></div>
             </div>
@@ -571,8 +573,10 @@
           <!-- Propina panel (misma estructura R7.2 que en registro) -->
           <div id="e-propina-panel" style="display:none;margin-top:12px;padding:12px;background:var(--surface2);border-radius:var(--radius-sm);position:relative;">
             <button type="button" onclick="clearEditPropinaModule()" title="Quitar propina" style="position:absolute;top:8px;right:8px;background:none;border:none;cursor:pointer;color:var(--danger);font-size:16px;line-height:1;padding:2px;">✕</button>
-            <!-- Renglón único: toggle %/$ + campo + toggle Incluida/Adicional -->
-            <div style="display:flex;align-items:center;gap:8px;padding-right:20px;">
+            <!-- R8.1 · Renglón único (espejo del registro): campos + métodos de
+                 pago de la propina en modo $ — web en línea tras divisor, móvil
+                 en renglón propio justificado. -->
+            <div class="propina-row" style="display:flex;align-items:center;gap:8px;padding-right:20px;">
               <div style="display:flex;background:var(--surface);border-radius:100px;padding:3px;gap:2px;flex-shrink:0;box-shadow:0 1px 4px rgba(0,0,0,0.12),0 0 0 1px var(--border2);">
                 <button id="e-propina-chip-pct" onclick="setEditPropinaType('pct')" style="padding:5px 12px;border-radius:100px;border:none;background:var(--accent);color:white;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;transition:all 0.18s;">%</button>
                 <button id="e-propina-chip-monto" onclick="setEditPropinaType('monto')" style="padding:5px 12px;border-radius:100px;border:none;background:transparent;color:var(--text3);font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;transition:all 0.18s;">$</button>
@@ -583,20 +587,20 @@
                 <button id="e-propina-incl-btn" onclick="setEditPropinaIncluida(true)" style="padding:5px 10px;border-radius:100px;border:none;background:var(--accent);color:white;font-family:inherit;font-size:11px;font-weight:600;cursor:pointer;transition:all 0.18s;">Incluida</button>
                 <button id="e-propina-adic-btn" onclick="setEditPropinaIncluida(false)" style="padding:5px 10px;border-radius:100px;border:none;background:transparent;color:var(--text3);font-family:inherit;font-size:11px;font-weight:600;cursor:pointer;transition:all 0.18s;">Adicional</button>
               </div>
+              <div id="e-propina-method-wrap" class="propina-method-wrap" style="display:none;">
+                <div class="propina-method-lbl" style="font-size:12px;color:var(--text3);margin-bottom:6px;font-weight:600;">Método de pago de la propina</div>
+                <div class="chips" id="e-propina-method-chips">
+                  <button class="chip" onclick="setEditPropinaMethod('Tarjeta de crédito',this)">Crédito</button>
+                  <button class="chip" onclick="setEditPropinaMethod('Efectivo',this)">Efectivo</button>
+                  <button class="chip" onclick="setEditPropinaMethod('Bono de despensa',this)">Bono</button>
+                  <button class="chip" onclick="setEditPropinaMethod('SPEI',this)">SPEI</button>
+                  <button class="chip" onclick="setEditPropinaMethod('Débito',this)">Débito</button>
+                </div>
+              </div>
             </div>
             <!-- Resultado del cálculo: debajo del renglón, solo en modo % -->
             <div id="e-propina-calc-row" style="margin-top:8px;">
               <span id="e-propina-calc" style="font-size:13px;color:var(--text3);"></span>
-            </div>
-            <div id="e-propina-method-wrap" style="display:none;margin-top:10px;">
-              <div style="font-size:12px;color:var(--text3);margin-bottom:6px;font-weight:600;">Método de pago de la propina</div>
-              <div class="chips" id="e-propina-method-chips">
-                <button class="chip" onclick="setEditPropinaMethod('Tarjeta de crédito',this)">Crédito</button>
-                <button class="chip" onclick="setEditPropinaMethod('Efectivo',this)">Efectivo</button>
-                <button class="chip" onclick="setEditPropinaMethod('Bono de despensa',this)">Bono</button>
-                <button class="chip" onclick="setEditPropinaMethod('SPEI',this)">SPEI</button>
-                <button class="chip" onclick="setEditPropinaMethod('Débito',this)">Débito</button>
-              </div>
             </div>
           </div>
           <!-- Beneficio panel — R7.2: bloques múltiples (espejo del registro) -->
@@ -614,7 +618,6 @@
             <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:3px;padding-right:20px;">Repartir en mensualidades</div>
             <div style="font-size:12px;color:var(--text3);margin-bottom:12px;line-height:1.4;">El monto total se divide en partes iguales, una por mes, empezando este mes.</div>
             <div style="display:flex;gap:7px;align-items:stretch;margin-bottom:6px;" id="e-diferir-presets"></div>
-            <div id="e-diferir-custom-label" style="display:none;font-size:12px;color:var(--text3);text-align:center;margin-bottom:12px;">Meses</div>
             <div id="e-diferir-preview" style="background:var(--surface);border-radius:10px;padding:12px 14px;border:1px solid var(--border2);display:none;"></div>
           </div>
         </div>
@@ -687,7 +690,7 @@
                 <div class="rem-col-title">Fecha límite</div>
                 <div class="rem-cfg-row">
                   <button type="button" class="chip rem-chip" id="e-rem-until-inf" onclick="eSetRemUntil('inf')">Sin límite</button>
-                  <button type="button" class="chip rem-chip" id="e-rem-until-date" onclick="eSetRemUntil('date')">Hasta fecha</button>
+                  <button type="button" class="chip rem-chip" id="e-rem-until-date" onclick="eSetRemUntil('date')">Elegir</button>
                 </div>
                 <div class="rem-cfg-hint" id="e-rem-until-hint"></div>
               </div>

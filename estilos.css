@@ -104,37 +104,48 @@ nav {
   border: none; padding: 18px 16px; box-shadow: var(--shadow);
 }
 
-/* ── R8 · NOTA OPCIONAL bajo Descripción ──
-   Se siente "oculta" debajo del campo Descripción: sin separación de bloque
-   (margen negativo que la mete bajo el borde inferior de Descripción) y una
-   sombra interior arriba que simula que el campo Descripción proyecta sombra
-   sobre ella. Altura reducida, similar al campo de nota de los desgloses. */
+/* ── R8.1 · NOTA OPCIONAL bajo Descripción ──
+   La Nota vive DEBAJO de Descripción en profundidad: al aparecer se desliza
+   SALIENDO de abajo del campo (los hijos del slot se animan y overflow:hidden
+   recorta el trayecto — la Nota nunca se pinta encima de Descripción), y una
+   franja de sombra fija en el borde superior (::before, de borde a borde,
+   también sobre la ✕) hace que Descripción "proyecte sombra" sobre ella. */
 .note-slot {
   position: relative;
   margin-top: -2px;          /* la mete "debajo" de Descripción, sin hueco de bloque */
   border-radius: 0 0 var(--radius-sm) var(--radius-sm);
-  overflow: hidden;
+  overflow: hidden;          /* recorta el deslizamiento: emerge, no se encima */
+}
+.note-slot::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0; height: 9px;
+  background: linear-gradient(to bottom, rgba(0,0,0,0.20), rgba(0,0,0,0));
+  pointer-events: none; z-index: 2;
+}
+@media (prefers-color-scheme: dark) {
+  .note-slot::before { background: linear-gradient(to bottom, rgba(0,0,0,0.45), rgba(0,0,0,0)); }
 }
 .note-input {
   width: 100%;
-  padding: 9px 34px 9px 14px; /* espacio a la derecha para la ✕ */
+  padding: 9px 38px 9px 14px; /* espacio a la derecha para la ✕ */
   border: none;
   border-radius: 0 0 var(--radius-sm) var(--radius-sm);
   background: var(--surface2);
   color: var(--text);
   font-family: inherit; font-size: 13px; font-weight: 400;
   outline: none;
-  /* Sombra que "cae" desde el campo Descripción sobre la Nota */
-  box-shadow: inset 0 6px 8px -6px rgba(0,0,0,0.22);
 }
-@media (prefers-color-scheme: dark) {
-  .note-input { box-shadow: inset 0 6px 9px -6px rgba(0,0,0,0.5); }
-}
+/* R8.1 · ✕ protegida: fondo propio con degradado a la izquierda — el texto
+   largo del input (que scrollea por debajo del padding) se desvanece antes de
+   tocarla, nunca se le encima. */
 .note-clear {
-  position: absolute; top: 50%; right: 8px; transform: translateY(-50%);
-  background: none; border: none; cursor: pointer;
-  color: var(--text3); font-size: 14px; line-height: 1; padding: 4px;
+  position: absolute; top: 0; right: 0; bottom: 0; width: 38px; z-index: 1;
+  display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(to right, rgba(0,0,0,0), var(--surface2) 14px);
+  border: none; cursor: pointer;
+  color: var(--text3); font-size: 14px; line-height: 1; padding: 0 6px 0 10px;
   transition: color 0.15s;
+  border-radius: 0 0 var(--radius-sm) 0;
 }
 .note-clear:hover, .note-clear:active { color: var(--danger); }
 
@@ -338,6 +349,39 @@ nav {
   font-size: 12px;
 }
 
+/* ── R8.1 · Métodos de pago de la PROPINA (aparecen en modo $) ──
+   Aspecto: chips INACTIVOS con fondo propio (el panel es surface2; sin fondo se
+   fundían y parecían texto plano). El elegido lo pinta .chip.active (accent).
+   WEB: viven en el MISMO renglón que los campos, tras una línea divisoria
+   (border-left del wrap) — sin etiqueta, el renglón tenía espacio de sobra.
+   MÓVIL: renglón propio debajo (flex-basis 100% dentro del mismo flex con
+   wrap), con la etiqueta y los chips justificados a todo el ancho. */
+#propina-method-chips .chip,
+#e-propina-method-chips .chip {
+  background: var(--surface);
+  box-shadow: 0 0 0 1px var(--border2);
+  color: var(--text3);
+}
+#propina-method-chips .chip.active,
+#e-propina-method-chips .chip.active {
+  background: var(--accent); color: #fff; box-shadow: none; font-weight: 600;
+}
+.propina-row { flex-wrap: wrap; }
+@media (min-width: 768px) {
+  .propina-method-wrap {
+    display: flex; align-items: center; min-width: 0;
+    border-left: 1px solid var(--border2);
+    padding-left: 12px; margin-left: 4px;
+    align-self: stretch;
+  }
+  .propina-method-wrap .propina-method-lbl { display: none; }
+}
+@media (max-width: 767px) {
+  .propina-method-wrap { flex: 0 0 100%; min-width: 0; margin-top: 2px; }
+  .propina-method-wrap .chips { flex-wrap: wrap; }
+  .propina-method-wrap .chips .chip { flex: 1 1 auto; text-align: center; }
+}
+
 /* BENEFIT TOGGLE */.t-box {
   width: 22px; height: 22px; border-radius: 50%;
   border: 2px solid var(--amber); flex-shrink: 0;
@@ -404,21 +448,31 @@ nav {
 .month-preset-input::placeholder{ color:var(--text3); font-weight:600; }
 .month-preset-input.on::placeholder{ color:rgba(255,255,255,0.85); }
 
-/* ── R8 · Desglose: Categoría vs Subcategoría ──
-   MÓVIL (base): ambos parten de 50%, pero Categoría NUNCA se encoge por debajo
-   de su contenido (min-width:max-content), así siempre se muestra completa;
-   Subcategoría absorbe el sobrante y se trunca con ellipsis cuando falta espacio
-   (min-width:0 permite que un flex item se encoja por debajo de su contenido). */
+/* ── R8.1 · Desglose · Renglón 1: en MÓVIL el Monto toma 1/4 del renglón y el
+   Nombre propio el resto; en web se conserva el 20/80 de R8. */
+.desg-amt { flex: 0 0 25%; min-width: 0; }
+.desg-owndesc { flex: 1 1 0; min-width: 0; }
+@media (min-width: 768px) {
+  .desg-amt { flex: 0 0 20%; }
+}
+
+/* ── R8.1 · Desglose: Categoría vs Subcategoría ──
+   MÓVIL (base): Categoría se ajusta al ancho de SU OPCIÓN SELECCIONADA (lo mide
+   fitDesgCatSelects en 03_desgloses y lo fija como width inline) y Subcategoría
+   absorbe TODO el resto — así "Espectáculos y conciertos" se lee completo junto
+   a un "Ocio" compacto. La regla R8 (min-width:max-content) no funcionó: un
+   <select> nativo mide su opción MÁS LARGA, no la elegida, y como la subcat sí
+   podía encogerse, el flex nunca obligaba a Categoría a ceder su 50%. */
 .desg-catrow .desg-cat {
-  flex: 0 1 50%;
-  min-width: max-content;   /* prioridad: mostrar Categoría completa */
+  flex: 0 0 auto;
+  min-width: 0;
 }
 .desg-catrow .desg-subcat {
   flex: 1 1 0;
   min-width: 0;             /* puede encogerse por debajo de su contenido */
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-/* ESCRITORIO: ambos exactamente 50%, sin la asimetría de prioridad. */
+/* ESCRITORIO: ambos exactamente 50% (fitDesgCatSelects limpia el width inline). */
 @media (min-width: 768px) {
   .desg-catrow .desg-cat,
   .desg-catrow .desg-subcat {
@@ -1159,6 +1213,17 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
   box-shadow: 0 0 0 1px var(--border2);
 }
 .rem-chip.active { box-shadow: none; }
+/* R8.1 · MÓVIL: los dos grupos se APILAN (Frecuencia arriba, Fecha límite
+   abajo) — los chips quedan mucho más largos: cada uno ocupa el 50% del ancho
+   de su cuadro, justificados a ambos bordes. El separador vertical de columnas
+   se convierte en línea horizontal entre los grupos. En web se conserva el
+   renglón de dos columnas de R7.2. */
+@media (max-width: 767px) {
+  .rem-two-cols { flex-direction: column; gap: 10px; padding-right: 0; }
+  .rem-col-sep { width: 100%; height: 1px; align-self: auto; }
+  .rem-col .rem-cfg-row { justify-content: space-between; gap: 6px; }
+  .rem-col .rem-cfg-row .rem-chip { flex: 0 0 calc(50% - 3px); }
+}
 
 /* ── Representación de recordatorios ── */
 .tx-rem-ico { font-size: 10px; margin-left: 5px; opacity: 0.55; vertical-align: 1px; }

@@ -67,19 +67,59 @@ function updateNoteDesgloseIndicators(){
 //  5. Volver a enfocar Descripción la vuelve a mostrar (sin tocar lo escrito).
 //  6. Si se borra por completo y el foco sale → vuelve a ocultarse.
 // ══════════════════════════════════════════════════════════════════════════
+// ── R8.1 · Animación propia de la Nota: se anima a los HIJOS del slot (input
+// y ✕) y el overflow:hidden del slot recorta el trayecto. Así la Nota EMERGE
+// deslizándose por debajo del campo Descripción — nunca se pinta encima de él
+// (antes, revealAnimate movía el slot completo y durante la animación la Nota
+// se veía POR ENCIMA de Descripción). ──
+function _noteMotionOff(){
+  return (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+}
+function noteReveal(wrap){
+  if(!wrap) return;
+  wrap.style.display='block';
+  if(_noteMotionOff()) return;
+  const easing='cubic-bezier(0.22, 0.61, 0.36, 1)';
+  Array.from(wrap.children).forEach(ch=>{
+    if(typeof ch.animate!=='function') return;
+    try{ ch.animate(
+      [{transform:'translate3d(0,-100%,0)'},{transform:'translate3d(0,0,0)'}],
+      {duration:420, easing, fill:'backwards'}); }catch(e){}
+  });
+}
+function noteHide(wrap){
+  if(!wrap) return;
+  if(_noteMotionOff()){ wrap.style.display='none'; return; }
+  const kids=Array.from(wrap.children).filter(ch=>typeof ch.animate==='function');
+  if(kids.length===0){ wrap.style.display='none'; return; }
+  let hidden=false;
+  const fin=()=>{ if(hidden) return; hidden=true; wrap.style.display='none'; };
+  const easing='cubic-bezier(0.22, 0.61, 0.36, 1)';
+  const anims=[];
+  kids.forEach(ch=>{
+    try{
+      anims.push(ch.animate(
+        [{transform:'translate3d(0,0,0)'},{transform:'translate3d(0,-100%,0)'}],
+        {duration:240, easing, fill:'forwards'}));
+    }catch(e){}
+  });
+  if(anims.length===0){ fin(); return; }
+  anims[0].onfinish=()=>{ fin(); anims.forEach(a=>{ try{ a.cancel(); }catch(e){} }); };
+  setTimeout(fin, 420);   // red de seguridad
+}
+
 function showNoteField(){
   const wrap=document.getElementById('note-field-wrap');
   if(!wrap || _noteVisible) return;
   _noteVisible=true;
-  wrap.style.display='block';
-  revealAnimate(wrap);
+  noteReveal(wrap);
 }
 function maybeHideNoteField(){
   const wrap=document.getElementById('note-field-wrap');
   if(!wrap || !_noteVisible) return;
   if(noteHasData()) return;   // con contenido nunca se oculta sola
   _noteVisible=false;
-  hideAnimate(wrap);
+  noteHide(wrap);
 }
 // R8 · ✕ de la Nota: vacía el contenido y colapsa de inmediato (sin confirmar),
 // con la misma animación de ocultar. Para volver a mostrarla se usa el mismo
@@ -89,7 +129,7 @@ function clearNoteField(){
   if(el) el.value='';
   if(typeof _notePredicted!=='undefined') _notePredicted=false;
   _noteVisible=false;
-  hideAnimate(document.getElementById('note-field-wrap'));
+  noteHide(document.getElementById('note-field-wrap'));
   updateNoteDesgloseIndicators();
 }
 function initNoteBehavior(){
@@ -785,9 +825,6 @@ function renderDiferirPresets(){
   if(diferirCustom && diferirMonths) inp.value=diferirMonths;
   inp.oninput=onDiferirCustomInput;
   cont.appendChild(inp);
-  // La etiqueta "Meses" solo se muestra cuando el campo personalizado está activo
-  const lbl=document.getElementById('diferir-custom-label');
-  if(lbl) lbl.style.display = diferirCustom ? '' : 'none';
 }
 
 // Alterna un preset: si ya estaba activo, lo desactiva (vuelve a 0)
@@ -827,8 +864,6 @@ function onDiferirCustomInput(){
     });
   }
   if(inp) inp.classList.toggle('on', diferirCustom);
-  const lbl=document.getElementById('diferir-custom-label');
-  if(lbl) lbl.style.display = diferirCustom ? '' : 'none';
   renderDiferirPreview();
   updateInlineBtn('inline-diferir-btn', true, diferirHasData());
   try{ refreshTopTabsVisibility(); }catch(e){}   // Bug 2: mantener la exclusión al vuelo

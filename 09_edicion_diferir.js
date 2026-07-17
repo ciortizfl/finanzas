@@ -120,8 +120,6 @@ function renderEditDiferirPresets(){
   if(editDiferirCustom && editDiferirMonths) inp.value=editDiferirMonths;
   inp.oninput=onEditDiferirCustomInput;
   cont.appendChild(inp);
-  const lbl=document.getElementById('e-diferir-custom-label');
-  if(lbl) lbl.style.display = editDiferirCustom ? '' : 'none';
 }
 
 function toggleEditDiferirPreset(p){
@@ -159,8 +157,6 @@ function onEditDiferirCustomInput(){
     });
   }
   if(inp) inp.classList.toggle('on', editDiferirCustom);
-  const lbl=document.getElementById('e-diferir-custom-label');
-  if(lbl) lbl.style.display = editDiferirCustom ? '' : 'none';
   renderEditDiferirPreview();
   updateInlineBtn('e-inline-diferir-btn', true, editDiferirHasData());
   editUpdateDesgloseForDiferir();
