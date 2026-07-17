@@ -116,6 +116,11 @@ nav {
   border-radius: 0 0 var(--radius-sm) var(--radius-sm);
   overflow: hidden;          /* recorta el deslizamiento: emerge, no se encima */
 }
+/* R8.6 · En EDICIÓN, Descripción comparte renglón con el botón de emoji (46px +
+   8px de gap). La Nota vive fuera de ese renglón, así que hay que reservar ese
+   ancho a la derecha para que termine justo donde termina Descripción y no se
+   extienda por debajo del selector de emoji. */
+#e-note-field-wrap { margin-right: 54px; }
 .note-slot::before {
   content: '';
   position: absolute; top: 0; left: 0; right: 0; height: 7px;   /* R8.2: sombra un poco más corta */

@@ -1112,7 +1112,16 @@ function txEl(e, showDelete){
   el.className='tx-item';
   // La fecha ya no se muestra (el listado se agrupa por días) ni el método:
   // solo la subcategoría en la línea principal; el resto, cada uno en SU renglón.
-  const sub=[e.subcategory||e.category].filter(Boolean).join('');
+  // R8.6 · Propina en el historial: la fila muestra SOLO el tagline en itálica,
+  // nunca la subcategoría "Propina" además (evita que "Propina" salga dos veces).
+  //   · Propina VINCULADA (hijo): el tagline ("15% adicional a $1,000") ya se
+  //     arma abajo en metaParts; aquí ocultamos su subcategoría de la línea sub.
+  //   · Propina INDEPENDIENTE (egreso normal en Generosidad/Propina, sin madre):
+  //     ocultamos "Propina" de sub y más abajo empujamos su propio tagline.
+  const _esPropinaRow = (e.subcategory==='Propina' || e.subcategory==='Propinas');
+  const sub = _esPropinaRow
+    ? ''   // el tagline en itálica es la única etiqueta de una propina
+    : [e.subcategory||e.category].filter(Boolean).join('');
   // Moneda extranjera: monto original + TC en UN SOLO renglón
   //   USD $19.99 (TC: $17.56 MXN)
   let curLine='';
@@ -1150,7 +1159,14 @@ function txEl(e, showDelete){
     // R6: la relación y los detalles ya NO se leen del texto de la nota.
     const _m = metaOf(e);
     const _sym = e.currency==='MXN' ? '$' : `${e.currency} `;
-    const _fmt = v => `${_sym}${Number(v).toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})}`;
+    // R8.7 · Los montos dentro de un tagline omiten los centavos cuando son .00
+    // (mismo criterio que tagAmt): "$1,000" en vez de "$1,000.00", pero
+    // "$1,045.35" conserva sus centavos.
+    const _fmt = v => {
+      const n = Number(v)||0;
+      const entero = Math.abs(n%1) < 0.005;
+      return `${_sym}${n.toLocaleString('es-MX',{minimumFractionDigits:entero?0:2, maximumFractionDigits:2})}`;
+    };
 
     if(_m.rel==='desglose')  metaParts.push(_tieneNombrePropio ? `Desglose de ${_madreDesc}` : 'Desglose');
     if(_m.rel==='beneficio') metaParts.push('Beneficio');
@@ -1235,6 +1251,11 @@ function txEl(e, showDelete){
     const _mm = metaOf(e);
     if(_mm.benMonth) metaParts.push(`Acreditado en ${_mm.benMonth.i}/${_mm.benMonth.n}`);
     if(_mm.userNote) userParts.push(_mm.userNote);
+
+    // R8.6 · Propina INDEPENDIENTE (egreso normal en Generosidad/Propina, sin
+    // madre): su única etiqueta es el tagline "Propina" en itálica — la
+    // subcategoría ya se ocultó de la línea sub para no duplicarla.
+    if(_esPropinaRow) metaParts.unshift('Propina');
   }
 
   // Recordatorio del comercio (antes era un iconito junto al nombre): ahora es
@@ -1259,7 +1280,7 @@ function txEl(e, showDelete){
     <div class="tx-ico ${e.type}" style="margin-left:8px">${ico}</div>
     <div class="tx-info">
       <div class="tx-desc">${e.desc}${remIco}</div>
-      <div class="tx-meta">${sub}</div>
+      ${sub ? `<div class="tx-meta">${sub}</div>` : ''}
       ${curLine}
       ${noteDisplay}
     </div>
