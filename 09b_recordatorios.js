@@ -77,8 +77,13 @@ function _remChipDateLbl(iso){
   const parts=String(iso).split('-');
   if(parts.length!==3) return 'Elegir';
   const [y,m,d]=parts;
-  const yy=(window.matchMedia && window.matchMedia('(max-width: 767px)').matches) ? y.slice(2) : y;
-  return `${d}/${m}/${yy}`;
+  const movil = window.matchMedia && window.matchMedia('(max-width: 767px)').matches;
+  // R8.2 · Móvil: formato corto DD/MM/AA. Web: fecha larga "17 de agosto de 2026"
+  // (hay espacio de sobra en la columna de escritorio).
+  if(movil){ return `${d}/${m}/${y.slice(2)}`; }
+  const mesNom=(typeof MONTHS_ES!=='undefined' && MONTHS_ES[parseInt(m,10)-1])
+    ? MONTHS_ES[parseInt(m,10)-1].toLowerCase() : m;
+  return `${parseInt(d,10)} de ${mesNom} de ${y}`;
 }
 // Al cruzar el corte móvil/web, reformatear la fecha de ambos chips
 window.addEventListener('resize', ()=>{

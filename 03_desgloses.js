@@ -359,7 +359,7 @@ function renderDesgloses(animateNew){
       <!-- R8.1 · Renglón 1: Monto (25% en móvil, 20% en web) + Nombre propio (resto).
            Nombre propio: vacío = hereda la descripción madre; con texto = ese será su nombre en el historial -->
       <div style="display:flex;gap:8px;margin-bottom:8px;">
-        <input data-desg-amount class="desg-amt" type="text" inputmode="decimal" placeholder="Monto${curLabel}" value="${d.amount?formatAmountString(String(d.amount)):''}" oninput="handleAmountInput(this);updateDesglose(${d.id},'amount',rawAmount(this.value))" style="padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
+        <input data-desg-amount class="desg-amt" type="text" inputmode="decimal" placeholder="$" value="${d.amount?formatAmountString(String(d.amount)):''}" oninput="handleAmountInput(this);updateDesglose(${d.id},'amount',rawAmount(this.value))" style="padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
         <input data-desg-owndesc class="desg-owndesc" type="text" placeholder="Nombre propio (opcional)" value="${(d.desc||'').replace(/"/g,'&quot;')}" oninput="updateDesglose(${d.id},'desc',this.value)" style="padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
       </div>
       <!-- R8.1 · Renglón 2: Categoría + Subcategoría. En escritorio ambos 50%; en
@@ -763,7 +763,7 @@ function renderEditDesgloses(){
       <!-- R7.2 · Renglón 1: Monto (≈⅓) + Nombre propio (≈⅔).
            Nombre propio: vacío = hereda la descripción madre; con texto = ese será su nombre en el historial -->
       <div style="display:flex;gap:8px;margin-bottom:8px;">
-        <input data-desg-amount class="desg-amt" type="text" inputmode="decimal" placeholder="Monto" value="${d.amount?formatAmountString(String(d.amount)):''}" oninput="handleAmountInput(this);updateEditDesglose(${d.id},'amount',rawAmount(this.value))" style="padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
+        <input data-desg-amount class="desg-amt" type="text" inputmode="decimal" placeholder="$" value="${d.amount?formatAmountString(String(d.amount)):''}" oninput="handleAmountInput(this);updateEditDesglose(${d.id},'amount',rawAmount(this.value))" style="padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
         <input data-desg-owndesc class="desg-owndesc" type="text" placeholder="Nombre propio (opcional)" value="${(d.desc||'').replace(/"/g,'&quot;')}" oninput="updateEditDesglose(${d.id},'desc',this.value)" style="padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
       </div>
       <!-- R8.1 · Renglón 2: Categoría a la medida de su selección (móvil) + Subcategoría con el resto -->
@@ -1007,7 +1007,7 @@ function renderBeneficios(animateNew){
       : (b.amount ? formatAmountString(String(b.amount)) : '');
     const inputAttrs = esPct
       ? `placeholder="%" oninput="updateBeneficio(${b.id},'pct',this.value)"`
-      : `placeholder="Monto${curLabel}" oninput="handleAmountInput(this);updateBeneficio(${b.id},'amount',rawAmount(this.value))"`;
+      : `placeholder="$" oninput="handleAmountInput(this);updateBeneficio(${b.id},'amount',rawAmount(this.value))"`;
     card.innerHTML=`
       <button type="button" onclick="removeBeneficio(${b.id})" style="position:absolute;top:8px;right:8px;background:none;border:none;cursor:pointer;color:var(--danger);font-size:16px;line-height:1;padding:2px;">✕</button>
       <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:8px;">Beneficio ${idx+1}${curLabel}</div>
@@ -1284,7 +1284,7 @@ function renderEditBeneficios(animateNew){
       : (b.amount ? formatAmountString(String(b.amount)) : '');
     const inputAttrs = esPct
       ? `placeholder="%" oninput="updateEditBeneficio(${b.id},'pct',this.value)"`
-      : `placeholder="Monto${curLabel}" oninput="handleAmountInput(this);updateEditBeneficio(${b.id},'amount',rawAmount(this.value))"`;
+      : `placeholder="$" oninput="handleAmountInput(this);updateEditBeneficio(${b.id},'amount',rawAmount(this.value))"`;
     card.innerHTML=`
       <button type="button" onclick="removeEditBeneficio(${b.id})" style="position:absolute;top:8px;right:8px;background:none;border:none;cursor:pointer;color:var(--danger);font-size:16px;line-height:1;padding:2px;">✕</button>
       <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:8px;">Beneficio ${idx+1}${curLabel}</div>

@@ -114,10 +114,11 @@ function renderEditDiferirPresets(){
   });
   // R8 · 4º slot = campo personalizado (mismo aspecto que un preset)
   const inp=document.createElement('input');
-  inp.type='number'; inp.id='e-diferir-custom';
-  inp.min='2'; inp.max='120'; inp.placeholder='Elegir'; inp.inputMode='numeric';
+  // R8.2: type text para poder mostrar el sufijo "m" mientras se escribe.
+  inp.type='text'; inp.id='e-diferir-custom';
+  inp.placeholder='Elegir'; inp.inputMode='numeric'; inp.maxLength=4;
   inp.className='month-preset month-preset-input'+(editDiferirCustom?' on':'');
-  if(editDiferirCustom && editDiferirMonths) inp.value=editDiferirMonths;
+  if(editDiferirCustom && editDiferirMonths) inp.value=editDiferirMonths+'m';
   inp.oninput=onEditDiferirCustomInput;
   cont.appendChild(inp);
 }
@@ -140,7 +141,7 @@ function toggleEditDiferirPreset(p){
 
 function onEditDiferirCustomInput(){
   const inp=document.getElementById('e-diferir-custom');
-  const v=parseInt(inp?inp.value:'');
+  const v=_formatMonthField(inp);   // R8.2: normaliza a "<n>m" (helper en 02)
   if(v && v>=2){
     editDiferirMonths=v;
     editDiferirCustom=!DIFERIR_PRESETS.includes(v);
@@ -307,7 +308,8 @@ async function saveEditDeferred({amount, desc, cur, note, subcat, date}){
     // R7.2: TODOS los beneficios viven en la mensualidad 1, cada uno como
     // registro independiente, en su orden de cálculo.
     if(benDescuento>0 && i===0){
-      benDet.items.forEach(({b, val})=>{
+      // R8.2: persistir en orden de captura (el cálculo ya priorizó el %)
+      benItemsOrdenCaptura(benDet, editBeneficios).forEach(({b, val})=>{
         if(val<=0 || !b.category) return;
         const _bm={rel:'beneficio'};
         if(b.mode==='pct') _bm.ben={pct:b.pct, base:amount};
@@ -423,7 +425,8 @@ async function saveEditConvertToDefer({amount, desc, cur, note, subcat}){
     newEntries.push(madre);
     // R7.2: TODOS los beneficios viven en la mensualidad 1
     if(benDescuento>0 && i===0){
-      benDet.items.forEach(({b, val})=>{
+      // R8.2: persistir en orden de captura (el cálculo ya priorizó el %)
+      benItemsOrdenCaptura(benDet, editBeneficios).forEach(({b, val})=>{
         if(val<=0 || !b.category) return;
         const _bm={rel:'beneficio'};
         if(b.mode==='pct') _bm.ben={pct:b.pct, base:amount};

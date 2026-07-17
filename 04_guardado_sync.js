@@ -203,7 +203,8 @@ function submitDeferredEntry({amount, desc, cur, date, note, subcat}){
     // cada uno como registro independiente, en su orden de cálculo.
     if(benDescuento>0 && i===0){
       const _benChildren=[];
-      benDet.items.forEach(({b, val})=>{
+      // R8.2: persistir en orden de captura (el cálculo ya priorizó el %)
+      benItemsOrdenCaptura(benDet, beneficios).forEach(({b, val})=>{
         if(val<=0 || !b.category) return;
         const _bm={rel:'beneficio'};
         if(b.mode==='pct') _bm.ben={pct:b.pct, base:amount};
@@ -341,7 +342,8 @@ function _submitEntry(){
   // (porcentual primero, fijos después). Cada uno es independiente.
   const benEntries=[];
   if(curType==='egreso' && benDet.total>0){
-    benDet.items.forEach(({b, val})=>{
+    // R8.2: persistir en orden de captura (el cálculo ya priorizó el %)
+    benItemsOrdenCaptura(benDet, beneficios).forEach(({b, val})=>{
       if(val<=0 || !b.category) return;
       const _bm={rel:'beneficio'};
       if(b.mode==='pct') _bm.ben={pct:b.pct, base:amount};

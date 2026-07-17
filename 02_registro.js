@@ -108,10 +108,18 @@ function noteHide(wrap){
   setTimeout(fin, 420);   // red de seguridad
 }
 
+// R8.2 · Marca el .field de Descripción como "con nota abierta" para que el CSS
+// cuadre las esquinas inferiores del campo (continuidad visual con la Nota).
+function _setNoteOpen(wrapId, on){
+  const wrap=document.getElementById(wrapId);
+  const field=wrap && wrap.closest('.field');
+  if(field) field.classList.toggle('note-open', !!on);
+}
 function showNoteField(){
   const wrap=document.getElementById('note-field-wrap');
   if(!wrap || _noteVisible) return;
   _noteVisible=true;
+  _setNoteOpen('note-field-wrap', true);
   noteReveal(wrap);
 }
 function maybeHideNoteField(){
@@ -119,6 +127,7 @@ function maybeHideNoteField(){
   if(!wrap || !_noteVisible) return;
   if(noteHasData()) return;   // con contenido nunca se oculta sola
   _noteVisible=false;
+  _setNoteOpen('note-field-wrap', false);
   noteHide(wrap);
 }
 // R8 · ✕ de la Nota: vacía el contenido y colapsa de inmediato (sin confirmar),
@@ -129,6 +138,7 @@ function clearNoteField(){
   if(el) el.value='';
   if(typeof _notePredicted!=='undefined') _notePredicted=false;
   _noteVisible=false;
+  _setNoteOpen('note-field-wrap', false);
   noteHide(document.getElementById('note-field-wrap'));
   updateNoteDesgloseIndicators();
 }
@@ -428,6 +438,7 @@ function setType(t) {
   const noteWrap=document.getElementById('note-field-wrap');
   if(noteWrap) noteWrap.style.display='none';
   _noteVisible=false;
+  _setNoteOpen('note-field-wrap', false);
   // Al cambiar de tipo, limpiar desgloses (solo aplican a egreso)
   desgloses=[]; renderDesgloses();
   document.getElementById('method-field').style.display=t==='beneficio'?'none':'block';
@@ -819,12 +830,25 @@ function renderDiferirPresets(){
   // R8 · 4º slot = campo personalizado con el MISMO aspecto que un preset.
   // Placeholder "Elegir". Se marca activo (.on) cuando hay un valor custom.
   const inp=document.createElement('input');
-  inp.type='number'; inp.id='diferir-custom';
-  inp.min='2'; inp.max='120'; inp.placeholder='Elegir'; inp.inputMode='numeric';
+  // R8.2: type text (no number) para poder mostrar el sufijo "m" mientras se
+  // escribe. inputmode numeric mantiene el teclado numérico en móvil.
+  inp.type='text'; inp.id='diferir-custom';
+  inp.placeholder='Elegir'; inp.inputMode='numeric'; inp.maxLength=4;
   inp.className='month-preset month-preset-input'+(diferirCustom?' on':'');
-  if(diferirCustom && diferirMonths) inp.value=diferirMonths;
+  if(diferirCustom && diferirMonths) inp.value=diferirMonths+'m';
   inp.oninput=onDiferirCustomInput;
   cont.appendChild(inp);
+}
+
+// R8.2 · Reescribe el campo custom como "<n>m" (o vacío) y deja el cursor justo
+// antes de la "m", para que el sufijo se sienta parte del número al escribir.
+function _formatMonthField(inp){
+  if(!inp) return 0;
+  const digits=(inp.value.match(/\d/g)||[]).join('').slice(0,3);
+  inp.value = digits ? digits+'m' : '';
+  // cursor antes de la "m"
+  if(digits){ const pos=digits.length; try{ inp.setSelectionRange(pos,pos); }catch(e){} }
+  return parseInt(digits||'0',10)||0;
 }
 
 // Alterna un preset: si ya estaba activo, lo desactiva (vuelve a 0)
@@ -845,7 +869,7 @@ function toggleDiferirPreset(p){
 
 function onDiferirCustomInput(){
   const inp=document.getElementById('diferir-custom');
-  const v=parseInt(inp?inp.value:'');
+  const v=_formatMonthField(inp);   // R8.2: normaliza a "<n>m" y devuelve el número
   if(v && v>=2){
     diferirMonths=v;
     // Si el número coincide con un preset, activar ese preset (no marcar como custom)
@@ -1404,6 +1428,16 @@ function _beneficiosDetalleDe(list, amount){
 function beneficiosDetalle(){
   const amount=parseFloat(rawAmount(document.getElementById('amount')?.value))||0;
   return _beneficiosDetalleDe(beneficios, amount);
+}
+// R8.2 · Los mismos items pero en el ORDEN DE CAPTURA (no el de cálculo). Se
+// usa al PERSISTIR los registros hijos: el % debe priorizarse solo para el
+// cálculo (ya lo hace _beneficiosDetalleDe), nunca para el orden en que se
+// guardan/reaparecen los bloques. Devuelve [{b, val}] alineado a `list`.
+function benItemsOrdenCaptura(detalle, list){
+  return list.map(b=>{
+    const hit=detalle.items.find(x=>x.b===b || x.b.id===b.id);
+    return { b, val: hit ? hit.val : 0 };
+  });
 }
 function beneficiosTotal(){ return beneficiosDetalle().total; }
 

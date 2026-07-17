@@ -43,6 +43,7 @@ function showEditNoteField(){
   const wrap=document.getElementById('e-note-field-wrap');
   if(!wrap || _eNoteVisible) return;
   _eNoteVisible=true;
+  _setNoteOpen('e-note-field-wrap', true);
   // R8.1: emerge deslizándose POR DEBAJO de Descripción (ver noteReveal en 02)
   noteReveal(wrap);
 }
@@ -51,6 +52,7 @@ function maybeHideEditNoteField(){
   if(!wrap || !_eNoteVisible) return;
   if(eNoteHasData()) return;
   _eNoteVisible=false;
+  _setNoteOpen('e-note-field-wrap', false);
   noteHide(wrap);
 }
 // R8 · ✕ de la Nota en edición (espejo del registro): vacía y colapsa sin confirmar.
@@ -59,6 +61,7 @@ function clearEditNoteField(){
   if(el) el.value='';
   try{ _eNotePredicted=false; }catch(_e){}
   _eNoteVisible=false;
+  _setNoteOpen('e-note-field-wrap', false);
   noteHide(document.getElementById('e-note-field-wrap'));
 }
 let _editNoteBehaviorReady=false;
@@ -223,6 +226,7 @@ function openEdit(id) {
   const _eNoteWrap=document.getElementById('e-note-field-wrap');
   _eNoteVisible = !!cleanNote;
   if(_eNoteWrap) _eNoteWrap.style.display = cleanNote ? 'block' : 'none';
+  _setNoteOpen('e-note-field-wrap', !!cleanNote);   // R8.2: continuidad visual
   // Si hay desgloses, la sección se muestra por defecto (comportamiento previo)
   const hasEditDesgloses = editDesgloses.length>0;
 

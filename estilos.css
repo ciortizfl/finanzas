@@ -112,23 +112,37 @@ nav {
    también sobre la ✕) hace que Descripción "proyecte sombra" sobre ella. */
 .note-slot {
   position: relative;
-  margin-top: -2px;          /* la mete "debajo" de Descripción, sin hueco de bloque */
+  margin-top: 0;             /* pegada a Descripción: se leen como un solo bloque */
   border-radius: 0 0 var(--radius-sm) var(--radius-sm);
   overflow: hidden;          /* recorta el deslizamiento: emerge, no se encima */
 }
 .note-slot::before {
   content: '';
-  position: absolute; top: 0; left: 0; right: 0; height: 9px;
+  position: absolute; top: 0; left: 0; right: 0; height: 7px;   /* R8.2: sombra un poco más corta */
   background: linear-gradient(to bottom, rgba(0,0,0,0.20), rgba(0,0,0,0));
   pointer-events: none; z-index: 2;
 }
 @media (prefers-color-scheme: dark) {
   .note-slot::before { background: linear-gradient(to bottom, rgba(0,0,0,0.45), rgba(0,0,0,0)); }
 }
+/* R8.2 · Con la Nota presente, Descripción cuadra sus esquinas inferiores para
+   que ambos campos se lean como un solo bloque continuo (la sombra de la Nota
+   es la única separación). El .field gana .note-open desde JS al mostrar la
+   Nota y lo pierde al ocultarla; sin la clase, Descripción luce sus 4 esquinas
+   redondeadas y sin sombra inferior (que de todos modos no se ve, porque la
+   Nota está display:none). */
+.field.note-open > input#desc,
+.field.note-open .e-desc-row > input#e-desc {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+.field .note-slot .note-input,
 .note-input {
   width: 100%;
   padding: 9px 38px 9px 14px; /* espacio a la derecha para la ✕ */
   border: none;
+  /* R8.2: superiores RECTAS, inferiores redondeadas (mayor especificidad para
+     ganarle a la regla general `.field input`, que redondea las 4). */
   border-radius: 0 0 var(--radius-sm) var(--radius-sm);
   background: var(--surface2);
   color: var(--text);
@@ -160,7 +174,7 @@ nav {
    query pueda ganarle. */
 .propina-val { flex: 1 1 0; min-width: 0; }
 @media (min-width: 768px) {
-  .propina-val { flex: 0 1 160px; }
+  .propina-val { flex: 0 1 128px; }   /* R8.2: ~20% más angosto que los 160px de R8 */
 }
 
 /* R8 · Tipo de beneficio: dropdown en móvil, chips en web.
@@ -367,6 +381,15 @@ nav {
   background: var(--accent); color: #fff; box-shadow: none; font-weight: 600;
 }
 .propina-row { flex-wrap: wrap; }
+/* R8.2 · El ring (box-shadow) de los chips inactivos se recortaba porque el
+   contenedor .chips scrollea con overflow-x:auto (recorta lo que se pinta fuera
+   del área de contenido, incluido el ring superior/lateral). En la propina no
+   hace falta scroll horizontal: se desactiva el overflow y se deja aire para el
+   ring. */
+.propina-method-wrap .chips {
+  overflow: visible;
+  padding: 2px;
+}
 @media (min-width: 768px) {
   .propina-method-wrap {
     display: flex; align-items: center; min-width: 0;
@@ -376,10 +399,15 @@ nav {
   }
   .propina-method-wrap .propina-method-lbl { display: none; }
 }
+/* MÓVIL · R8.2: los 5 métodos deben caber en UN solo renglón — chips más
+   compactos (menos padding y fuente), sin wrap, repartidos a lo ancho. */
 @media (max-width: 767px) {
   .propina-method-wrap { flex: 0 0 100%; min-width: 0; margin-top: 2px; }
-  .propina-method-wrap .chips { flex-wrap: wrap; }
-  .propina-method-wrap .chips .chip { flex: 1 1 auto; text-align: center; }
+  .propina-method-wrap .chips { flex-wrap: nowrap; gap: 5px; }
+  .propina-method-wrap .chips .chip {
+    flex: 1 1 0; min-width: 0; text-align: center;
+    padding: 6px 4px; font-size: 11px;
+  }
 }
 
 /* BENEFIT TOGGLE */.t-box {
@@ -1213,16 +1241,26 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
   box-shadow: 0 0 0 1px var(--border2);
 }
 .rem-chip.active { box-shadow: none; }
-/* R8.1 · MÓVIL: los dos grupos se APILAN (Frecuencia arriba, Fecha límite
-   abajo) — los chips quedan mucho más largos: cada uno ocupa el 50% del ancho
-   de su cuadro, justificados a ambos bordes. El separador vertical de columnas
-   se convierte en línea horizontal entre los grupos. En web se conserva el
-   renglón de dos columnas de R7.2. */
+/* R8.2 · WEB: el chip de fecha (columna derecha) muestra la fecha completa
+   "17 de agosto de 2026" — se le deja crecer a su contenido y su compañero
+   "Sin límite" toma solo lo necesario, sin recortes. */
+@media (min-width: 768px) {
+  #rem-until-date, #e-rem-until-date { flex: 0 1 auto; overflow: visible; padding-left: 12px; padding-right: 12px; }
+  #rem-until-inf, #e-rem-until-inf { flex: 0 0 auto; }
+}
+/* R8.2 · MÓVIL: MISMA estructura que web — dos columnas lado a lado
+   (Frecuencia | Fecha límite) con separador vertical. Dentro de cada columna
+   los dos chips se reparten el 50% del ancho de ESA columna, todos con el mismo
+   tamaño; se compactan (menos padding y fuente) para que quepan sin cortarse.
+   El ellipsis del chip garantiza que un texto largo no lo ensanche. */
 @media (max-width: 767px) {
-  .rem-two-cols { flex-direction: column; gap: 10px; padding-right: 0; }
-  .rem-col-sep { width: 100%; height: 1px; align-self: auto; }
-  .rem-col .rem-cfg-row { justify-content: space-between; gap: 6px; }
-  .rem-col .rem-cfg-row .rem-chip { flex: 0 0 calc(50% - 3px); }
+  .rem-two-cols { gap: 8px; padding-right: 0; }
+  .rem-col { min-width: 0; }
+  .rem-col .rem-cfg-row { gap: 5px; }
+  .rem-col .rem-cfg-row .rem-chip {
+    flex: 1 1 0; min-width: 0;
+    font-size: 11px; padding: 6px 3px;
+  }
 }
 
 /* ── Representación de recordatorios ── */
