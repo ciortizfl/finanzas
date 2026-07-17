@@ -1020,8 +1020,11 @@ function renderBeneficios(animateNew){
         <select class="ben-type-select" onchange="setBeneficioCat(${b.id},this.value)" style="flex:1;min-width:0;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
           ${benTypeOptionsHtml(b.category)}
         </select>
+        <!-- R8.3 · WEB: barra divisoria + chips de tipo EN EL MISMO renglón que el
+             toggle y el campo. En móvil este bloque se oculta y manda el select. -->
+        <div class="ben-type-sep"></div>
+        <div class="ben-type-chips">${benChipsHtml(b.category, b.id, 'setBeneficioCat')}</div>
       </div>
-      <div class="ben-type-chips">${benChipsHtml(b.category, b.id, 'setBeneficioCat')}</div>
       <!-- R8.1 · Renglón inferior del bloque: "= $X" a la izquierda y, en el
            ÚLTIMO bloque, "Quedan $Y" a la derecha (updateBeneficioRemaining lo
            muda aquí) — un solo renglón visual, sin espacio vertical extra. -->
@@ -1297,8 +1300,10 @@ function renderEditBeneficios(animateNew){
         <select class="ben-type-select" onchange="setEditBeneficioCat(${b.id},this.value)" style="flex:1;min-width:0;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
           ${benTypeOptionsHtml(b.category)}
         </select>
+        <!-- R8.3 · WEB: barra divisoria + chips en el MISMO renglón (espejo del registro) -->
+        <div class="ben-type-sep"></div>
+        <div class="ben-type-chips">${benChipsHtml(b.category, b.id, 'setEditBeneficioCat')}</div>
       </div>
-      <div class="ben-type-chips">${benChipsHtml(b.category, b.id, 'setEditBeneficioCat')}</div>
       <!-- R8.1 · Renglón inferior (espejo del registro): "= $X" izq + "Quedan" der en el último bloque -->
       <div data-ben-calcrow style="display:none;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:10px;margin-top:6px;">
         <span data-ben-calc style="font-size:12px;color:var(--text3);"></span>

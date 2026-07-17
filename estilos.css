@@ -119,11 +119,11 @@ nav {
 .note-slot::before {
   content: '';
   position: absolute; top: 0; left: 0; right: 0; height: 7px;   /* R8.2: sombra un poco más corta */
-  background: linear-gradient(to bottom, rgba(0,0,0,0.20), rgba(0,0,0,0));
+  background: linear-gradient(to bottom, rgba(0,0,0,0.10), rgba(0,0,0,0));  /* R8.3: más suave */
   pointer-events: none; z-index: 2;
 }
 @media (prefers-color-scheme: dark) {
-  .note-slot::before { background: linear-gradient(to bottom, rgba(0,0,0,0.45), rgba(0,0,0,0)); }
+  .note-slot::before { background: linear-gradient(to bottom, rgba(0,0,0,0.28), rgba(0,0,0,0)); }  /* R8.3: más suave */
 }
 /* R8.2 · Con la Nota presente, Descripción cuadra sus esquinas inferiores para
    que ambos campos se lean como un solo bloque continuo (la sombra de la Nota
@@ -178,13 +178,20 @@ nav {
 }
 
 /* R8 · Tipo de beneficio: dropdown en móvil, chips en web.
-   Por defecto (móvil) se ve el <select> y se ocultan los chips. En web se
-   invierte: los chips ocupan un solo renglón y el select se oculta. */
+   Por defecto (móvil) se ve el <select> y se ocultan los chips + la barra.
+   R8.3 · En WEB los chips viven EN EL MISMO renglón que el toggle y el campo,
+   separados por una barra vertical (.ben-type-sep); el <select> se oculta. */
 .ben-type-chips { display: none; }
+.ben-type-sep { display: none; }
 @media (min-width: 768px) {
   .ben-type-select { display: none; }
+  .ben-type-sep {
+    display: block; flex: 0 0 auto; align-self: stretch;
+    width: 1px; background: var(--border2); margin: 2px 2px;
+  }
   .ben-type-chips {
-    display: flex; flex-wrap: nowrap; gap: 6px; margin-top: 8px;
+    display: flex; flex-wrap: nowrap; gap: 6px;
+    flex: 1 1 0; min-width: 0;   /* toma el espacio restante del renglón */
     overflow-x: auto; -webkit-overflow-scrolling: touch;
   }
   .ben-type-chips::-webkit-scrollbar { display: none; }
@@ -399,14 +406,20 @@ nav {
   }
   .propina-method-wrap .propina-method-lbl { display: none; }
 }
-/* MÓVIL · R8.2: los 5 métodos deben caber en UN solo renglón — chips más
-   compactos (menos padding y fuente), sin wrap, repartidos a lo ancho. */
+/* MÓVIL · R8.3: los 5 métodos caben en UN solo renglón — chips compactos, sin
+   wrap, repartidos a lo ancho. Los selectores incluyen el id
+   (#propina-method-chips / #e-propina-method-chips) para ganarle en
+   especificidad a la regla `#...-method-chips .chip { padding:6px 12px }`; sin
+   el id, ese padding de 12px recortaba "Crédito"/"Efectivo" y el texto se
+   recargaba a la derecha en vez de centrarse. */
 @media (max-width: 767px) {
   .propina-method-wrap { flex: 0 0 100%; min-width: 0; margin-top: 2px; }
-  .propina-method-wrap .chips { flex-wrap: nowrap; gap: 5px; }
-  .propina-method-wrap .chips .chip {
+  .propina-method-wrap #propina-method-chips,
+  .propina-method-wrap #e-propina-method-chips { flex-wrap: nowrap; gap: 5px; }
+  .propina-method-wrap #propina-method-chips .chip,
+  .propina-method-wrap #e-propina-method-chips .chip {
     flex: 1 1 0; min-width: 0; text-align: center;
-    padding: 6px 4px; font-size: 11px;
+    padding: 6px 2px; font-size: 11px;
   }
 }
 
@@ -1241,12 +1254,15 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
   box-shadow: 0 0 0 1px var(--border2);
 }
 .rem-chip.active { box-shadow: none; }
-/* R8.2 · WEB: el chip de fecha (columna derecha) muestra la fecha completa
-   "17 de agosto de 2026" — se le deja crecer a su contenido y su compañero
-   "Sin límite" toma solo lo necesario, sin recortes. */
+/* R8.3 · WEB: en la columna Fecha límite, AMBOS chips llenan el renglón al
+   50/50 igual que la columna Frecuencia (no encogidos a su contenido, como
+   quedaron en R8.2). El chip de fecha muestra "17 de agosto de 2026" completo;
+   como la columna de escritorio es ancha, cabe en su mitad — se le quita el
+   ellipsis para que no lo corte. */
 @media (min-width: 768px) {
-  #rem-until-date, #e-rem-until-date { flex: 0 1 auto; overflow: visible; padding-left: 12px; padding-right: 12px; }
-  #rem-until-inf, #e-rem-until-inf { flex: 0 0 auto; }
+  #rem-until-date, #e-rem-until-date,
+  #rem-until-inf, #e-rem-until-inf { flex: 1 1 0; min-width: 0; }
+  #rem-until-date, #e-rem-until-date { overflow: visible; text-overflow: clip; }
 }
 /* R8.2 · MÓVIL: MISMA estructura que web — dos columnas lado a lado
    (Frecuencia | Fecha límite) con separador vertical. Dentro de cada columna

@@ -524,6 +524,22 @@ function toggleRemPanel(){
   try{ refreshTopTabsVisibility(); }catch(e){}
 }
 
+// R8.3 · ✕ del módulo Recordar (registro): BORRA la selección y cierra el panel
+// (antes la ✕ llamaba a esta función inexistente y no hacía nada). Espejo del
+// patrón de las otras ✕ de módulo.
+function clearRemModule(){
+  _remFreq = null;
+  _remUntilMode = null;
+  const v=document.getElementById('rem-until-value'); if(v) v.value='';
+  _remPanelVisible = false;
+  const panel=document.getElementById('rem-config'); if(panel) panel.style.display='none';
+  try{ _remPaintChips(); }catch(e){}
+  try{ _remHintUpdate(); }catch(e){}
+  try{ updateNoteDesgloseIndicators(); }catch(e){}
+  updateRemToggleIndicator();
+  try{ refreshTopTabsVisibility(); }catch(e){}
+}
+
 // Pinta el estado activo/inactivo de los 4 chips según la selección actual
 function _remPaintChips(){
   document.getElementById('rem-freq-monthly')?.classList.toggle('active', _remFreq==='monthly');
@@ -750,6 +766,18 @@ function toggleERemPanel(){
   }
   try{ updateEditNoteDesgloseIndicators(); }catch(e){}
   try{ refreshEditTopTabs(); }catch(e){}   // Bug 2: esconder/devolver Diferir
+}
+
+// R8.3 · ✕ del módulo Recordar (edición): espejo de clearRemModule.
+function clearEditRemModule(){
+  _eRemFreq = null;
+  _eRemUntilMode = null;
+  const v=document.getElementById('e-rem-until-value'); if(v) v.value='';
+  _eRemPanelVisible = false;
+  const panel=document.getElementById('e-rem-config'); if(panel) panel.style.display='none';
+  try{ _eRemPaint(); }catch(e){}
+  try{ updateEditNoteDesgloseIndicators(); }catch(e){}
+  try{ refreshEditTopTabs(); }catch(e){}
 }
 
 // Quitar por completo el recordatorio vigente (o vencido) de este comercio
