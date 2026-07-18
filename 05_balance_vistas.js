@@ -71,6 +71,30 @@ function renderBalance(){
     if(bonoDetail) bonoDetail.style.display='none';
   }
 
+  // R9 · Si NO hay beneficios pero SÍ hay bono, el detalle del bono ocupa el
+  // hueco que dejaría la tarjeta de Beneficios (media columna). Si hay
+  // beneficios, el detalle vuelve a desplegarse abajo, a todo lo ancho.
+  const bonoSlot=document.getElementById('bono-slot-detail');
+  const usarHuecoBeneficios = bonoHasMov && !(pas>0);
+  if(bonoSlot){
+    if(usarHuecoBeneficios){
+      const bonoNeg2 = bonoNet<0;
+      bonoSlot.innerHTML=`
+        <div class="lbl">Bono despensa</div>
+        ${bonoIng>0?`<div class="bono-slot-line"><span>Ingresado</span><span style="font-weight:600;color:var(--green)">+${fmt(bonoIng)}</span></div>`:''}
+        ${bonoEgr>0?`<div class="bono-slot-line"><span>Gastado</span><span style="font-weight:600;color:var(--danger)">−${fmt(bonoEgr)}</span></div>`:''}
+        <div class="bono-slot-line total"><span style="font-weight:600">${bonoNeg2?'Excedido':'Disponible'}</span><span style="font-weight:700;color:${bonoNeg2?'var(--danger)':'var(--green)'}">${bonoNeg2?'−':''}${fmt(bonoNet)}</span></div>`;
+      bonoSlot.style.display='';
+      // Al ocupar su propio espacio, el desplegable inferior sobra.
+      if(bonoDetail){ bonoDetail.style.display='none'; }
+      const bs=document.getElementById('bono-stat');
+      if(bs) bs.classList.remove('active-filter');
+    } else {
+      bonoSlot.style.display='none';
+      bonoSlot.innerHTML='';
+    }
+  }
+
   // ── Visibilidad + orden por jerarquía ──
   // Cada tarjetón aparece solo si tiene datos. Orden fijo: Ingresos, Egresos, Bono, Beneficios.
   // Se reordenan en el DOM para que llenen la cuadrícula 2×2 sin huecos ni expansiones.
@@ -90,6 +114,8 @@ function renderBalance(){
       {stat:egresoStat,  show:egr>0},
       {stat:bonoStat,    show:bonoHasMov},
       {stat:pasivoStat,  show:pas>0},
+      // R9 · Ocupa el hueco de Beneficios cuando no hay beneficios este mes
+      {stat:bonoSlot,    show:usarHuecoBeneficios},
     ];
     order.forEach(o=>{ if(o.stat && o.show) grid.appendChild(o.stat); });
     if(bonoDetail) grid.appendChild(bonoDetail); // el detalle siempre al final
@@ -222,7 +248,7 @@ function renderMethodBreakdown(container, entries){
   const methodColors={'Tarjeta de crédito':'#007aff','Efectivo':'#34c759','Bono de despensa':'#ff9500','SPEI':'#af52de','Débito':'#00c7be'};
   const sorted=Object.entries(methods).sort((a,b)=>b[1]-a[1]);
   const wrap=document.createElement('div');
-  wrap.style.cssText='padding:12px 16px;margin-top:8px;';
+  wrap.style.cssText='padding:0 16px;';
   // Color bar
   const bar=document.createElement('div');
   bar.style.cssText='display:flex;height:5px;border-radius:100px;overflow:hidden;margin-bottom:8px;gap:1px;';

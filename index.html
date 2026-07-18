@@ -20,7 +20,6 @@
   <!-- R7 · punto 5: enlace al registro recién guardado (solo si el toast lo trae) -->
   <button type="button" class="toast-link" id="toast-link" style="display:none;">Ver</button>
 </div>
-<button class="reload-btn" id="reload-btn" onclick="forceReload()" title="Recargar datos">↻</button>
 <button class="reload-btn scrolltop-btn" id="scrolltop-btn" onclick="scrollToTopNow()" title="Ir arriba">↑</button>
 
 <!-- ══ REGISTRO ══ -->
@@ -28,6 +27,7 @@
   <div class="page-header">
     <h1>Nuevo registro</h1>
     <p id="hdr-date"></p>
+    <button class="reload-btn" onclick="forceReload(event)" title="Recargar datos">↻</button>
   </div>
   <!-- Tarjeta de recordatorio inteligente (cola: uno a la vez) -->
   <div class="rem-card" id="rem-card" style="display:none">
@@ -286,6 +286,7 @@
     <div style="display:flex;gap:6px;margin-top:10px;">
       <button id="bal-view-monthly" onclick="setBalPeriod('monthly',this)" style="padding:6px 16px;border-radius:100px;border:none;background:var(--accent);color:white;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;">Mensual</button>
       <button id="bal-view-annual" onclick="setBalPeriod('annual',this)" style="padding:6px 16px;border-radius:100px;border:none;background:var(--surface2);color:var(--text2);font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;">Anual</button>
+    <button class="reload-btn" onclick="forceReload(event)" title="Recargar datos">↻</button>
     </div>
   </div>
   <!-- MONTHLY VIEW -->
@@ -316,6 +317,9 @@
     </div>
     <!-- Detalle desplegable del bono -->
     <div id="bono-detail-row" style="display:none;grid-column:1/-1;background:var(--surface2);border-radius:var(--radius-sm);padding:12px 14px;margin-top:-4px;"></div>
+    <!-- R9 · Cuando NO hay beneficios pero SÍ hay bono, el detalle del bono
+         ocupa el hueco que dejaría la tarjeta de Beneficios (media columna). -->
+    <div id="bono-slot-detail" class="stat bono-slot" style="display:none"></div>
   </div>
   <div id="bal-method-row"></div>
   <div class="cat-list" id="dash-cats"></div>
@@ -394,6 +398,7 @@
     <div style="display:flex;justify-content:space-between;align-items:flex-start">
       <div><h1>Historial</h1><p>Todos tus movimientos</p></div>
       <button onclick="exportCSV()" style="margin-top:8px;background:none;border:1px solid var(--border2);border-radius:100px;padding:6px 14px;font-family:inherit;font-size:12px;font-weight:600;color:var(--text2);cursor:pointer;">↓ CSV</button>
+    <button class="reload-btn" onclick="forceReload(event)" title="Recargar datos">↻</button>
     </div>
   </div>
   <div style="padding: 0 20px; margin-top:-10px; margin-bottom:10px;" class="edit-hint">Toca un registro para editarlo · ✕ para eliminar</div>

@@ -585,10 +585,17 @@ function lighten(hex, t){
 // UTILIDADES (fechas, monedas, orden)
 // ════════════════════════════════════════════
 
-function forceReload(){
-  const btn=document.getElementById('reload-btn');
-  btn.classList.add('spinning');
-  setTimeout(()=>btn.classList.remove('spinning'),600);
+function forceReload(ev){
+  // R9 · El botón de recargar dejó de ser flotante: ahora hay uno dentro del
+  // encabezado de cada página, así que ya no existe un #reload-btn único. Se
+  // gira el que se tocó (o, en su defecto, el de la página activa).
+  const btn = (ev && ev.currentTarget)
+           || document.querySelector('.page.active .reload-btn')
+           || document.querySelector('.reload-btn:not(.scrolltop-btn)');
+  if(btn){
+    btn.classList.add('spinning');
+    setTimeout(()=>btn.classList.remove('spinning'),600);
+  }
   loadFromSheets();
 }
 // R9 · "Otros (…)" SIEMPRE va al final de cualquier listado y no participa en el
