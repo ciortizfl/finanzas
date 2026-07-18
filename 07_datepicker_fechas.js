@@ -565,6 +565,9 @@ function renderStrip(stripId, centerDate){
 function selectStripDate(stripId, iso){
   const inputId = stripId === 'tx-date-strip' ? 'tx-date' : 'e-date';
   document.getElementById(inputId).value = iso;
+  // R9 · Si el panel de Recordar está abierto, sus fechas se anclan a la fecha
+  // del registro: al cambiarla arriba, hay que recalcularlas.
+  try{ if(typeof onTxDateChanged==='function') onTxDateChanged(inputId); }catch(e){}
 
   if(!isMobileView()){
     // Web: re-centrar el strip en la fecha elegida (mantiene 5 a cada lado)
@@ -622,7 +625,12 @@ function _applyPickedDateToStrip(inputId, stripId, iso){
   const strip=document.getElementById(stripId);
   const existing=strip?strip.querySelector(`[data-iso="${iso}"]`):null;
   if(existing){ selectStripDate(stripId, iso); }
-  else { stripOffsets[stripId]=iso; renderStrip(stripId, iso); }
+  else {
+    stripOffsets[stripId]=iso; renderStrip(stripId, iso);
+    // Esta rama NO pasa por selectStripDate, así que el reajuste de Recordar
+    // se dispara aquí también (fecha elegida fuera del rango visible de la tira).
+    try{ if(typeof onTxDateChanged==='function') onTxDateChanged(inputId); }catch(e){}
+  }
 }
 
 // Datepicker para el campo de fecha del REGISTRO (sin presets)

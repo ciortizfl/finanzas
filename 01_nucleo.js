@@ -591,10 +591,16 @@ function forceReload(){
   setTimeout(()=>btn.classList.remove('spinning'),600);
   loadFromSheets();
 }
+// R9 · "Otros (…)" SIEMPRE va al final de cualquier listado y no participa en el
+// algoritmo de orden (recurrencia → alfabético). Nota: las etiquetas reales son
+// 'Otros (Casa)', 'Otros (Ingresos)', 'Otros (beneficios)'… — comparar contra el
+// texto exacto 'Otros' nunca coincidía, así que antes se ordenaban como una más.
+function _esOtros(n){ return /^otros\b/i.test(String(n||'').trim()); }
+
 function sortedCats(type) {
   const cats = Object.keys(CATS[type]);
-  const others = cats.filter(c=>c==='Otros');
-  const rest = cats.filter(c=>c!=='Otros');
+  const others = cats.filter(c=>_esOtros(c));
+  const rest = cats.filter(c=>!_esOtros(c));
   rest.sort((a,b)=>{
     const ua = usage[`${type}:${a}`]||0;
     const ub = usage[`${type}:${b}`]||0;
@@ -607,8 +613,8 @@ function sortedCats(type) {
 function sortedSubcats(type, cat) {
   const subs = CATS[type][cat];
   if(!subs||(subs.length===1&&subs[0]==='—')) return subs;
-  const others = subs.filter(s=>s==='Otros');
-  const rest = subs.filter(s=>s!=='Otros');
+  const others = subs.filter(s=>_esOtros(s));
+  const rest = subs.filter(s=>!_esOtros(s));
   rest.sort((a,b)=>{
     const ua = usage[`${type}:${cat}:${a}`]||0;
     const ub = usage[`${type}:${cat}:${b}`]||0;

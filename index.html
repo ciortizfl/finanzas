@@ -91,7 +91,7 @@
             <option value="CAD">🇨🇦 CAD</option>
             <option value="EUR">🇪🇺 EUR</option>
           </select>
-          <input type="text" id="amount" placeholder="0.00" inputmode="decimal" oninput="handleAmountInput(this);calcPropinaPreview();refreshBeneficioCalcs();updateDesgloseRemaining();renderDiferirPreview()">
+          <input type="text" id="amount" placeholder="0.00" inputmode="decimal" oninput="handleAmountInput(this);calcPropinaPreview();refreshBeneficioCalcs();updateDesgloseRemaining();renderDiferirPreview();updateFxMxnPreview()">
         </div>
         <!-- TC manual: solo visible en moneda extranjera. Vacío = automático.
              R7 · fuera la etiqueta, fuera el "Vacío = usar el automático" y fuera
@@ -100,6 +100,7 @@
         <div class="fx-row" id="fx-row" style="display:none;">
           <input type="text" id="fx-manual" inputmode="decimal" placeholder="" oninput="onFxManualInput()">
           <span class="fx-unit" id="fx-unit">MXN</span>
+          <span class="fx-mxn" id="fx-mxn" style="display:none;"></span>
           <div class="fx-hint" id="fx-hint" style="display:none;"></div>
         </div>
       </div>

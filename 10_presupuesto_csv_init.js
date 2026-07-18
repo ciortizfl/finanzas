@@ -287,11 +287,24 @@ function updateScrollTopBtn(){
   const max=document.documentElement.scrollHeight - window.innerHeight;
   const thr=Math.max(max*0.15, 120);
   btn.classList.toggle('vis', !!enHistorial && max>0 && window.scrollY>thr);
+  if(!btn.classList.contains('vis')) btn.classList.remove('rested');
 }
 (function(){
-  let ticking=false;
+  let ticking=false, restTimer=null;
+  // R9 · Durante el scroll el botón conserva su tamaño; medio segundo después
+  // de detenerse crece 30% para ofrecer un blanco más fácil de tocar.
+  function scheduleRest(){
+    const btn=document.getElementById('scrolltop-btn');
+    if(!btn) return;
+    btn.classList.remove('rested');
+    if(restTimer) clearTimeout(restTimer);
+    restTimer=setTimeout(()=>{
+      if(btn.classList.contains('vis')) btn.classList.add('rested');
+    }, 500);
+  }
   window.addEventListener('scroll', ()=>{
     if(!ticking){ ticking=true; requestAnimationFrame(()=>{ ticking=false; updateScrollTopBtn(); }); }
+    scheduleRest();
   }, {passive:true});
   updateScrollTopBtn();
 })();

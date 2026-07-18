@@ -483,6 +483,20 @@ function _remHintUpdate(){
   }
 }
 
+// R9 · Las fechas que ofrece Recordar se anclan a la fecha del registro
+// (_remCycleAnchor lee #tx-date / #e-date). Antes ese ancla solo se leía al
+// ABRIR el panel, así que cambiar la fecha de arriba dejaba las fechas de
+// Recordar desactualizadas. Ahora la tira de fechas y el date picker llaman
+// aquí, y si el panel está abierto se repintan sus chips con el nuevo ancla.
+function onTxDateChanged(inputId){
+  // El panel de Recordar del registro se ancla a #tx-date; el de edición a #e-date.
+  if(inputId && inputId!=='tx-date') return;
+  if(typeof _remPanelVisible==='undefined' || !_remPanelVisible) return;
+  try{ _remPaintChips(); }catch(e){}
+  try{ _remHintUpdate(); }catch(e){}
+  try{ updateRemToggleIndicator(); }catch(e){}
+}
+
 function toggleRemPanel(){
   // Tercer TAB del renglón Nota/Desglose/Recordar. Re-taparlo SOLO lo cierra
   // (los datos elegidos se conservan y el botón muestra "contiene datos").

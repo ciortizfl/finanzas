@@ -496,6 +496,11 @@ nav {
 }
 .month-preset-input::-webkit-outer-spin-button,
 .month-preset-input::-webkit-inner-spin-button{ -webkit-appearance:none; margin:0; }
+/* R9 · Como todos los campos editables de la app: al enfocar NO aparece anillo
+   ni contorno azul; el 4º slot conserva el aspecto de preset. */
+.month-preset-input:focus,
+.month-preset-input:focus-visible{ outline:none; box-shadow:none; }
+.month-preset-input:not(.on):focus{ border-color:var(--border2); }
 .month-preset-input::placeholder{ color:var(--text3); font-weight:600; }
 .month-preset-input.on::placeholder{ color:rgba(255,255,255,0.85); }
 
@@ -948,6 +953,9 @@ nav {
 /* ANNUAL CHART */.annual-month-lbl { font-size: 9px; color: var(--text3); text-align: center; margin-top: 2px; }
 
 /* RELOAD BTN */
+/* R9 · El botón de recargar NO se mueve: queda fijo en la esquina superior
+   derecha en las tres vistas (registro, balance, historial). Solo el botón
+   "ir arriba" (.scrolltop-btn) se reposiciona abajo. */
 .reload-btn {
   position: fixed; top: 14px; right: 16px; z-index: 150;
   background: var(--surface2); border: none; border-radius: 50%;
@@ -1285,15 +1293,23 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
 .btn-copy:active { transform: scale(0.98); }
 
 /* ── Botón "ir arriba": inferior DERECHA, flotando ENCIMA de la barra de
-   navegación fija (altura de nav = 49px + max(12px, safe-area) → botón a
-   12px por encima). Solo visible dentro de Historial. ── */
+   navegación fija. R9 · separado un poco más de la barra para que, al crecer
+   30% medio segundo después de dejar de hacer scroll, no quede encima de ella.
+   Solo visible dentro de Historial. ── */
 .scrolltop-btn {
   top: auto; left: auto; right: 16px;
-  bottom: max(73px, calc(61px + env(safe-area-inset-bottom, 0px)));
+  bottom: max(86px, calc(74px + env(safe-area-inset-bottom, 0px)));
   opacity: 0; pointer-events: none; transform: translateY(8px);
+  transform-origin: center center;
   transition: opacity 0.2s, transform 0.25s ease;
 }
 .scrolltop-btn.vis { opacity: 1; pointer-events: auto; transform: translateY(0); }
+/* Al detenerse el scroll (clase añadida por JS tras 500 ms) el círculo crece
+   30% para ofrecer un blanco más fácil de tocar. */
+.scrolltop-btn.vis.rested {
+  transform: translateY(0) scale(1.3);
+  transition: transform 0.28s cubic-bezier(0.22,0.61,0.36,1), opacity 0.2s;
+}
 
 /* ── Tarjeta de recordatorio: layout móvil en 3 renglones (web intacta) ── */
 @media (max-width: 640px) {
@@ -1323,6 +1339,10 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
 .fx-row input::placeholder { color: var(--text3); }
 .fx-row input:focus { border-color: var(--border2); }   /* R8.5: sin realce al enfocar */
 .fx-unit { font-size: 11.5px; color: var(--text3); font-weight: 600; flex: 0 0 auto; }
+/* R9 · Conversión a MXN en el extremo derecho del mismo renglón del TC.
+   Mismo tamaño que el placeholder del campo, pero en negritas. */
+.fx-mxn { margin-left: auto; font-size: 12px; font-weight: 700; color: var(--text);
+  flex: 0 0 auto; white-space: nowrap; letter-spacing: -0.01em; }
 .fx-hint { flex-basis: 100%; font-size: 11.5px; color: var(--text3); line-height: 1.35; margin-top: 2px; }
 .fx-revert {
   display: block; margin-top: 6px; padding: 0; background: none; border: none;

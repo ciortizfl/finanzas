@@ -1515,6 +1515,25 @@ function updateFxRow(){
     row.style.display='flex';
     revealAnimate(row);
   }
+  updateFxMxnPreview();
+}
+
+// R9 · Muestra "= $1,234.56 MXN" al extremo derecho del renglón del TC.
+// Funciona igual con el TC automático (placeholder) o con el TC manual, porque
+// toMXN() ya prioriza _fxOverride cuando existe. Si no hay monto capturado o no
+// hay TC con qué convertir, el renglón se queda como estaba (sin nada).
+function updateFxMxnPreview(){
+  const el=document.getElementById('fx-mxn');
+  if(!el) return;
+  const cur=document.getElementById('currency')?.value||'MXN';
+  if(cur==='MXN'){ el.style.display='none'; el.textContent=''; return; }
+  const amt=parseFloat(String(document.getElementById('amount')?.value||'').replace(/,/g,''));
+  const rate=(_fxOverride && _fxOverride>0) ? _fxOverride : fxAutoRate(cur);
+  if(!amt || !isFinite(amt) || amt<=0 || !rate || rate<=0){
+    el.style.display='none'; el.textContent=''; return;
+  }
+  el.textContent='= '+fmt(toMXN(amt, cur))+' MXN';
+  el.style.display='';
 }
 function onFxManualInput(){
   _fxOverride=_fxParse(document.getElementById('fx-manual')?.value);
