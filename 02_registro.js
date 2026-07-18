@@ -284,6 +284,7 @@ function goNav(id, btn) {
       if(monthRow) monthRow.style.display='flex';
       resetHistFiltersToTodos();
     }
+    try{ initCalendar(true); }catch(e){}
     renderHistorial(true); // render con animación desde cache
     loadFromSheets(true);  // refresco silencioso (sin re-animar)
   } else if(id==='presupuesto'){

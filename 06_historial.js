@@ -169,7 +169,6 @@ function renderBellView(hl, hlReal, searchQuery, animate){
     lastFilteredEntries=[];
     hl.innerHTML='<div class="empty"><div class="e-ico">🔔</div>Aún no tienes recordatorios manuales</div>';
     hlReal.replaceChildren(...hl.childNodes);
-    renderPie([]);
     return;
   }
   const keyOf=e=>e.type+'||'+String(e.desc||'').trim().toLowerCase();
@@ -187,7 +186,6 @@ function renderBellView(hl, hlReal, searchQuery, animate){
     lastFilteredEntries=[];
     hl.innerHTML='<div class="empty"><div class="e-ico">🔍</div>Sin coincidencias entre tus recordatorios</div>';
     hlReal.replaceChildren(...hl.childNodes);
-    renderPie([]);
     return;
   }
   entries.sort((a,b)=>{
@@ -241,7 +239,6 @@ function renderBellView(hl, hlReal, searchQuery, animate){
   hl.appendChild(container);
   hlReal.replaceChildren(...hl.childNodes);
   if(animate===true){ revealAnimate(container, true); }
-  renderPie([]);
 }
 
 // ── PRESETS DE BÚSQUEDA ──
@@ -799,7 +796,18 @@ function updateTypeChips(selMonth, selYear, isSearchMode){
   }
 }
 
+// Wrapper: tras construir el listado, si la vista del Historial es Calendario,
+// repinta la grilla. Así todo llamado existente a renderHistorial() (goNav,
+// cambios de mes, ediciones, refresco silencioso desde Sheets) mantiene el
+// calendario sincronizado sin tocar cada punto de llamada.
 function renderHistorial(animate){
+  _renderHistorialCore(animate);
+  if(typeof histViewMode!=='undefined' && histViewMode==='calendar'){
+    try{ renderCalendar(); }catch(e){}
+  }
+}
+
+function _renderHistorialCore(animate){
   const hlReal=document.getElementById('hist-list');
   if(!hlReal) return;
   // Refrescar los presets de búsqueda (chips de comercios más comunes)
@@ -880,7 +888,6 @@ function renderHistorial(animate){
       lastFilteredEntries=[];
       hl.innerHTML='<div class="empty"><div class="e-ico">📅</div>Elige un rango y toca "Aplicar rango"</div>';
       hlReal.replaceChildren(...hl.childNodes);
-      renderPie([]);
       return;
     }
     // 1) FILTRO BASE POR FECHA (rango aplicado o mes/año)
@@ -910,7 +917,6 @@ function renderHistorial(animate){
     lastFilteredEntries=[];
     hl.innerHTML='<div class="empty"><div class="e-ico">🔍</div>Sin categorías seleccionadas</div>';
     hlReal.replaceChildren(...hl.childNodes);
-    renderPie([]);
     return;
   }
   // 3) FILTRO POR CATEGORÍA/SUBCATEGORÍA
@@ -932,17 +938,9 @@ function renderHistorial(animate){
   if(!filtered.length){
     hl.innerHTML='<div class="empty"><div class="e-ico">🔍</div>Sin movimientos</div>';
     hlReal.replaceChildren(...hl.childNodes);
-    renderPie([]);
     return;
   }
 
-  // La dona no se muestra en modo rango NI durante búsquedas por palabra clave
-  // (en búsqueda importa la lista, no la gráfica, en todas las capas de filtrado)
-  if((histRangeMode && histRangeApplied) || isSearchMode){
-    renderPie([]);
-  } else {
-    renderPie(filtered);
-  }
 
   const groups={};
   filtered.forEach(e=>{
@@ -958,6 +956,7 @@ function renderHistorial(animate){
     const d=parseDate(dateKey);
     const hdr=document.createElement('div');
     hdr.className='day-group-hdr';
+    hdr.dataset.date=dateKey; // ancla para el scroll desde el calendario
     const dayEntries=groups[dateKey];
     // Balance diario solo en modo "todos"
     let balanceHtml='';

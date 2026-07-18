@@ -393,6 +393,45 @@
     </div>
   </div>
   <div style="padding: 0 20px; margin-top:-10px; margin-bottom:10px;" class="edit-hint">Toca un registro para editarlo · ✕ para eliminar</div>
+
+  <!-- Toggle Calendario / Filtros (segmented de 2 opciones) -->
+  <div class="calseg calseg-2" id="hist-view-seg" data-active="calendar" style="margin:0 16px 14px;">
+    <div class="calseg-thumb"></div>
+    <button class="calseg-option active" data-t="calendar" onclick="switchHistView('calendar')">Calendario</button>
+    <button class="calseg-option" data-t="filters" onclick="switchHistView('filters')">Filtros</button>
+  </div>
+
+  <!-- ══ VISTA CALENDARIO (default) ══ -->
+  <div id="hist-calendar-view">
+    <div class="cal-nav">
+      <button type="button" class="cal-arrow" onclick="calGoMonth(-1)" aria-label="Mes anterior">‹</button>
+      <button type="button" class="cal-title" id="cal-title" onclick="toggleCalMonthYear()">
+        <span id="cal-title-text">Julio 2026</span><span class="cal-title-caret">▾</span>
+      </button>
+      <button type="button" class="cal-arrow" onclick="calGoMonth(1)" aria-label="Mes siguiente">›</button>
+      <!-- Selector mes/año (no parece dropdown; se comporta como uno al abrir) -->
+      <div class="cal-my-pop" id="cal-my-pop">
+        <div class="cal-my-yearrow">
+          <button type="button" class="cal-arrow sm" onclick="calMYYear(-1)">‹</button>
+          <span class="dp-year-label" id="cal-my-year">2026</span>
+          <button type="button" class="cal-arrow sm" onclick="calMYYear(1)">›</button>
+        </div>
+        <div class="dp-months-grid" id="cal-my-months"></div>
+      </div>
+    </div>
+    <div class="cal-grid" id="cal-grid"></div>
+    <!-- Selector de tipo (Todos/Egresos/Ingresos/Beneficios) -->
+    <div class="calseg calseg-4" id="cal-type-seg" data-active="todos">
+      <div class="calseg-thumb"></div>
+      <button class="calseg-option active" data-t="todos" onclick="setCalType('todos')">Todos</button>
+      <button class="calseg-option" data-t="egreso" onclick="setCalType('egreso')">Egresos</button>
+      <button class="calseg-option" data-t="ingreso" onclick="setCalType('ingreso')">Ingresos</button>
+      <button class="calseg-option" data-t="beneficio" onclick="setCalType('beneficio')">Beneficios</button>
+    </div>
+  </div>
+
+  <!-- ══ VISTA FILTROS (todo el aparato de filtros vive aquí) ══ -->
+  <div id="hist-filters-view">
   <!-- Search bar -->
   <div id="hist-search-wrap" style="padding:0 16px;margin-bottom:10px;">
     <div style="display:flex;align-items:center;gap:8px;background:var(--surface);border-radius:var(--radius-sm);box-shadow:var(--shadow);padding:10px 14px;">
@@ -481,12 +520,7 @@
       <div class="sub-filter-chips" id="sub-filter-subcats"></div>
     </div>
   </div>
-  <div class="pie-wrap" id="pie-wrap" style="display:none">
-    <div class="pie-card">
-      <canvas id="pie-canvas" width="200" height="200"></canvas>
-      <div class="pie-legend" id="pie-legend"></div>
-    </div>
-  </div>
+  </div><!-- /#hist-filters-view -->
   <div id="hist-list"></div>
 </div>
 
@@ -795,6 +829,7 @@
 <script src="04_guardado_sync.js"></script>
 <script src="05_balance_vistas.js"></script>
 <script src="06_historial.js"></script>
+<script src="06b_calendario.js"></script>
 <script src="07_datepicker_fechas.js"></script>
 <script src="08_edicion.js"></script>
 <script src="09_edicion_diferir.js"></script>
