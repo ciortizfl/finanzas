@@ -141,8 +141,9 @@ function renderBalanceCats(animate){
   lbl.style.display='block';
   lbl.textContent=typeNames[balView];
 
-  // For ahorro types: use ALL data (not just this month), show movements per category
-  const isAhorro = balView==='ahorro'||balView==='beneficio';
+  // Solo 'ahorro' (obsoleto) conserva la vista por movimientos individuales.
+  // 'beneficio' ahora se comporta como 'ingreso': plano por categoría (decisión R9).
+  const isAhorro = balView==='ahorro';
   const subset = md.filter(e=>e.type===balView);
 
   const catTotals={}, catSubTotals={}, catItems={};
@@ -160,6 +161,7 @@ function renderBalanceCats(animate){
 
   if(!Object.keys(catTotals).length){
     cl.innerHTML='<div class="empty"><div class="e-ico">📊</div>Sin registros</div>';
+    const tmw=document.getElementById('bal-treemap-wrap'); if(tmw) tmw.style.display='none';
     return;
   }
 
@@ -191,10 +193,13 @@ function renderBalanceCats(animate){
       row.querySelector('.cat-expand-hdr').onclick=()=>row.classList.toggle('open');
       cl.appendChild(row);
     });
+    const tmw=document.getElementById('bal-treemap-wrap'); if(tmw) tmw.style.display='none';
   } else {
-    buildExpandCatList(cl, catTotals, catSubTotals, viewYear, viewMonth);
-    // Payment method breakdown
-    renderMethodBreakdown(cl, subset);
+    // Egresos / Ingresos / Beneficios: tabla como control del Treemap.
+    buildExpandCatList(cl, catTotals, catSubTotals, {treemap:true});
+    // El desglose por método de pago no aplica a beneficios (method null).
+    if(balView!=='beneficio') renderMethodBreakdown(cl, subset);
+    try{ renderBalanceTreemap(); }catch(e){}
   }
 
   // Animación en cascada solo cuando el usuario abre la vista (no en re-renders)
@@ -233,47 +238,104 @@ function renderMethodBreakdown(container, entries){
   container.appendChild(wrap);
 }
 
-function buildExpandCatList(container, catTotals, catSubTotals){
+// opts.treemap === true habilita la interacción de control del Treemap:
+//   · tocar el renglón activa/desactiva la categoría completa
+//   · el chevron expande/colapsa las subcategorías
+//   · tocar una subcategoría la activa/desactiva
+// Sin ese flag, se comporta como la lista de solo lectura de siempre (vista anual).
+function buildExpandCatList(container, catTotals, catSubTotals, opts){
+  const tm = !!(opts && opts.treemap);
   const sortedC=Object.entries(catTotals).sort((a,b)=>b[1]-a[1]);
   const grandTotal=sortedC.reduce((s,[,v])=>s+v,0);
   sortedC.forEach(([cat,tot])=>{
-    const subs=catSubTotals?catSubTotals[cat]||{}:{};
-    const hasSubs=Object.keys(subs).some(k=>k!=='—');
+    const subsObj=catSubTotals?catSubTotals[cat]||{}:{};
+    const subEntries=Object.entries(subsObj).filter(([k])=>k!=='—').sort((a,b)=>b[1]-a[1]);
+    const hasSubs=subEntries.length>0;
+    const subList=hasSubs?subEntries.map(([sub])=>({sub})):null;
     const color=catColor(cat);
     const pct=grandTotal>0?((tot/grandTotal)*100).toFixed(1):'0';
     const row=document.createElement('div');
     row.className='cat-expand-row';
+    row.dataset.cat=cat;
+
+    let dot='';
+    if(tm){
+      const st=tmCatState(cat, subList);
+      if(st==='off') row.classList.add('tm-off');
+      dot=`<span class="tm-toggle-dot">${st==='on'?'●':st==='off'?'○':'◐'}</span>`;
+    }
     row.innerHTML=`
       <div class="cat-color-bar" style="background:${color}"></div>
       <div class="cat-expand-hdr" style="padding-left:18px">
+        ${dot}
         <span style="font-size:17px;width:28px;text-align:center">${ICONS[cat]||'📌'}</span>
         <div style="flex:1;font-size:14px;font-weight:500;color:var(--text)">${cat}</div>
         <div style="font-size:12px;color:var(--text3);margin-right:8px">${pct}%</div>
         <div style="font-size:14px;font-weight:600;color:var(--text2)">${fmt(tot)}</div>
         ${hasSubs?'<span class="cat-expand-chevron">›</span>':''}
       </div>`;
+    const hdr=row.querySelector('.cat-expand-hdr');
+
     if(hasSubs){
       const body=document.createElement('div');
       body.className='cat-expand-body';
-      const subEntries=Object.entries(subs).filter(([k])=>k!=='—').sort((a,b)=>b[1]-a[1]);
       subEntries.forEach(([sub,stot],i)=>{
         const subColor=lighten(color, 0.25+(i/Math.max(subEntries.length-1,1))*0.45);
         const subPct=grandTotal>0?((stot/grandTotal)*100).toFixed(1):'0';
         const line=document.createElement('div');
         line.className='subcat-line';
-        // Override the left color bar via a pseudo-gradient on the row's bar
+        line.dataset.cat=cat; line.dataset.sub=sub;
         line.style.cssText='padding-left:18px;position:relative;';
+        const subOff = tm && tmIsSubOff(cat, sub);
+        if(subOff) line.classList.add('tm-off');
         line.innerHTML=`
           <div style="position:absolute;left:0;top:0;bottom:0;width:3px;background:${subColor}"></div>
+          ${tm?`<span class="tm-toggle-dot sub">${subOff?'○':'●'}</span>`:''}
           <span class="s-name" style="flex:1;text-align:left">${ICONS[sub]||''} ${sub}</span>
           <span style="font-size:12px;color:var(--text3);margin-right:8px">${subPct}%</span>
           <span class="s-val">${fmt(stot)}</span>`;
+        if(tm){
+          line.onclick=(ev)=>{ ev.stopPropagation(); toggleTmSub(cat, sub); _tmSyncTableDots(); };
+        }
         body.appendChild(line);
       });
       row.appendChild(body);
-      row.querySelector('.cat-expand-hdr').onclick=()=>row.classList.toggle('open');
+      if(tm){
+        hdr.onclick=(ev)=>{
+          if(ev.target.closest('.cat-expand-chevron')){ row.classList.toggle('open'); return; }
+          toggleTmCat(cat, subList); _tmSyncTableDots();
+        };
+      } else {
+        hdr.onclick=()=>row.classList.toggle('open');
+      }
+    } else if(tm){
+      // Categoría plana (ingresos / beneficios): el renglón entero togglea.
+      hdr.onclick=()=>{ toggleTmCat(cat, null); _tmSyncTableDots(); };
     }
     container.appendChild(row);
+  });
+}
+
+// Refresca los indicadores ●/○/◐ y el atenuado de la tabla EN SITIO tras un
+// toggle, sin reconstruir la lista (así no se pierde qué categorías están
+// expandidas). El treemap ya se repintó dentro del toggle.
+function _tmSyncTableDots(){
+  const cl=document.getElementById('dash-cats');
+  if(!cl) return;
+  cl.querySelectorAll('.cat-expand-row').forEach(row=>{
+    const cat=row.dataset.cat; if(cat===undefined) return;
+    const subs=[...row.querySelectorAll('.subcat-line')].map(l=>({sub:l.dataset.sub}));
+    const subList=subs.length?subs:null;
+    const st=tmCatState(cat, subList);
+    row.classList.toggle('tm-off', st==='off');
+    const d=row.querySelector('.cat-expand-hdr > .tm-toggle-dot');
+    if(d) d.textContent = st==='on'?'●':st==='off'?'○':'◐';
+    row.querySelectorAll('.subcat-line').forEach(line=>{
+      const off=tmIsSubOff(cat, line.dataset.sub);
+      line.classList.toggle('tm-off', off);
+      const sd=line.querySelector('.tm-toggle-dot.sub');
+      if(sd) sd.textContent = off?'○':'●';
+    });
   });
 }
 

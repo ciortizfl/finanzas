@@ -1405,3 +1405,41 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
   .cal-num{ font-size:15px; }
   .cal-amt{ font-size:12px; letter-spacing:-0.02em; }
 }
+
+/* ══════════════════════════════════════════════════════════════════
+   R9 · BALANCE — Treemap y control de la tabla (Fase 2)
+   ══════════════════════════════════════════════════════════════════ */
+
+/* Indicador de activación en la tabla (●/○/◐) */
+.tm-toggle-dot{ font-size:12px; color:var(--text3); width:13px; text-align:center;
+  flex-shrink:0; margin-left:-4px; line-height:1; }
+.tm-toggle-dot.sub{ font-size:11px; }
+.cat-expand-row.tm-off .cat-expand-hdr{ opacity:.42; }
+.subcat-line.tm-off{ opacity:.42; }
+.subcat-line{ cursor:pointer; }
+
+/* Contenedor del treemap (debajo de la tabla, dentro de la tarjeta de detalle) */
+#bal-treemap-wrap{ padding:0 16px; margin:-8px 0 24px; }
+.tm-canvas{ position:relative; width:100%; height:300px; border-radius:var(--radius-sm);
+  overflow:hidden; background:var(--surface2); }
+@media (min-width:560px){ .tm-canvas{ height:360px; } }
+
+.tm-cell{ position:absolute; border-radius:9px; overflow:hidden; }
+.tm-cell.tm-clickable{ cursor:pointer; }
+.tm-cell.tm-clickable:hover{ filter:brightness(1.06); }
+.tm-inner{ width:100%; height:100%; display:flex; flex-direction:column; align-items:center;
+  justify-content:center; gap:1px; padding:4px 5px; box-sizing:border-box; }
+.tm-emoji{ font-size:14px; line-height:1; white-space:nowrap; }
+.tm-emoji-big{ font-size:19px; }
+.tm-sub{ font-size:10px; font-weight:500; line-height:1.15; white-space:nowrap; opacity:.9; }
+.tm-amt{ font-size:11.5px; font-weight:700; line-height:1.15; white-space:nowrap; letter-spacing:-0.02em; }
+.tm-empty{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+  color:var(--text3); font-size:13px; }
+
+/* Tooltip (subcategoría y monto con estilos tipográficos distintos) */
+.tm-tooltip{ position:absolute; z-index:20; background:var(--surface); border-radius:var(--radius-sm);
+  box-shadow:var(--shadow-md); padding:10px 13px; min-width:118px; max-width:210px; cursor:pointer; }
+.tm-tt-top{ display:flex; align-items:center; gap:6px; font-size:11.5px; color:var(--text2); margin-bottom:5px; }
+.tm-tt-cat{ font-weight:600; }
+.tm-tt-sub{ font-size:13px; font-weight:500; color:var(--text); margin-bottom:3px; }
+.tm-tt-amt{ font-size:17px; font-weight:800; color:var(--text); letter-spacing:-0.02em; }

@@ -837,6 +837,7 @@ function clearBalView(){
   document.querySelectorAll('#page-balance .grid2 .stat').forEach(s=>s.classList.remove('active-filter'));
   document.getElementById('dash-detail-lbl').style.display='none';
   document.getElementById('dash-cats').innerHTML='';
+  const tmw=document.getElementById('bal-treemap-wrap'); if(tmw) tmw.style.display='none';
   const bonoDetail=document.getElementById('bono-detail-row');
   if(bonoDetail) bonoDetail.style.display='none';
   const bonoStat=document.getElementById('bono-stat');
@@ -853,5 +854,6 @@ function setBalView(type, el) {
   const bonoStat=document.getElementById('bono-stat');
   if(bonoStat) bonoStat.classList.remove('active-filter');
   if(el) el.classList.add('active-filter');
+  try{ resetTreemap(); }catch(e){} // estado inicial: todo visible
   renderBalanceCats(true);
 }
