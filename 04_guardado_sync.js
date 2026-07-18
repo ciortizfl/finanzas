@@ -835,7 +835,7 @@ let balView = null;
 function clearBalView(){
   balView=null;
   document.querySelectorAll('#page-balance .grid2 .stat').forEach(s=>s.classList.remove('active-filter'));
-  document.getElementById('dash-detail-lbl').style.display='none';
+
   document.getElementById('dash-cats').innerHTML='';
   const tmw=document.getElementById('bal-treemap-wrap'); if(tmw) tmw.style.display='none';
   const bonoDetail=document.getElementById('bono-detail-row');

@@ -118,7 +118,7 @@ function toggleBonoDetail(){
     // Abrir bono → cerrar cualquier otra vista (ingresos/egresos/pasivo)
     balView=null;
     document.querySelectorAll('#page-balance .grid2 .stat').forEach(s=>s.classList.remove('active-filter'));
-    document.getElementById('dash-detail-lbl').style.display='none';
+  
     document.getElementById('dash-cats').innerHTML='';
     // El bono solo muestra su propia información: no dejar el treemap del tipo anterior.
     const tmw=document.getElementById('bal-treemap-wrap');
@@ -136,17 +136,9 @@ function toggleBonoDetail(){
 function renderBalanceCats(animate){
   const md=monthData();
   const cl=document.getElementById('dash-cats');
-  const lbl=document.getElementById('dash-detail-lbl');
   cl.innerHTML='';
 
-  if(!balView){ lbl.style.display='none'; return; }
-
-  // Animación del label solo cuando el usuario abre la vista (no en re-renders automáticos)
-  if(animate) revealAnimate(lbl);
-
-  const typeNames={ingreso:'Ingresos',egreso:'Egresos',ahorro:'Ahorro activo','beneficio':'Beneficios'};
-  lbl.style.display='block';
-  lbl.textContent=typeNames[balView];
+  if(!balView){ return; }
 
   // Solo 'ahorro' (obsoleto) conserva la vista por movimientos individuales.
   // 'beneficio' ahora se comporta como 'ingreso': plano por categoría (decisión R9).
@@ -209,7 +201,11 @@ function renderBalanceCats(animate){
     const mrow=document.getElementById('bal-method-row');
     if(mrow){
       mrow.innerHTML='';
-      if(balView!=='beneficio') renderMethodBreakdown(mrow, subset);
+      if(balView!=='beneficio'){
+        renderMethodBreakdown(mrow, subset);
+        // Misma animación de aparición que la tabla
+        if(animate && mrow.firstChild) revealAnimate(mrow);
+      }
     }
     try{ renderBalanceTreemap(); }catch(e){}
   }

@@ -146,12 +146,27 @@ function _tmToggleTip(cellEl, leaf){
   b.onclick=()=>_tmCloseTip();
   canvas.appendChild(b);
   const cr=cellEl.getBoundingClientRect(), pr=canvas.getBoundingClientRect();
-  const cx=cr.left-pr.left+cr.width/2, top=cr.top-pr.top;
-  const bw=b.offsetWidth, bh=b.offsetHeight, pad=6;
-  const bl=Math.max(pad, Math.min(cx-bw/2, canvas.clientWidth-pad-bw));
-  const above=top-bh-10>=0;
-  b.style.left=bl+'px';
-  b.style.top=(above ? top-bh-10 : top+cr.height+10)+'px';
+  const bw=b.offsetWidth, bh=b.offsetHeight;
+  const CW=canvas.clientWidth, CH=canvas.clientHeight;
+  const PAD=6, GAP=8;
+  // Coordenadas de la celda relativas al lienzo del treemap
+  const cxL=cr.left-pr.left, cxR=cr.right-pr.left;
+  const cyT=cr.top-pr.top,  cyB=cr.bottom-pr.top;
+  const cxC=cxL+cr.width/2, cyC=cyT+cr.height/2;
+  const clamp=(v,min,max)=>Math.max(min, Math.min(v, max));
+
+  // La burbuja SIEMPRE debe quedar dentro del treemap. Se prueban los cuatro
+  // lados y se elige el primero donde quepa completa; si ninguno cabe (celdas
+  // muy altas o muy anchas), se centra sobre la celda y se acota al lienzo.
+  const cands=[
+    {name:'arriba',   fits: cyT-GAP-bh>=PAD,      top: cyT-GAP-bh,  left: cxC-bw/2},
+    {name:'abajo',    fits: cyB+GAP+bh<=CH-PAD,   top: cyB+GAP,     left: cxC-bw/2},
+    {name:'derecha',  fits: cxR+GAP+bw<=CW-PAD,   top: cyC-bh/2,    left: cxR+GAP},
+    {name:'izquierda',fits: cxL-GAP-bw>=PAD,      top: cyC-bh/2,    left: cxL-GAP-bw}
+  ];
+  const pick = cands.find(c=>c.fits) || {top: cyC-bh/2, left: cxC-bw/2};
+  b.style.left = clamp(pick.left, PAD, Math.max(PAD, CW-PAD-bw)) + 'px';
+  b.style.top  = clamp(pick.top,  PAD, Math.max(PAD, CH-PAD-bh)) + 'px';
   _tmTip={el:b, owner:cellEl};
 }
 // Cerrar al tocar fuera o sobre cualquier otro control interactivo

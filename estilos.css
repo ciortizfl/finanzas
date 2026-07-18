@@ -1460,7 +1460,7 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
 .tm-cell.tm-clickable{ cursor:pointer; }
 .tm-cell.tm-clickable:hover{ filter:brightness(1.06); }
 .tm-inner{ width:100%; height:100%; display:flex; flex-direction:column; align-items:center;
-  justify-content:center; gap:5px; padding:7px 8px; box-sizing:border-box; }
+  justify-content:center; gap:5px; padding:6px; box-sizing:border-box; }
 .tm-emoji{ font-size:14px; line-height:1; white-space:nowrap; }
 .tm-emoji-big{ font-size:19px; }
 .tm-sub{ font-size:10px; font-weight:500; line-height:1.15; white-space:nowrap; opacity:.9; }
