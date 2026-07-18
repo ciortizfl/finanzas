@@ -17,6 +17,9 @@ let calYear  = new Date().getFullYear();
 let calMonth = new Date().getMonth();
 // Tipo activo del selector inferior: 'todos' | 'egreso' | 'ingreso' | 'beneficio'
 let calType  = 'todos';
+// Día seleccionado (ISO 'YYYY-MM-DD') o null. Se marca con un círculo de color
+// distinto al de "hoy" y se conserva mientras no se cambie de mes/vista.
+let calSelDay = null;
 
 const CAL_DOW = ['D','L','M','M','J','V','S']; // semana inicia en domingo (getDay 0)
 
@@ -33,6 +36,19 @@ function _calAmtColor(type, bal){
 // Tamaño de fuente fijo (definido en CSS) — nunca encoge; soporta "$123,456".
 function _calFmtCell(n){ return '$'+Math.round(Math.abs(n)).toLocaleString('es-MX'); }
 
+// En escritorio el mes va en UNA sola tira (31 celdas), así que la celda es
+// mucho más angosta: se abrevia para que el monto quepa sin encoger la fuente.
+// <1000: $123 · <100k: $2.1k · >=100k: $114k (máx. 2 enteros y 1 decimal
+// mientras el valor lo permite, igual que el criterio del treemap).
+function _calFmtCompact(n){
+  const a=Math.round(Math.abs(n));
+  if(a<1000) return '$'+a;
+  const k=a/1000;
+  if(k<100){ const r=Math.round(k*10)/10; return '$'+(r%1===0?String(Math.round(r)):r.toFixed(1))+'k'; }
+  return '$'+Math.round(k)+'k';
+}
+function _calIsWide(){ return window.matchMedia && window.matchMedia('(min-width: 700px)').matches; }
+
 // ── Inicialización al entrar al Historial ──────────────────────────────────
 // Deja la vista en su estado default (Calendario, mes actual, tipo Todos) y
 // sincroniza el estado que consume el listado.
@@ -40,6 +56,7 @@ function initCalendar(reset){
   if(reset){
     histViewMode='calendar';
     calType='todos';
+    calSelDay=null;
     const now=new Date();
     calYear=now.getFullYear();
     calMonth=now.getMonth();
@@ -94,7 +111,7 @@ function switchHistView(mode){
 
   if(mode==='filters'){
     // Regresar la vista de calendario a su default para la próxima vez.
-    calType='todos';
+    calType='todos'; calSelDay=null;
     // Filtros arranca en su estado default: todos los filtros propios reiniciados.
     try{ resetHistFiltersToTodos(); }catch(e){}
     const s=document.getElementById('hist-search'); if(s && s.value){ s.value=''; try{ clearSearch(); }catch(e){} }
@@ -104,7 +121,7 @@ function switchHistView(mode){
     renderHistorial(true);
   } else {
     // Volver a Calendario: reiniciar filtros y regresar el calendario a hoy.
-    const now=new Date(); calYear=now.getFullYear(); calMonth=now.getMonth(); calType='todos';
+    const now=new Date(); calYear=now.getFullYear(); calMonth=now.getMonth(); calType='todos'; calSelDay=null;
     _calSyncTypeSeg();
     _calSyncListState();
     _calAnimateOut(flt);           // los filtros se van
@@ -140,6 +157,7 @@ function calGoMonth(delta){
   let m=calMonth+delta, y=calYear;
   if(m<0){ m=11; y--; } else if(m>11){ m=0; y++; }
   calYear=y; calMonth=m;
+  calSelDay=null;          // la selección no cruza de mes
   _calSyncListState();
   renderHistorial(true);   // el wrapper repinta la grilla
 }
@@ -168,6 +186,7 @@ function _calRenderMonthYear(){
     b.textContent=m;
     b.onclick=()=>{
       calMonth=i; calYear=_calMYyear;
+      calSelDay=null;
       _calMYOpen=false;
       const pop=document.getElementById('cal-my-pop'); if(pop) pop.classList.remove('open');
       const lbl=document.getElementById('cal-title'); if(lbl) lbl.classList.remove('open');
@@ -218,6 +237,7 @@ function renderCalendar(){
 
   // Totales por día del mes visible (excluye futuros/diferidos futuros).
   const byDay={}; // dayNum -> {inc,exp,ben}
+  const monthHas={egreso:false, ingreso:false, beneficio:false};
   data.forEach(e=>{
     if(isFutureEntry(e)) return;
     const d=parseDate(e.date);
@@ -225,10 +245,12 @@ function renderCalendar(){
     if(d.getMonth()!==calMonth || d.getFullYear()!==calYear) return;
     const day=d.getDate();
     if(!byDay[day]) byDay[day]={inc:0,exp:0,ben:0};
-    if(e.type==='ingreso') byDay[day].inc+=e.amountMXN;
-    else if(e.type==='egreso') byDay[day].exp+=e.amountMXN;
-    else if(e.type==='beneficio') byDay[day].ben+=e.amountMXN;
+    if(e.type==='ingreso'){ byDay[day].inc+=e.amountMXN; monthHas.ingreso=true; }
+    else if(e.type==='egreso'){ byDay[day].exp+=e.amountMXN; monthHas.egreso=true; }
+    else if(e.type==='beneficio'){ byDay[day].ben+=e.amountMXN; monthHas.beneficio=true; }
   });
+  // Un tipo sin registros este mes no es seleccionable.
+  _calSyncTypeAvailability(monthHas);
 
   const valueFor=(t)=>{
     if(!t) return {show:false};
@@ -242,8 +264,9 @@ function renderCalendar(){
     return {show:false};
   };
 
+  const wide=_calIsWide();
   grid.innerHTML='';
-  // Encabezado de días de la semana
+  // Encabezado de días de la semana (oculto por CSS en la tira horizontal)
   const head=document.createElement('div'); head.className='cal-dow-row';
   CAL_DOW.forEach(d=>{ const c=document.createElement('div'); c.className='cal-dow'; c.textContent=d; head.appendChild(c); });
   grid.appendChild(head);
@@ -258,26 +281,52 @@ function renderCalendar(){
   for(let day=1;day<=daysInMonth;day++){
     const info=valueFor(byDay[day]);
     const dObj=new Date(calYear,calMonth,day);
+    const iso=`${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
     const isToday=dObj.getTime()===today.getTime();
     const cell=document.createElement('div');
-    cell.className='cal-cell'+(info.show?' has-amt':' no-amt')+(isToday?' today':'');
+    cell.className='cal-cell'+(info.show?' has-amt':' no-amt')+(isToday?' today':'')
+      +(calSelDay===iso?' cal-sel':'');
 
     const num=document.createElement('div'); num.className='cal-num'; num.textContent=day;
     cell.appendChild(num);
 
     if(info.show){
       const amt=document.createElement('div'); amt.className='cal-amt';
-      amt.textContent=_calFmtCell(info.val);
+      amt.textContent = wide ? _calFmtCompact(info.val) : _calFmtCell(info.val);
       amt.style.color=_calAmtColor(calType, info.val);
       cell.appendChild(amt);
-      // Día clickeable → scroll suave al día en el listado
+      // Día clickeable → seleccionar + scroll suave al día en el listado
       cell.classList.add('cal-clickable');
-      const iso=`${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
-      cell.onclick=()=>calScrollToDay(iso);
+      cell.onclick=()=>calSelectDay(iso);
     }
     cells.appendChild(cell);
   }
   grid.appendChild(cells);
+}
+
+// Habilita/deshabilita las opciones del selector de tipo según haya registros
+// de ese tipo en el mes visible. Si el tipo activo se queda sin datos, regresa
+// a "Todos" para no dejar el calendario vacío sin explicación.
+function _calSyncTypeAvailability(monthHas){
+  const seg=document.getElementById('cal-type-seg');
+  if(!seg) return;
+  seg.querySelectorAll('.calseg-option').forEach(b=>{
+    const t=b.dataset.t;
+    const avail = (t==='todos') ? true : !!monthHas[t];
+    b.disabled=!avail;
+  });
+  if(calType!=='todos' && !monthHas[calType]){
+    calType='todos';
+    histFilter='todos'; histSelCats=[]; histSelSubcats=[];
+    _calSyncTypeSeg();
+  }
+}
+
+// Selección de día: marca el círculo y hace scroll al día en el listado.
+function calSelectDay(iso){
+  calSelDay=iso;
+  renderCalendar();          // repinta para mostrar el círculo de selección
+  calScrollToDay(iso);
 }
 
 // ── Scroll suave al día dentro del listado ──────────────────────────────────

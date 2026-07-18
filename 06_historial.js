@@ -913,7 +913,10 @@ function _renderHistorialCore(animate){
 
   // 2) FILTRO POR TIPO (aplica igual en vista mensual, rango y búsqueda)
   if(histFilter!=='todos') filtered=filtered.filter(e=>e.type===histFilter);
-  if(histFilter!=='todos' && histFilter!=='egreso' && histSelCats.length===0){
+  // La preselección de categorías solo aplica a la vista FILTROS, donde los chips
+  // las llenan. En vista CALENDARIO el tipo filtra directo (no hay chips).
+  const _catGuard = (typeof histViewMode==='undefined') || histViewMode!=='calendar';
+  if(_catGuard && histFilter!=='todos' && histFilter!=='egreso' && histSelCats.length===0){
     lastFilteredEntries=[];
     hl.innerHTML='<div class="empty"><div class="e-ico">🔍</div>Sin categorías seleccionadas</div>';
     hlReal.replaceChildren(...hl.childNodes);

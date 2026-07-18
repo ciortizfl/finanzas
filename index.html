@@ -406,23 +406,29 @@
 
   <!-- ══ VISTA CALENDARIO (default) ══ -->
   <div id="hist-calendar-view">
-    <div class="cal-nav">
-      <button type="button" class="cal-arrow" onclick="calGoMonth(-1)" aria-label="Mes anterior">‹</button>
-      <button type="button" class="cal-title" id="cal-title" onclick="toggleCalMonthYear()">
-        <span id="cal-title-text">Julio 2026</span><span class="cal-title-caret">▾</span>
-      </button>
-      <button type="button" class="cal-arrow" onclick="calGoMonth(1)" aria-label="Mes siguiente">›</button>
-      <!-- Selector mes/año (no parece dropdown; se comporta como uno al abrir) -->
-      <div class="cal-my-pop" id="cal-my-pop">
-        <div class="cal-my-yearrow">
-          <button type="button" class="cal-arrow sm" onclick="calMYYear(-1)">‹</button>
-          <span class="dp-year-label" id="cal-my-year">2026</span>
-          <button type="button" class="cal-arrow sm" onclick="calMYYear(1)">›</button>
+    <div class="cal-block">
+      <div class="cal-nav">
+        <button type="button" class="cal-arrow cal-arrow-m" onclick="calGoMonth(-1)" aria-label="Mes anterior">‹</button>
+        <button type="button" class="cal-title" id="cal-title" onclick="toggleCalMonthYear()">
+          <span id="cal-title-text">Julio 2026</span><span class="cal-title-caret">▾</span>
+        </button>
+        <button type="button" class="cal-arrow cal-arrow-m" onclick="calGoMonth(1)" aria-label="Mes siguiente">›</button>
+        <!-- Selector mes/año (no parece dropdown; se comporta como uno al abrir) -->
+        <div class="cal-my-pop" id="cal-my-pop">
+          <div class="cal-my-yearrow">
+            <button type="button" class="cal-arrow sm" onclick="calMYYear(-1)">‹</button>
+            <span class="dp-year-label" id="cal-my-year">2026</span>
+            <button type="button" class="cal-arrow sm" onclick="calMYYear(1)">›</button>
+          </div>
+          <div class="dp-months-grid" id="cal-my-months"></div>
         </div>
-        <div class="dp-months-grid" id="cal-my-months"></div>
+      </div>
+      <div class="cal-body">
+        <button type="button" class="cal-arrow cal-arrow-d" onclick="calGoMonth(-1)" aria-label="Mes anterior">‹</button>
+        <div class="cal-grid" id="cal-grid"></div>
+        <button type="button" class="cal-arrow cal-arrow-d" onclick="calGoMonth(1)" aria-label="Mes siguiente">›</button>
       </div>
     </div>
-    <div class="cal-grid" id="cal-grid"></div>
     <!-- Selector de tipo (Todos/Egresos/Ingresos/Beneficios) -->
     <div class="calseg calseg-4" id="cal-type-seg" data-active="todos">
       <div class="calseg-thumb"></div>

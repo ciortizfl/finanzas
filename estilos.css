@@ -1359,14 +1359,20 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
 #page-historial.cal-mode #hist-filters-view{ display:none; }
 #page-historial.filters-mode #hist-calendar-view{ display:none; }
 
+/* Bloque contenedor del calendario (mismo lenguaje que las tarjetas) */
+.cal-block{ margin:0 16px 14px; background:var(--surface); border-radius:var(--radius);
+  box-shadow:var(--shadow); padding:12px 8px 10px; }
+
 /* Navegación del mes */
 .cal-nav{ position:relative; display:flex; align-items:center; justify-content:space-between;
-  padding:0 16px; margin-bottom:12px; }
-.cal-arrow{ width:36px; height:36px; border:none; background:var(--surface2); color:var(--text2);
-  border-radius:10px; font-size:18px; line-height:1; cursor:pointer; display:flex; align-items:center;
-  justify-content:center; transition:background .15s; flex-shrink:0; }
+  padding:0 4px; margin-bottom:10px; }
+.cal-arrow{ width:34px; height:34px; border:none; background:none; color:var(--text2);
+  border-radius:10px; font-size:19px; line-height:1; cursor:pointer; display:flex; align-items:center;
+  justify-content:center; transition:background .15s, color .15s; flex-shrink:0; }
+.cal-arrow:hover{ color:var(--text); background:var(--surface2); }
 .cal-arrow:active{ background:var(--surface3); }
-.cal-arrow.sm{ width:30px; height:30px; font-size:15px; background:none; }
+.cal-arrow.sm{ width:30px; height:30px; font-size:15px; }
+.cal-arrow-d{ display:none; } /* flechas laterales: solo escritorio */
 .cal-title{ flex:1; display:flex; align-items:center; justify-content:center; gap:5px;
   background:none; border:none; cursor:pointer; font-family:inherit; font-size:17px; font-weight:700;
   color:var(--text); letter-spacing:-0.02em; padding:6px; }
@@ -1374,36 +1380,57 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
 .cal-title.open .cal-title-caret{ transform:rotate(180deg); }
 
 /* Selector mes/año (no parece dropdown; se comporta como uno al abrir) */
-.cal-my-pop{ position:absolute; top:46px; left:50%; z-index:30;
-  width:min(320px, calc(100% - 32px));
+.cal-my-pop{ position:absolute; top:44px; left:50%; z-index:30;
+  width:min(320px, calc(100vw - 64px));
   background:var(--surface); border-radius:var(--radius); box-shadow:var(--shadow-md); padding:14px;
   opacity:0; pointer-events:none; transform:translateX(-50%) translateY(-8px);
   transition:opacity .2s ease, transform .25s cubic-bezier(0.22,0.61,0.36,1); }
 .cal-my-pop.open{ opacity:1; pointer-events:auto; transform:translateX(-50%) translateY(0); }
 .cal-my-yearrow{ display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
 
-/* Grilla del calendario */
-.cal-grid{ padding:0 10px; margin-bottom:18px; }
-.cal-dow-row{ display:grid; grid-template-columns:repeat(7,1fr); margin-bottom:6px; }
-.cal-dow{ text-align:center; font-size:11px; font-weight:700; color:var(--text3); text-transform:uppercase; }
-.cal-cells{ display:grid; grid-template-columns:repeat(7,1fr); gap:3px; }
-.cal-cell{ aspect-ratio:1 / 1.1; border-radius:9px; display:flex; flex-direction:column;
-  align-items:center; padding:5px 1px 5px; background:var(--surface2); min-width:0; overflow:hidden; }
-.cal-cell.empty{ background:transparent; }
+/* Grilla del calendario — móvil: rejilla 7x6 compacta, sin recuadro por celda */
+.cal-body{ display:flex; align-items:stretch; }
+.cal-grid{ flex:1; min-width:0; }
+.cal-dow-row{ display:grid; grid-template-columns:repeat(7,1fr); margin-bottom:2px; }
+.cal-dow{ text-align:center; font-size:10.5px; font-weight:700; color:var(--text3); text-transform:uppercase; }
+.cal-cells{ display:grid; grid-template-columns:repeat(7,1fr); gap:1px; }
+.cal-cell{ display:flex; flex-direction:column; align-items:center; justify-content:flex-start;
+  gap:0; padding:3px 0 4px; background:none; border-radius:8px; min-width:0; overflow:hidden; }
+.cal-cell.empty{ background:none; }
 .cal-cell.no-amt .cal-num{ opacity:.35; }
 .cal-cell.cal-clickable{ cursor:pointer; transition:background .15s, transform .1s; }
-.cal-cell.cal-clickable:hover{ background:var(--surface3); }
+.cal-cell.cal-clickable:hover{ background:var(--surface2); }
 .cal-cell.cal-clickable:active{ transform:scale(0.93); }
-.cal-num{ font-size:13px; font-weight:600; color:var(--text); line-height:1.1; flex-shrink:0; }
-.cal-cell.today .cal-num{ color:#fff; background:var(--accent); width:22px; height:22px;
-  border-radius:50%; display:flex; align-items:center; justify-content:center; }
-.cal-amt{ font-size:9px; font-weight:700; line-height:1.1; margin-top:auto; white-space:nowrap;
+.cal-num{ font-size:13px; font-weight:600; color:var(--text); line-height:1.15; flex-shrink:0;
+  width:21px; height:21px; display:flex; align-items:center; justify-content:center; border-radius:50%; }
+.cal-cell.today .cal-num{ color:#fff; background:var(--accent); }
+/* Día seleccionado: círculo en color distinto al de hoy */
+.cal-cell.cal-sel .cal-num{ color:var(--bg); background:var(--text); }
+.cal-amt{ font-size:9px; font-weight:700; line-height:1.1; margin-top:1px; white-space:nowrap;
   letter-spacing:-0.03em; max-width:100%; }
-@media (min-width: 560px){
-  .cal-grid{ padding:0 16px; }
-  .cal-cell{ aspect-ratio:1 / 0.82; padding:8px 4px; }
-  .cal-num{ font-size:15px; }
-  .cal-amt{ font-size:12px; letter-spacing:-0.02em; }
+
+/* Toggle de tipo: mismo margen lateral que el listado, y opciones sin datos inertes */
+#cal-type-seg{ margin:0 16px 14px; }
+.calseg-option[disabled]{ opacity:.32; cursor:default; pointer-events:none; }
+
+/* ── Escritorio: tira horizontal de un solo renglón con flechas a los extremos ── */
+@media (min-width: 700px){
+  .cal-block{ padding:14px 10px 12px; }
+  .cal-arrow-m{ display:none; }        /* las flechas bajan a los extremos de la tira */
+  .cal-arrow-d{ display:flex; }
+  .cal-nav{ justify-content:center; margin-bottom:8px; }
+  .cal-title{ flex:0 0 auto; }
+  .cal-body{ align-items:center; gap:2px; }
+  .cal-dow-row{ display:none; }        /* sin encabezado de días de la semana */
+  .cal-cells{ display:flex; gap:1px; }
+  .cal-cells .cal-cell.empty{ display:none; }  /* sin huecos de alineación semanal */
+  .cal-cell{ flex:1 1 0; min-width:0; padding:4px 0 5px; }
+  .cal-num{ font-size:12.5px; width:20px; height:20px; }
+  .cal-amt{ font-size:9px; margin-top:2px; }
+}
+@media (min-width: 1000px){
+  .cal-num{ font-size:13.5px; width:22px; height:22px; }
+  .cal-amt{ font-size:10px; }
 }
 
 /* ══════════════════════════════════════════════════════════════════
