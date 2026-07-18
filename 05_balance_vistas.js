@@ -120,6 +120,13 @@ function toggleBonoDetail(){
     document.querySelectorAll('#page-balance .grid2 .stat').forEach(s=>s.classList.remove('active-filter'));
     document.getElementById('dash-detail-lbl').style.display='none';
     document.getElementById('dash-cats').innerHTML='';
+    // El bono solo muestra su propia información: no dejar el treemap del tipo anterior.
+    const tmw=document.getElementById('bal-treemap-wrap');
+    if(tmw) tmw.style.display='none';
+    const tmc=document.getElementById('bal-treemap');
+    if(tmc) tmc.innerHTML='';
+    const mb=document.getElementById('bal-method-row');
+    if(mb) mb.innerHTML='';
     detail.style.display='block';
     revealAnimate(detail);
     if(bonoStat) bonoStat.classList.add('active-filter');
@@ -197,8 +204,13 @@ function renderBalanceCats(animate){
   } else {
     // Egresos / Ingresos / Beneficios: tabla como control del Treemap.
     buildExpandCatList(cl, catTotals, catSubTotals, {treemap:true});
-    // El desglose por método de pago no aplica a beneficios (method null).
-    if(balView!=='beneficio') renderMethodBreakdown(cl, subset);
+    // El desglose por método va ARRIBA de la tabla (justo bajo las tarjetas),
+    // para que tabla y treemap queden continuos. No aplica a beneficios (method null).
+    const mrow=document.getElementById('bal-method-row');
+    if(mrow){
+      mrow.innerHTML='';
+      if(balView!=='beneficio') renderMethodBreakdown(mrow, subset);
+    }
     try{ renderBalanceTreemap(); }catch(e){}
   }
 

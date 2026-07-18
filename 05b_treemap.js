@@ -162,8 +162,27 @@ document.addEventListener('click',(e)=>{
   _tmCloseTip();
 }, true);
 
-// ── ¿Cabe el contenido dentro del recuadro (descontando su padding)? ──
-function _tmFits(el){ return el.scrollWidth<=el.clientWidth+0.5 && el.scrollHeight<=el.clientHeight+0.5; }
+// ── ¿Cabe el contenido dentro del recuadro, RESPETANDO su padding? ──
+// clientHeight/Width ya incluyen el padding, así que comparar scrollHeight contra
+// clientHeight no detecta cuando flexbox comprime el contenido y lo saca del
+// padding (emojis pegados a la orilla). Medimos la suma real de los hijos contra
+// el área interior (client − padding) para exigir aire por los cuatro lados.
+function _tmFits(el){
+  const cs=getComputedStyle(el);
+  const padY=parseFloat(cs.paddingTop)+parseFloat(cs.paddingBottom);
+  const padX=parseFloat(cs.paddingLeft)+parseFloat(cs.paddingRight);
+  const availH=el.clientHeight-padY, availW=el.clientWidth-padX;
+  if(availH<=0||availW<=0) return false;
+  const gap=parseFloat(cs.gap)||0;
+  const kids=[...el.children];
+  if(!kids.length) return true;
+  let needH=gap*(kids.length-1), needW=0;
+  kids.forEach(k=>{
+    needH+=k.offsetHeight;
+    needW=Math.max(needW, k.scrollWidth);
+  });
+  return needH<=availH+0.5 && needW<=availW+0.5;
+}
 
 // ── Render principal ──
 function renderBalanceTreemap(){
