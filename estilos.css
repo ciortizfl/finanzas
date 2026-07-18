@@ -16,6 +16,9 @@
   --danger-light: #fff2f1;
   --amber: #ff9500;
   --amber-light: #fff8ec;
+  /* R9 · acciones de descarte de recordatorios */
+  --rem-mustard: #946a16;   /* mostaza legible sobre fondo claro (4.85:1) */
+  --rem-softred: #c0453c;   /* rojo sutil, no escandaloso */
   --green: #34c759;
   --green-light: #f0fbf3;
   --blue: #007aff;
@@ -44,6 +47,8 @@
     --danger-light: #2d1210;
     --amber: #ffa040;
     --amber-light: #2d1e08;
+    --rem-mustard: #e0b341;
+    --rem-softred: #ff8078;
     --green: #32d74b;
     --green-light: #0d2615;
     --blue: #0a84ff;
@@ -1229,6 +1234,9 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
 
 /* Paginador y flechas */
 .rem-pager { position: absolute; top: 4px; right: 0; display: flex; align-items: center; gap: 6px; z-index: 2; }
+/* R9 · Con paginador, el contenido baja para que las flechas (sobre todo la de
+   "atrás") no queden empalmadas con el título en móvil. */
+.rem-full.has-pager { padding-top: 38px; }
 .rem-arrow {
   background: none; border: none; color: var(--text3); font-size: 15px; cursor: pointer;
   width: 26px; height: 26px; border-radius: 50%;
@@ -1278,13 +1286,20 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
 .rem-btn:active { transform: scale(0.96); }
 .rem-btn-apply { background: var(--accent); border-color: var(--accent); color: #fff; }
 .rem-btn-snooze { color: var(--text2); }
-/* Fila secundaria: acciones de descarte, discretas como texto */
+/* Fila secundaria: acciones de descarte, discretas como texto.
+   R9 · "Esta/Este … no" en mostaza y "Ya no recordar" en rojo sutil. Los tonos
+   se declaran por tema para que ambos contrasten bien en claro y en oscuro
+   (en claro se oscurecen; en oscuro se aclaran y se desaturan un poco). */
 .rem-btn-ghost {
   background: none; border: none; padding: 2px 4px; cursor: pointer;
   font-family: inherit; font-size: 12px; font-weight: 600; color: var(--text3);
   -webkit-appearance: none; appearance: none;
 }
 .rem-btn-ghost:active { color: var(--text2); }
+.rem-btn-skip { color: var(--rem-mustard); }
+.rem-btn-skip:active { color: var(--rem-mustard); opacity: .7; }
+.rem-btn-mute { color: var(--rem-softred); }
+.rem-btn-mute:active { color: var(--rem-softred); opacity: .7; }
 .rem-ghost-sep { color: var(--text3); font-size: 12px; }
 
 /* Panel de configuración del recordatorio manual */

@@ -335,9 +335,9 @@ function _remActionsHtml(r){
         <button type="button" class="rem-btn rem-btn-snooze" onclick="remSnooze(7)">⏰ En 1 semana</button>
       </div>
       <div class="rem-actions-row rem-actions-secondary">
-        <button type="button" class="rem-btn-ghost" onclick="remSkip()">${skipLbl}</button>
+        <button type="button" class="rem-btn-ghost rem-btn-skip" onclick="remSkip()">${skipLbl}</button>
         <span class="rem-ghost-sep">·</span>
-        <button type="button" class="rem-btn-ghost" onclick="remMute()">Ya no recordar</button>
+        <button type="button" class="rem-btn-ghost rem-btn-mute" onclick="remMute()">Ya no recordar</button>
       </div>
     </div>`;
 }
@@ -345,7 +345,9 @@ function _remActionsHtml(r){
 // Tarjeta completa de un recordatorio (la interfaz de siempre)
 function _remFullCard(r, pager){
   const lbl=_remLabel(r);
-  return `<div class="rem-full">
+  // Con paginador, la tarjeta reserva espacio arriba para que las flechas
+  // (sobre todo la de "atrás") nunca queden empalmadas con el texto.
+  return `<div class="rem-full${pager?' has-pager':''}">
       ${pager||''}
       <div class="rem-ico">${r.type==='ingreso'?'💰':'🔔'}</div>
       <div class="rem-body">
@@ -384,7 +386,7 @@ function _remPaintPanel(){
   // Escritorio con varios
   if(_remFocus!==null && _remFocus<q.length){
     _remCurrent=q[_remFocus];
-    const back=`<button type="button" class="rem-back" onclick="remUnfocus()">‹ Volver a los ${Math.min(3,q.length)}</button>`;
+    const back=`<button type="button" class="rem-back" onclick="remUnfocus()">‹ Volver a los ${q.length} recordatorios</button>`;
     panel.innerHTML=back+_remFullCard(q[_remFocus], _remPager(_remFocus, q.length));
     return;
   }
