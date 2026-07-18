@@ -302,42 +302,178 @@ function _remLabel(r){
            sub: r.type === 'ingreso' ? '¿Ya te llegó este mes?' : '¿Quieres registrarlo este mes?' };
 }
 
+// ══════════════════════════════════════════════════════════════════════════
+//  R9 Fase 3 · Tarjeta de recordatorios en ACORDEÓN (Opción A del prototipo)
+//  Colapsado por default: una píldora que ocupa el mínimo espacio y permanece
+//  visible todo el día. Al tocarla se abre HACIA ABAJO, sin moverse de sitio.
+//  Móvil: un recordatorio a la vez con flechas. Escritorio: hasta 3 en vista
+//  previa; al tocar una se enfoca y muestra todas sus acciones.
+// ══════════════════════════════════════════════════════════════════════════
+let _remOpen = false;   // ¿acordeón desplegado?
+let _remIdx  = 0;       // recordatorio enfocado (móvil) / ventana (escritorio)
+let _remFocus = null;   // en escritorio: índice absoluto enfocado, o null
+let _remQueue = [];     // cola visible actual
+
+function _remIsWide(){ return window.matchMedia && window.matchMedia('(min-width: 700px)').matches; }
+
+// Texto corto de la píldora: con UNO muestra "descripción · cadencia" (la
+// oración completa no cabe y truncada no dice nada); con VARIOS, el conteo.
+function _remPillText(queue){
+  if(queue.length===1){
+    const r=queue[0];
+    return `<span class="rem-pill-main">${r.desc}</span><span class="rem-pill-muted"> · ${_remRuleLabel(r)}</span>`;
+  }
+  return `<span class="rem-pill-main">Tienes ${queue.length} recordatorios</span>`;
+}
+
+function _remActionsHtml(r){
+  const skipLbl = r.freq==='weekly' ? 'Esta semana no' : 'Este mes no';
+  return `<div class="rem-actions">
+      <div class="rem-actions-row">
+        <button type="button" class="rem-btn rem-btn-apply" onclick="remApply()">Registrar</button>
+        <button type="button" class="rem-btn rem-btn-snooze" onclick="remSnooze(1)">⏰ Mañana</button>
+        <button type="button" class="rem-btn rem-btn-snooze" onclick="remSnooze(7)">⏰ En 1 semana</button>
+      </div>
+      <div class="rem-actions-row rem-actions-secondary">
+        <button type="button" class="rem-btn-ghost" onclick="remSkip()">${skipLbl}</button>
+        <span class="rem-ghost-sep">·</span>
+        <button type="button" class="rem-btn-ghost" onclick="remMute()">Ya no recordar</button>
+      </div>
+    </div>`;
+}
+
+// Tarjeta completa de un recordatorio (la interfaz de siempre)
+function _remFullCard(r, pager){
+  const lbl=_remLabel(r);
+  return `<div class="rem-full">
+      ${pager||''}
+      <div class="rem-ico">${r.type==='ingreso'?'💰':'🔔'}</div>
+      <div class="rem-body">
+        <div class="rem-title">${lbl.title}</div>
+        <div class="rem-sub">${lbl.sub}</div>
+        ${_remActionsHtml(r)}
+      </div>
+    </div>`;
+}
+
+function _remPager(i, total){
+  if(total<=1) return '';
+  return `<div class="rem-pager">
+      <button type="button" class="rem-arrow" onclick="remNav(-1)" ${i===0?'disabled':''}>‹</button>
+      <span class="rem-dots">${i+1}/${total}</span>
+      <button type="button" class="rem-arrow" onclick="remNav(1)" ${i>=total-1?'disabled':''}>›</button>
+    </div>`;
+}
+
+// Pinta el contenido del acordeón según ancho y estado de enfoque.
+function _remPaintPanel(){
+  const panel=document.getElementById('rem-panel');
+  if(!panel) return;
+  const q=_remQueue;
+  if(!q.length){ panel.innerHTML=''; return; }
+  const wide=_remIsWide();
+
+  if(!wide || q.length===1){
+    // Móvil (o uno solo): tarjeta completa con flechas laterales
+    if(_remIdx>=q.length) _remIdx=0;
+    _remCurrent=q[_remIdx];
+    panel.innerHTML=_remFullCard(q[_remIdx], _remPager(_remIdx, q.length));
+    return;
+  }
+
+  // Escritorio con varios
+  if(_remFocus!==null && _remFocus<q.length){
+    _remCurrent=q[_remFocus];
+    const back=`<button type="button" class="rem-back" onclick="remUnfocus()">‹ Volver a los ${Math.min(3,q.length)}</button>`;
+    panel.innerHTML=back+_remFullCard(q[_remFocus], _remPager(_remFocus, q.length));
+    return;
+  }
+  // Vista previa de hasta 3: título + subtítulo, clicables
+  if(_remIdx>q.length-1) _remIdx=0;
+  const win=q.slice(_remIdx, _remIdx+3);
+  _remCurrent=win[0]||q[0];
+  const minis=win.map((r,k)=>{
+    const lbl=_remLabel(r);
+    return `<div class="rem-mini" onclick="remFocus(${_remIdx+k})">
+        <div class="rem-mini-ico">${r.type==='ingreso'?'💰':'🔔'}</div>
+        <div class="rem-title">${lbl.title}</div>
+        <div class="rem-sub">${lbl.sub}</div>
+      </div>`;
+  }).join('');
+  const nav = q.length>3 ? `<div class="rem-desk-nav">
+      <button type="button" class="rem-arrow" onclick="remNav(-3)" ${_remIdx===0?'disabled':''}>‹</button>
+      <span class="rem-dots">${Math.min(_remIdx+3,q.length)}/${q.length}</span>
+      <button type="button" class="rem-arrow" onclick="remNav(3)" ${_remIdx+3>=q.length?'disabled':''}>›</button>
+    </div>` : '';
+  panel.innerHTML=`<div class="rem-mini-row">${minis}</div>${nav}`;
+}
+
+// Navegación (flechas). Paso negativo/positivo; en escritorio enfocado navega
+// de uno en uno, en vista previa de tres en tres.
+function remNav(step){
+  const q=_remQueue;
+  if(!q.length) return;
+  if(_remFocus!==null){
+    _remFocus=Math.max(0, Math.min(q.length-1, _remFocus+(step>0?1:-1)));
+  } else {
+    _remIdx=Math.max(0, Math.min(Math.max(q.length-1,0), _remIdx+step));
+  }
+  _remPaintPanel();
+}
+function remFocus(i){ _remFocus=i; _remPaintPanel(); }
+function remUnfocus(){ _remFocus=null; _remPaintPanel(); }
+
+// Abrir/cerrar el acordeón (animación elegante en ambos sentidos vía CSS grid).
+function toggleRemCard(){
+  const wrap=document.getElementById('rem-card');
+  const col=document.getElementById('rem-collapse');
+  const pill=document.getElementById('rem-pill');
+  if(!wrap||!col) return;
+  _remOpen=!_remOpen;
+  if(_remOpen){ _remFocus=null; _remPaintPanel(); }
+  col.classList.toggle('open', _remOpen);
+  if(pill) pill.classList.toggle('open', _remOpen);
+}
+
 function updateReminderCard(){
   const card = document.getElementById('rem-card');
   if (!card) return;
   let queue = [];
   try { queue = getDueReminders(); } catch(e){ queue = []; }
+  _remQueue = queue;
 
   if (queue.length === 0) {
     if (card.style.display !== 'none') {
-      _remAnimateOut(card, () => { card.style.display = 'none'; _remCurrent = null; });
+      _remAnimateOut(card, () => { card.style.display = 'none'; _remCurrent = null; _remOpen=false;
+        const col=document.getElementById('rem-collapse'); if(col) col.classList.remove('open');
+        const p=document.getElementById('rem-pill'); if(p) p.classList.remove('open');
+      });
     }
     return;
   }
-  const next = queue[0];
-  const same = _remCurrent && _remCurrent.key === next.key && _remCurrent.cycle === next.cycle;
-  if (same && card.style.display !== 'none') return; // ya se muestra este
 
-  const fill = () => {
-    _remCurrent = next;
-    const lbl = _remLabel(next);
-    const icoEl = document.getElementById('rem-ico');
-    if (icoEl) icoEl.textContent = next.type === 'ingreso' ? '💰' : '🔔';
-    const t = document.getElementById('rem-title'); if (t) t.textContent = lbl.title;
-    const s = document.getElementById('rem-sub');   if (s) s.textContent = lbl.sub;
-    const skipBtn = document.getElementById('rem-skip-btn');
-    if (skipBtn) skipBtn.textContent = next.freq === 'weekly' ? 'Esta semana no' : 'Este mes no';
-  };
+  // Píldora colapsada (siempre visible, ocupa lo mínimo)
+  const txt=document.getElementById('rem-pill-txt');
+  if(txt) txt.innerHTML=_remPillText(queue);
+  const ico=document.getElementById('rem-pill-ico');
+  if(ico) ico.textContent = queue.length===1 ? (queue[0].type==='ingreso'?'💰':'🔔') : '🔔';
+
+  if(_remIdx>=queue.length) _remIdx=0;
+  if(_remFocus!==null && _remFocus>=queue.length) _remFocus=null;
+  _remCurrent = queue[Math.min(_remIdx, queue.length-1)];
+  if(_remOpen) _remPaintPanel();
 
   if (card.style.display === 'none') {
-    fill();
-    card.style.display = 'flex';
+    card.style.display = 'block';
     _remAnimateIn(card);
-  } else {
-    _remAnimateOut(card, () => { fill(); _remAnimateIn(card); });
   }
 }
 
+// Al cambiar de ancho (rotación / resize), el panel abierto se repinta con el
+// layout que corresponde (móvil con flechas ↔ escritorio con 3 en fila).
+window.addEventListener('resize', ()=>{ if(_remOpen) _remPaintPanel(); });
+
+// Animaciones de aparición/desaparición de la tarjeta (mismo easing firma).
 function _remAnimateIn(el){
   try {
     el.animate(
@@ -346,23 +482,34 @@ function _remAnimateIn(el){
     );
   } catch(e){}
 }
+
 function _remAnimateOut(el, done){
   try {
     const a = el.animate(
-      [{ opacity: 1, transform: 'translateY(0)' }, { opacity: 0, transform: 'translateY(-10px)' }],
-      { duration: 260, easing: 'ease' }
+      [{ opacity: 1, transform: 'translateY(0)' }, { opacity: 0, transform: 'translateY(-8px)' }],
+      { duration: 240, easing: 'ease' }
     );
-    a.onfinish = done;
-  } catch(e){ done(); }
+    a.onfinish = () => { try { done && done(); } catch(e){} };
+    a.oncancel = () => { try { done && done(); } catch(e){} };
+  } catch(e){ try { done && done(); } catch(e2){} }
 }
 
-// ── ACCIONES DE LA TARJETA ──
+// Cierra el acordeón y reinicia la navegación (al despachar un recordatorio la
+// tarjeta vuelve a su estado compacto con los que queden).
+function _remCloseAccordion(){
+  _remOpen=false; _remIdx=0; _remFocus=null;
+  const col=document.getElementById('rem-collapse'); if(col) col.classList.remove('open');
+  const p=document.getElementById('rem-pill'); if(p) p.classList.remove('open');
+}
+
 function remApply(){
   const r = _remCurrent;
   if (!r) return;
   _remAppliedSession.add(r.key + '|' + r.cycle);
   const card = document.getElementById('rem-card');
-  if (card) _remAnimateOut(card, () => { card.style.display = 'none'; _remCurrent = null; });
+  // R9 · Con varios recordatorios, tras despachar uno la tarjeta vuelve a
+  // aparecer con los restantes (colapsada); solo desaparece si ya no queda ninguno.
+  if (card) _remAnimateOut(card, () => { card.style.display = 'none'; _remCurrent = null; _remCloseAccordion(); updateReminderCard(); });
   // Prerrellenar SOLO tipo + descripción: la predicción existente completa
   // categoría, subcategoría, método, moneda y (si aplica) el monto.
   try { setType(r.type); } catch(e){}
@@ -387,7 +534,7 @@ function remSnooze(days){
   if (reminderConfig.snoozes.length > 60) reminderConfig.snoozes = reminderConfig.snoozes.slice(-60);
   saveRemindersToSheets();
   const card = document.getElementById('rem-card');
-  if (card) _remAnimateOut(card, () => { card.style.display = 'none'; _remCurrent = null; updateReminderCard(); });
+  if (card) _remAnimateOut(card, () => { card.style.display = 'none'; _remCurrent = null; _remCloseAccordion(); updateReminderCard(); });
 }
 
 function remSkip(){
@@ -398,7 +545,7 @@ function remSkip(){
   if (reminderConfig.skips.length > 60) reminderConfig.skips = reminderConfig.skips.slice(-60);
   saveRemindersToSheets();
   const card = document.getElementById('rem-card');
-  if (card) _remAnimateOut(card, () => { card.style.display = 'none'; _remCurrent = null; updateReminderCard(); });
+  if (card) _remAnimateOut(card, () => { card.style.display = 'none'; _remCurrent = null; _remCloseAccordion(); updateReminderCard(); });
 }
 
 function remMute(){
@@ -409,7 +556,7 @@ function remMute(){
   reminderConfig.manual = (reminderConfig.manual || []).filter(m => _remKey(m.type, m.desc) !== r.key);
   saveRemindersToSheets();
   const card = document.getElementById('rem-card');
-  if (card) _remAnimateOut(card, () => { card.style.display = 'none'; _remCurrent = null; updateReminderCard(); });
+  if (card) _remAnimateOut(card, () => { card.style.display = 'none'; _remCurrent = null; _remCloseAccordion(); updateReminderCard(); });
 }
 
 // ── RECORDATORIO MANUAL AL REGISTRAR (toggle 🔔 Recordar) ──

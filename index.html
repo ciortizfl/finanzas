@@ -29,23 +29,19 @@
     <p id="hdr-date"></p>
     <button class="reload-btn" onclick="forceReload(event)" title="Recargar datos">↻</button>
   </div>
-  <!-- Tarjeta de recordatorio inteligente (cola: uno a la vez) -->
-  <div class="rem-card" id="rem-card" style="display:none">
-    <div class="rem-ico" id="rem-ico">🔔</div>
-    <div class="rem-body">
-      <div class="rem-title" id="rem-title"></div>
-      <div class="rem-sub" id="rem-sub"></div>
-      <div class="rem-actions">
-        <div class="rem-actions-row">
-          <button type="button" class="rem-btn rem-btn-apply" onclick="remApply()">Registrar</button>
-          <button type="button" class="rem-btn rem-btn-snooze" onclick="remSnooze(1)">⏰ Mañana</button>
-          <button type="button" class="rem-btn rem-btn-snooze" onclick="remSnooze(7)">⏰ En 1 semana</button>
-        </div>
-        <div class="rem-actions-row rem-actions-secondary">
-          <button type="button" class="rem-btn-ghost" id="rem-skip-btn" onclick="remSkip()">Este mes no</button>
-          <span class="rem-ghost-sep">·</span>
-          <button type="button" class="rem-btn-ghost" onclick="remMute()">Ya no recordar</button>
-        </div>
+  <!-- R9 Fase 3 · Recordatorios en acordeón (Opción A del prototipo):
+       colapsado por default (una píldora); al tocarla se abre HACIA ABAJO sin
+       moverse de sitio, mostrando la tarjeta completa. Móvil: uno a la vez con
+       flechas. Escritorio: hasta 3 en vista previa, y al tocar una se enfoca. -->
+  <div class="rem-wrap" id="rem-card" style="display:none">
+    <div class="rem-pill" id="rem-pill" onclick="toggleRemCard()">
+      <span class="rem-pill-ico" id="rem-pill-ico">🔔</span>
+      <span class="rem-pill-txt" id="rem-pill-txt"></span>
+      <span class="rem-pill-chev" id="rem-pill-chev">›</span>
+    </div>
+    <div class="rem-collapse" id="rem-collapse">
+      <div class="rem-collapse-inner">
+        <div class="rem-panel" id="rem-panel"></div>
       </div>
     </div>
   </div>

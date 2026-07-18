@@ -1183,12 +1183,84 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
 .preset-chip:active { transform: scale(0.96); }
 .preset-chip.active { background: var(--text); color: var(--bg); border-color: var(--text); }
 
-/* ── RECORDATORIOS INTELIGENTES ── */
-.rem-card {
-  display: flex; gap: 12px; align-items: flex-start;
-  margin: 0 16px 14px; padding: 14px 16px;
-  background: var(--surface); border-radius: var(--radius);
+/* ── RECORDATORIOS INTELIGENTES ──
+   R9 Fase 3 · Acordeón (Opción A): la píldora colapsada ES el encabezado de la
+   tarjeta; al abrirse crece hacia abajo sin moverse de sitio. */
+.rem-wrap { margin: 0 16px 14px; }
+
+/* Estado COLAPSADO: ocupa lo mínimo y permanece visible todo el día */
+.rem-pill {
+  display: flex; align-items: center; gap: 10px;
+  padding: 11px 16px; cursor: pointer;
+  background: var(--surface); border-radius: 100px;
   box-shadow: var(--shadow); border-left: 3px solid var(--accent);
+  transition: border-radius 0.4s cubic-bezier(0.22,0.61,0.36,1);
+}
+.rem-pill.open { border-radius: var(--radius) var(--radius) 0 0; }
+.rem-pill:active { transform: scale(0.985); }
+.rem-pill-ico { font-size: 16px; flex: 0 0 auto; line-height: 1; }
+.rem-pill-txt {
+  flex: 1; min-width: 0; font-size: 13px; line-height: 1.3;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.rem-pill-main { font-weight: 600; color: var(--text); }
+.rem-pill-muted { font-weight: 500; color: var(--text3); }
+.rem-pill-chev {
+  flex: 0 0 auto; font-size: 12px; color: var(--text3);
+  transition: transform 0.3s cubic-bezier(0.22,0.61,0.36,1);
+}
+.rem-pill.open .rem-pill-chev { transform: rotate(90deg); }
+
+/* Expansión/colapso animados (grid-template-rows, misma técnica que Balance) */
+.rem-collapse {
+  display: grid; grid-template-rows: 0fr;
+  transition: grid-template-rows 0.42s cubic-bezier(0.22,0.61,0.36,1);
+}
+.rem-collapse.open { grid-template-rows: 1fr; }
+.rem-collapse-inner { overflow: hidden; }
+.rem-panel {
+  background: var(--surface); border-radius: 0 0 var(--radius) var(--radius);
+  box-shadow: var(--shadow); border-left: 3px solid var(--accent);
+  padding: 4px 16px 16px;
+}
+
+/* Tarjeta completa dentro del acordeón (interfaz de siempre) */
+.rem-full { display: flex; gap: 12px; align-items: flex-start; position: relative; padding-top: 10px; }
+
+/* Paginador y flechas */
+.rem-pager { position: absolute; top: 4px; right: 0; display: flex; align-items: center; gap: 6px; z-index: 2; }
+.rem-arrow {
+  background: none; border: none; color: var(--text3); font-size: 15px; cursor: pointer;
+  width: 26px; height: 26px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  transition: opacity 0.2s, color 0.15s, background 0.15s;
+  font-family: inherit; -webkit-appearance: none; appearance: none;
+}
+.rem-arrow:hover { color: var(--accent); background: var(--surface2); }
+.rem-arrow[disabled] { opacity: 0; pointer-events: none; }
+.rem-dots { font-size: 11px; color: var(--text3); min-width: 26px; text-align: center; }
+
+/* Escritorio: hasta 3 en vista previa; al tocar una se enfoca */
+.rem-mini-row { display: flex; gap: 10px; padding-top: 10px; }
+.rem-mini {
+  flex: 1 1 0; min-width: 0; cursor: pointer;
+  background: var(--surface2); border-radius: var(--radius-sm); padding: 11px 12px;
+  transition: box-shadow 0.15s, transform 0.15s;
+}
+.rem-mini:hover { box-shadow: var(--shadow); }
+.rem-mini:active { transform: scale(0.98); }
+.rem-mini-ico { font-size: 15px; line-height: 1; margin-bottom: 5px; }
+.rem-mini .rem-title { font-size: 12.5px; }
+.rem-mini .rem-sub {
+  font-size: 11px; display: -webkit-box; -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical; overflow: hidden;
+}
+.rem-desk-nav { display: flex; justify-content: center; align-items: center; gap: 8px; margin-top: 10px; }
+.rem-back {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: none; border: none; cursor: pointer; padding: 8px 0 4px;
+  color: var(--accent); font-family: inherit; font-size: 12.5px; font-weight: 600;
+  -webkit-appearance: none; appearance: none;
 }
 .rem-ico { font-size: 22px; line-height: 1.2; flex: 0 0 auto; }
 .rem-body { flex: 1; min-width: 0; }
@@ -1317,6 +1389,7 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
 
 /* ── Tarjeta de recordatorio: layout móvil en 3 renglones (web intacta) ── */
 @media (max-width: 640px) {
+  #rem-card .rem-mini-row { flex-direction: column; }
   #rem-card .rem-actions-row { flex-wrap: wrap; }
   #rem-card .rem-btn-apply { flex: 1 1 100%; text-align: center; }
   #rem-card .rem-btn-snooze { flex: 1 1 0; text-align: center; }
