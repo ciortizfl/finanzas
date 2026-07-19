@@ -286,9 +286,26 @@
   </div>
   <!-- MONTHLY VIEW -->
   <div id="bal-monthly-view">
-    <div class="month-sel-row">
-      <select id="bal-month-sel" onchange="onBalMonthChange()"></select>
-      <select id="bal-year-sel" onchange="onBalMonthChange()"></select>
+    <!-- R9 · Selector estilo calendario: texto grande "Julio 2026" que al
+         tocarlo abre el selector de mes/año, con flechas a los lados. Los
+         <select> originales quedan ocultos como fuente de verdad del estado
+         (onBalMonthChange y todo lo que los lee siguen funcionando igual). -->
+    <select id="bal-month-sel" onchange="onBalMonthChange()" style="display:none"></select>
+    <select id="bal-year-sel" onchange="onBalMonthChange()" style="display:none"></select>
+    <div class="cal-nav bal-nav">
+      <button type="button" class="cal-arrow" onclick="balGoMonth(-1)" aria-label="Mes anterior">‹</button>
+      <button type="button" class="cal-title" id="bal-title" onclick="toggleBalMonthYear()">
+        <span id="bal-title-text">Julio 2026</span><span class="cal-title-caret">▾</span>
+      </button>
+      <button type="button" class="cal-arrow" onclick="balGoMonth(1)" aria-label="Mes siguiente">›</button>
+      <div class="cal-my-pop" id="bal-my-pop">
+        <div class="cal-my-yearrow">
+          <button type="button" class="cal-arrow sm" onclick="balMYYear(-1)">‹</button>
+          <span class="dp-year-label" id="bal-my-year">2026</span>
+          <button type="button" class="cal-arrow sm" onclick="balMYYear(1)">›</button>
+        </div>
+        <div class="dp-months-grid" id="bal-my-months"></div>
+      </div>
     </div>
   <div class="bal-hero" id="bal-hero" style="margin:0 16px 16px;cursor:pointer" onclick="clearBalView()">
     <div class="lbl">Balance del mes</div>
@@ -325,8 +342,15 @@
 
   <!-- ANNUAL VIEW -->
   <div id="bal-annual-view" style="display:none">
-    <div class="month-sel-row">
-      <select id="bal-annual-year-sel" onchange="renderAnnual()" style="flex:1"></select>
+    <!-- R9 · Mismo patrón que el mensual: año grande con flechas a los lados.
+         El <select> queda oculto como fuente de verdad (renderAnnual lo lee). -->
+    <select id="bal-annual-year-sel" onchange="renderAnnual()" style="display:none"></select>
+    <div class="cal-nav bal-nav">
+      <button type="button" class="cal-arrow" onclick="balGoYear(-1)" aria-label="Año anterior">‹</button>
+      <button type="button" class="cal-title" id="bal-annual-title" style="cursor:default">
+        <span id="bal-annual-title-text">2026</span>
+      </button>
+      <button type="button" class="cal-arrow" onclick="balGoYear(1)" aria-label="Año siguiente">›</button>
     </div>
     <!-- Resumen anual hasta la fecha (compacto) -->
     <div class="bal-hero annual-hero-compact" id="annual-hero" style="cursor:default;margin-top:4px;">

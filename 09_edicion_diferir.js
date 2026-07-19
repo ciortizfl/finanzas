@@ -727,6 +727,16 @@ async function saveEdit(){
     });
   }
 
+  // R9 · Si el usuario RENOMBRÓ el registro, arrastramos su recordatorio al
+  // nombre nuevo (los recordatorios se identifican por type+desc, así que sin
+  // esto quedarían huérfanos apuntando al nombre viejo).
+  let _remRenamed=false;
+  try{
+    if(typeof renameReminderOnDescChange==='function' && editOrigDesc){
+      _remRenamed = renameReminderOnDescChange(editOrigType||editType, editOrigDesc, desc);
+    }
+  }catch(_e){}
+
   // Recordatorio programado desde el modal (paridad con el formulario):
   // solo si se cumplieron ambas condiciones (frecuencia + vigencia).
   try{
@@ -735,6 +745,11 @@ async function saveEdit(){
       try{ updateReminderCard(); }catch(_e){}
     }
   }catch(_e){}
+  // Persistir el renombre del recordatorio (si no lo hizo ya el bloque de arriba)
+  if(_remRenamed){
+    try{ saveRemindersToSheets(); }catch(_e){}
+    try{ updateReminderCard(); }catch(_e){}
+  }
 
   save();
   showSyncing('⟳ Actualizando...');

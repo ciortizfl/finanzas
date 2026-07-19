@@ -8,6 +8,7 @@ function renderBalance(){
   if(mSel&&ySel&&mSel.value!==''){
     viewMonth=parseInt(mSel.value); viewYear=parseInt(ySel.value);
   }
+  try{ _balSyncTitle(); }catch(e){}   // R9 · título del selector estilo calendario
   const md=monthData();
   const ing=sum(md,'ingreso'), egr=sum(md,'egreso');
   const aho=sum(md,'ahorro'), pas=sum(md,'beneficio');
@@ -440,11 +441,149 @@ function setBalPeriod(period){
   if(period==='annual'){ populateAnnualYear(); renderAnnual(); }
 }
 
+// ══════════════════════════════════════════════════════════════════════════
+//  R9 · Selector de mes/año de Balance con el mismo patrón del calendario del
+//  Historial: texto grande "Julio 2026" que abre un selector al tocarlo, más
+//  flechas laterales. Los <select> originales quedan ocultos y siguen siendo
+//  la FUENTE DE VERDAD del estado (onBalMonthChange/renderAnnual los leen),
+//  así que nada de lo que ya dependía de ellos tuvo que cambiar.
+// ══════════════════════════════════════════════════════════════════════════
+
+// ¿Hay al menos un registro (no futuro) en ese mes/año?
+function balMonthHasData(y, m){
+  return data.some(e=>{
+    if(isFutureEntry(e)) return false;
+    const d=parseDate(e.date);
+    return !isNaN(d.getTime()) && d.getFullYear()===y && d.getMonth()===m;
+  });
+}
+function balYearHasData(y){
+  return data.some(e=>{
+    if(isFutureEntry(e)) return false;
+    const d=parseDate(e.date);
+    return !isNaN(d.getTime()) && d.getFullYear()===y;
+  });
+}
+
+// Refresca el texto "Julio 2026" del encabezado mensual.
+function _balSyncTitle(){
+  const t=document.getElementById('bal-title-text');
+  if(t) t.textContent=`${MONTHS_ES[viewMonth]} ${viewYear}`;
+  const at=document.getElementById('bal-annual-title-text');
+  if(at) at.textContent=String(viewYear);
+}
+
+// Navegación mensual con flechas. Salta a meses CON datos: si el mes destino
+// está vacío, sigue avanzando en esa dirección hasta encontrar uno con datos
+// (hasta 24 meses). Si no hay ninguno, no se mueve.
+function balGoMonth(delta){
+  let m=viewMonth, y=viewYear;
+  for(let i=0;i<24;i++){
+    m+=delta;
+    if(m<0){ m=11; y--; } else if(m>11){ m=0; y++; }
+    if(balMonthHasData(y,m)){
+      viewMonth=m; viewYear=y;
+      const mSel=document.getElementById('bal-month-sel');
+      const ySel=document.getElementById('bal-year-sel');
+      if(mSel) mSel.value=String(m);
+      if(ySel){
+        if(!Array.from(ySel.options).some(o=>parseInt(o.value)===y)){
+          const o=document.createElement('option'); o.value=String(y); o.textContent=String(y); ySel.appendChild(o);
+        }
+        ySel.value=String(y);
+      }
+      _balSyncTitle();
+      clearBalView();
+      renderBalance();
+      return;
+    }
+  }
+}
+
+// Navegación anual con flechas (solo años con datos).
+function balGoYear(delta){
+  const years=yearsInData();
+  if(!years.length) return;
+  const sel=document.getElementById('bal-annual-year-sel');
+  const cur=sel&&sel.value?parseInt(sel.value):viewYear;
+  // yearsInData viene de mayor a menor; ordenamos ascendente para navegar.
+  const asc=years.slice().sort((a,b)=>a-b);
+  const idx=asc.indexOf(cur);
+  const next=asc[idx+delta];
+  if(next===undefined) return;   // no hay más años en esa dirección
+  if(sel) sel.value=String(next);
+  viewYear=next;
+  _balSyncTitle();
+  renderAnnual();
+}
+
+// ── Selector emergente de mes/año (mensual) ──
+let _balMYOpen=false, _balMYyear=null;
+function toggleBalMonthYear(){
+  const pop=document.getElementById('bal-my-pop');
+  if(!pop) return;
+  _balMYOpen=!_balMYOpen;
+  const lbl=document.getElementById('bal-title');
+  if(lbl) lbl.classList.toggle('open', _balMYOpen);
+  if(_balMYOpen){ _balMYyear=viewYear; _balRenderMonthYear(); pop.classList.add('open'); }
+  else pop.classList.remove('open');
+}
+function _balRenderMonthYear(){
+  if(_balMYyear===null) _balMYyear=viewYear;
+  const yl=document.getElementById('bal-my-year');
+  if(yl) yl.textContent=_balMYyear;
+  const g=document.getElementById('bal-my-months');
+  if(!g) return;
+  g.innerHTML='';
+  const short=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  short.forEach((mLbl,i)=>{
+    const b=document.createElement('button'); b.type='button';
+    const hasData=balMonthHasData(_balMYyear,i);
+    b.className='dp-month-cell'+(i===viewMonth && _balMYyear===viewYear?' current':'');
+    b.textContent=mLbl;
+    // R9 · Los meses sin registros NO son activables.
+    b.disabled=!hasData;
+    if(!hasData) b.classList.add('no-data');
+    b.onclick=()=>{
+      if(!hasData) return;
+      viewMonth=i; viewYear=_balMYyear;
+      const mSel=document.getElementById('bal-month-sel');
+      const ySel=document.getElementById('bal-year-sel');
+      if(mSel) mSel.value=String(i);
+      if(ySel){
+        if(!Array.from(ySel.options).some(o=>parseInt(o.value)===viewYear)){
+          const o=document.createElement('option'); o.value=String(viewYear); o.textContent=String(viewYear); ySel.appendChild(o);
+        }
+        ySel.value=String(viewYear);
+      }
+      _balMYOpen=false;
+      const pop=document.getElementById('bal-my-pop'); if(pop) pop.classList.remove('open');
+      const lbl=document.getElementById('bal-title'); if(lbl) lbl.classList.remove('open');
+      _balSyncTitle();
+      clearBalView();
+      renderBalance();
+    };
+    g.appendChild(b);
+  });
+}
+function balMYYear(delta){ _balMYyear=(_balMYyear===null?viewYear:_balMYyear)+delta; _balRenderMonthYear(); }
+// Cerrar el selector al tocar fuera
+document.addEventListener('click',(e)=>{
+  if(!_balMYOpen) return;
+  const pop=document.getElementById('bal-my-pop');
+  const title=document.getElementById('bal-title');
+  if(pop && (pop.contains(e.target) || (title&&title.contains(e.target)))) return;
+  _balMYOpen=false;
+  if(pop) pop.classList.remove('open');
+  if(title) title.classList.remove('open');
+}, true);
+
 function populateAnnualYear(){
   const sel=document.getElementById('bal-annual-year-sel');
   if(!sel) return;
   const years=yearsInData();
   sel.innerHTML=years.map(y=>`<option value="${y}"${y===viewYear?' selected':''}>${y}</option>`).join('');
+  _balSyncTitle();
 }
 
 // Series visibles en la gráfica anual (se togglean con las leyendas)

@@ -6,6 +6,11 @@
 // EDIT MODAL
 // ══════════════════════════════════════
 let editId = null;
+// R9 · Descripción/tipo ORIGINALES del registro que se está editando. Sirven
+// para detectar un renombre y arrastrar el recordatorio ligado (que se
+// identifica por _remKey(type, desc)).
+let editOrigDesc = null;
+let editOrigType = null;
 let editDeferGroup = null;
 let editDiferirMonths = 0;    // meses elegidos en edición de diferido
 let editDiferirCustom = false;
@@ -104,6 +109,11 @@ function openEdit(id) {
   const e = data.find(x=>x.id===id);
   if(!e) return;
   editId   = id;
+  // R9 · Guardamos la descripción ORIGINAL: los recordatorios se identifican
+  // por _remKey(type, desc), así que si el usuario renombra el registro hay
+  // que renombrar también su recordatorio para que no quede huérfano.
+  editOrigDesc = (e.desc || '').trim();
+  editOrigType = e.type;
   editDeferGroup = e.deferGroup || null; // grupo diferido (si aplica)
   editEmojiOverride = null; // sin override hasta que el usuario elija uno
   editType = e.type;

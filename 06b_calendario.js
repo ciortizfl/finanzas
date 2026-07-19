@@ -174,6 +174,15 @@ function toggleCalMonthYear(){
   else pop.classList.remove('open');
 }
 let _calMYyear=null;
+// R9 · ¿Hay al menos un registro (no futuro) en ese mes/año?
+function calMonthHasData(y, m){
+  return data.some(e=>{
+    if(isFutureEntry(e)) return false;
+    const d=parseDate(e.date);
+    return !isNaN(d.getTime()) && d.getFullYear()===y && d.getMonth()===m;
+  });
+}
+
 function _calRenderMonthYear(){
   if(_calMYyear===null) _calMYyear=calYear;
   const yl=document.getElementById('cal-my-year'); if(yl) yl.textContent=_calMYyear;
@@ -182,9 +191,14 @@ function _calRenderMonthYear(){
   const short=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
   short.forEach((m,i)=>{
     const b=document.createElement('button'); b.type='button';
+    const hasData=calMonthHasData(_calMYyear,i);
     b.className='dp-month-cell'+(i===calMonth && _calMYyear===calYear?' current':'');
     b.textContent=m;
+    // R9 · Los meses sin registros NO son activables (misma regla que Balance).
+    b.disabled=!hasData;
+    if(!hasData) b.classList.add('no-data');
     b.onclick=()=>{
+      if(!hasData) return;
       calMonth=i; calYear=_calMYyear;
       calSelDay=null;
       _calMYOpen=false;

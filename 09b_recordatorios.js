@@ -992,6 +992,46 @@ function clearEditRemModule(){
   try{ refreshEditTopTabs(); }catch(e){}
 }
 
+// R9 · Los recordatorios se identifican por _remKey(type, desc). Si el usuario
+// RENOMBRA el registro original desde el modal de edición, su recordatorio
+// quedaría huérfano (seguiría apuntando al nombre viejo y ya no coincidiría
+// con los registros nuevos). Esta función arrastra la regla y todo su estado
+// asociado (snoozes, skips y silenciados) al nombre nuevo, para que registro
+// y recordatorio queden ligados.
+// Devuelve true si de verdad movió algo (útil para avisar al usuario).
+function renameReminderOnDescChange(type, oldDesc, newDesc){
+  const o=String(oldDesc||'').trim(), n=String(newDesc||'').trim();
+  if(!type || !o || !n) return false;
+  if(o.toLowerCase()===n.toLowerCase()) return false;   // no cambió de verdad
+  const oldKey=_remKey(type, o), newKey=_remKey(type, n);
+  let moved=false;
+
+  // 1) La regla manual (si existe con el nombre viejo)
+  const rule=(reminderConfig.manual||[]).find(m=>_remKey(m.type,m.desc)===oldKey);
+  if(rule){
+    // Si ya existía una regla con el nombre NUEVO, la del nombre viejo la
+    // reemplaza (el usuario acaba de decidir que este registro se llama así).
+    reminderConfig.manual=(reminderConfig.manual||[]).filter(m=>{
+      const k=_remKey(m.type,m.desc);
+      return k!==oldKey && k!==newKey;
+    });
+    rule.desc=n;
+    reminderConfig.manual.push(rule);
+    moved=true;
+  }
+  // 2) Aplazados y saltos, que se guardan por key
+  ['snoozes','skips'].forEach(bucket=>{
+    (reminderConfig[bucket]||[]).forEach(item=>{
+      if(item && item.key===oldKey){ item.key=newKey; moved=true; }
+    });
+  });
+  // 3) Silenciados (lista de keys)
+  if(Array.isArray(reminderConfig.muted)){
+    reminderConfig.muted=reminderConfig.muted.map(k=>k===oldKey?newKey:k);
+  }
+  return moved;
+}
+
 // Quitar por completo el recordatorio vigente (o vencido) de este comercio
 function removeRemFromEdit(){
   const { type, desc } = _eRemTarget();

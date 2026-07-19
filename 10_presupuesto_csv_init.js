@@ -281,15 +281,14 @@ try { updateReminderCard(); } catch(e){}
 // no reincidir).
 // R9 · Mismo mecanismo de scroll suave que calScrollToDay (06b_calendario.js):
 // duración proporcional a la distancia, easeOut cúbico, respeta reduced-motion.
-// Como el destino es Y=0 (el tope), no hay "de verdad" a dónde rebotar (el
-// navegador recorta cualquier scroll negativo), así que el rebote se logra con
-// un pequeño gesto CSS en el encabezado al llegar, no con el scroll en sí.
+// R9 · Scroll suave al tope. SIN rebote al llegar (Carlos pidió quitarlo):
+// el movimiento simplemente desacelera y se detiene en Y=0.
 function scrollToTopNow(){
   const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  if(reduce){ window.scrollTo(0,0); _bounceHeaderOnArrival(); return; }
+  if(reduce){ window.scrollTo(0,0); return; }
 
   const startY=window.scrollY;
-  if(startY<2){ _bounceHeaderOnArrival(); return; }
+  if(startY<2) return;
   const dur=Math.min(900, Math.max(300, startY*0.5));
   const t0=performance.now();
   const easeOut=t=>1-Math.pow(1-t,3);
@@ -297,16 +296,8 @@ function scrollToTopNow(){
     const p=Math.min(1,(now-t0)/dur);
     window.scrollTo(0, startY*(1-easeOut(p)));
     if(p<1) requestAnimationFrame(step);
-    else _bounceHeaderOnArrival();
   }
   requestAnimationFrame(step);
-}
-function _bounceHeaderOnArrival(){
-  const hdr=document.querySelector('.page.active .page-header');
-  if(!hdr) return;
-  hdr.classList.remove('scrolltop-bounce');
-  void hdr.offsetWidth; // reinicia la animación si se toca varias veces seguidas
-  hdr.classList.add('scrolltop-bounce');
 }
 function updateScrollTopBtn(){
   const btn=document.getElementById('scrolltop-btn');
@@ -319,8 +310,10 @@ function updateScrollTopBtn(){
 }
 (function(){
   let ticking=false, restTimer=null;
-  // R9 · Durante el scroll el botón conserva su tamaño; medio segundo después
-  // de detenerse crece 30% para ofrecer un blanco más fácil de tocar.
+  // R9 · Durante el scroll el botón conserva su tamaño; al detenerse crece 30%
+  // para ofrecer un blanco más fácil de tocar. Crece a los 350ms, ANTES que la
+  // cápsula de navegación (500ms), para que los dos gestos no ocurran al mismo
+  // tiempo y se lean como una secuencia en vez de un salto simultáneo.
   function scheduleRest(){
     const btn=document.getElementById('scrolltop-btn');
     if(!btn) return;
@@ -328,7 +321,7 @@ function updateScrollTopBtn(){
     if(restTimer) clearTimeout(restTimer);
     restTimer=setTimeout(()=>{
       if(btn.classList.contains('vis')) btn.classList.add('rested');
-    }, 500);
+    }, 350);
   }
   window.addEventListener('scroll', ()=>{
     if(!ticking){ ticking=true; requestAnimationFrame(()=>{ ticking=false; updateScrollTopBtn(); }); }
@@ -358,10 +351,20 @@ function _navAnchorWidth(){
   if(wasShrunk) cap.classList.add('shrunk');
 }
 
+// R9 · El encabezado sticky CAMBIA DE ALTURA al encogerse, y eso a su vez
+// cambia la altura del documento — con un umbral único (ej. 26px) se producía
+// un bucle: encoge → el documento se acorta → el scroll cae bajo el umbral →
+// vuelve a crecer → "empuja" todo hacia abajo, justo el tirón que se sentía.
+// Se corrige con HISTÉRESIS: encoge pasando 40px, pero solo vuelve a crecer
+// por debajo de 8px. Entre esos dos valores conserva su estado, así que nunca
+// oscila alrededor de un punto.
 function updateHeaderShrink(){
   const hdr=document.querySelector('.page.active .page-header');
   if(!hdr) return;
-  hdr.classList.toggle('header-shrink', window.scrollY>26);
+  const y=window.scrollY;
+  const isShrunk=hdr.classList.contains('header-shrink');
+  if(!isShrunk && y>40) hdr.classList.add('header-shrink');
+  else if(isShrunk && y<8) hdr.classList.remove('header-shrink');
 }
 
 (function(){
