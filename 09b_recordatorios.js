@@ -340,6 +340,13 @@ function _remPaintPillText(queue){
 // Alto de la cápsula: tapa sola cuando está cerrada, tapa + cuerpo al abrir.
 // Se vuelve a medir en cada repintado porque el cuerpo cambia de alto al
 // navegar entre recordatorios o al enfocar uno en escritorio.
+// R9 · Alto de la cápsula. Cerrada = solo la tapa. Abierta = tapa + panel,
+// pero ese alto se CONGELA (_remLockedH) mientras esté abierta: navegar entre
+// recordatorios ya no cambia la altura, así que no se vuelve a disparar la
+// animación de crecer ni el rebote. El alto congelado es el MÁXIMO de todos
+// los recordatorios de la cola, para que ninguno quede recortado.
+let _remLockedH = null;
+
 function _remSyncHeight(){
   const cap=document.getElementById('rem-card');
   if(!cap) return;
@@ -347,7 +354,30 @@ function _remSyncHeight(){
   const panel=document.getElementById('rem-panel');
   if(!head||!panel) return;
   const h=head.offsetHeight;
-  cap.style.height = (_remOpen ? h + panel.offsetHeight : h) + 'px';
+  if(!_remOpen){ cap.style.height=h+'px'; return; }
+  if(_remLockedH===null) _remLockedH = h + panel.offsetHeight;
+  cap.style.height = _remLockedH + 'px';
+}
+
+// Mide el alto que necesita el recordatorio MÁS alto de la cola, pintándolos
+// uno por uno en el panel de forma síncrona (sin repintado intermedio visible)
+// y quedándose con el mayor. Así el alto congelado sirve para todos.
+function _remMeasureMaxHeight(){
+  const head=document.getElementById('rem-pill');
+  const panel=document.getElementById('rem-panel');
+  const q=_remQueue;
+  if(!head||!panel||!q||!q.length) return null;
+  const wide=_remIsWide();
+  // En escritorio con varios, el panel es la vista de 3 en fila: un solo layout.
+  if(wide && q.length>1) return head.offsetHeight + panel.offsetHeight;
+  const original=panel.innerHTML;
+  let max=0;
+  for(let i=0;i<q.length;i++){
+    panel.innerHTML=_remFullCard(q[i], _remPager(i, q.length), i, q.length);
+    max=Math.max(max, panel.offsetHeight);
+  }
+  panel.innerHTML=original;
+  return head.offsetHeight + max;
 }
 
 function _remActionsHtml(r){
@@ -367,29 +397,35 @@ function _remActionsHtml(r){
 }
 
 // Tarjeta completa de un recordatorio (la interfaz de siempre)
-function _remFullCard(r, pager){
+function _remFullCard(r, pager, i, total){
   const lbl=_remLabel(r);
   // R9 · Se quitó el emoji/campanita lateral (ya está el icono grande en la
   // tapa colapsada, arriba) y su columna — el contenido queda centrado.
-  // Con paginador, la tarjeta reserva espacio arriba para que las flechas
-  // (sobre todo la de "atrás") nunca queden empalmadas con el texto.
+  // Con paginador, las franjas laterales ocupan las orillas y el contenido
+  // se separa de ellas con padding horizontal (ver .rem-full.has-pager).
   return `<div class="rem-full${pager?' has-pager':''}">
       ${pager||''}
-      <div class="rem-body">
+      <div class="rem-body" id="rem-fade">
         <div class="rem-title">${lbl.title}</div>
         <div class="rem-sub">${lbl.sub}</div>
         ${_remActionsHtml(r)}
+        ${_remDots(i, total)}
       </div>
     </div>`;
 }
 
+// R9 · Variante 2 aprobada: en vez de dos flechitas juntas arriba a la
+// derecha, cada flecha ocupa una FRANJA vertical completa pegada a su orilla.
+// El blanco táctil pasa de ~676px² a ~2000px², mucho más fácil con el pulgar.
+// El contador se mueve al pie, centrado bajo el contenido.
 function _remPager(i, total){
   if(total<=1) return '';
-  return `<div class="rem-pager">
-      <button type="button" class="rem-arrow" onclick="remNav(-1)" ${i===0?'disabled':''}>‹</button>
-      <span class="rem-dots">${i+1}/${total}</span>
-      <button type="button" class="rem-arrow" onclick="remNav(1)" ${i>=total-1?'disabled':''}>›</button>
-    </div>`;
+  return `<button type="button" class="rem-edge rem-edge-l" onclick="remNav(-1)" ${i===0?'disabled':''} aria-label="Anterior">‹</button>
+    <button type="button" class="rem-edge rem-edge-r" onclick="remNav(1)" ${i>=total-1?'disabled':''} aria-label="Siguiente">›</button>`;
+}
+function _remDots(i, total){
+  if(total<=1) return '';
+  return `<div class="rem-dots">${i+1} / ${total}</div>`;
 }
 
 // Pinta el contenido del acordeón según ancho y estado de enfoque.
@@ -404,7 +440,7 @@ function _remPaintPanel(){
     // Móvil (o uno solo): tarjeta completa con flechas laterales
     if(_remIdx>=q.length) _remIdx=0;
     _remCurrent=q[_remIdx];
-    panel.innerHTML=_remFullCard(q[_remIdx], _remPager(_remIdx, q.length));
+    panel.innerHTML=_remFullCard(q[_remIdx], _remPager(_remIdx, q.length), _remIdx, q.length);
     _remSyncHeight();
     return;
   }
@@ -413,7 +449,7 @@ function _remPaintPanel(){
   if(_remFocus!==null && _remFocus<q.length){
     _remCurrent=q[_remFocus];
     const back=`<button type="button" class="rem-back" onclick="remUnfocus()">‹ Volver a los ${q.length} recordatorios</button>`;
-    panel.innerHTML=back+_remFullCard(q[_remFocus], _remPager(_remFocus, q.length));
+    panel.innerHTML=back+_remFullCard(q[_remFocus], _remPager(_remFocus, q.length), _remFocus, q.length);
     _remSyncHeight();
     return;
   }
@@ -440,6 +476,9 @@ function _remPaintPanel(){
 
 // Navegación (flechas). Paso negativo/positivo; en escritorio enfocado navega
 // de uno en uno, en vista previa de tres en tres.
+// R9 · Cambiar de recordatorio NO debe reactivar la animación de desplegar ni
+// el rebote: la cápsula ya está abierta y su alto está congelado. Solo se
+// desvanece la información actual y aparece la siguiente.
 function remNav(step){
   const q=_remQueue;
   if(!q.length) return;
@@ -448,7 +487,17 @@ function remNav(step){
   } else {
     _remIdx=Math.max(0, Math.min(Math.max(q.length-1,0), _remIdx+step));
   }
-  _remPaintPanel();
+  const fade=document.getElementById('rem-fade');
+  if(!fade){ _remPaintPanel(); return; }
+  fade.classList.add('rem-fading');           // desvanece lo que hay
+  setTimeout(()=>{
+    _remPaintPanel();                          // pinta el siguiente
+    const nf=document.getElementById('rem-fade');
+    if(nf){
+      nf.classList.add('rem-fading');          // arranca invisible…
+      requestAnimationFrame(()=>requestAnimationFrame(()=>nf.classList.remove('rem-fading'))); // …y aparece
+    }
+  }, 160);
 }
 function remFocus(i){ _remFocus=i; _remPaintPanel(); }
 function remUnfocus(){ _remFocus=null; _remPaintPanel(); }
@@ -458,7 +507,14 @@ function toggleRemCard(){
   const cap=document.getElementById('rem-card');
   if(!cap) return;
   _remOpen=!_remOpen;
-  if(_remOpen){ _remFocus=null; _remPaintPanel(); }   // pinta antes de medir
+  if(_remOpen){
+    _remFocus=null;
+    _remPaintPanel();                 // pinta antes de medir
+    _remLockedH=null;                 // se recalcula para esta apertura
+    _remLockedH=_remMeasureMaxHeight();// congela el alto del más alto de la cola
+  } else {
+    _remLockedH=null;                 // al cerrar se libera
+  }
   cap.classList.toggle('open', _remOpen);
   _remSyncHeight();
 }
@@ -535,6 +591,7 @@ function _remAnimateOut(el, done){
 // tarjeta vuelve a su estado compacto con los que queden).
 function _remCloseAccordion(){
   _remOpen=false; _remIdx=0; _remFocus=null;
+  _remLockedH=null;                  // se libera el alto congelado
   const cap=document.getElementById('rem-card');
   if(cap){ cap.classList.remove('open'); }
   _remSyncHeight();
