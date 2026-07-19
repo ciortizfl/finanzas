@@ -279,7 +279,35 @@ try { updateReminderCard(); } catch(e){}
 // del alto scrolleable, flotando encima de la barra de navegación. El regreso
 // es INSTANTÁNEO a propósito (el scroll suave ya nos falló en iOS standalone;
 // no reincidir).
-function scrollToTopNow(){ window.scrollTo(0,0); }
+// R9 · Mismo mecanismo de scroll suave que calScrollToDay (06b_calendario.js):
+// duración proporcional a la distancia, easeOut cúbico, respeta reduced-motion.
+// Como el destino es Y=0 (el tope), no hay "de verdad" a dónde rebotar (el
+// navegador recorta cualquier scroll negativo), así que el rebote se logra con
+// un pequeño gesto CSS en el encabezado al llegar, no con el scroll en sí.
+function scrollToTopNow(){
+  const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if(reduce){ window.scrollTo(0,0); _bounceHeaderOnArrival(); return; }
+
+  const startY=window.scrollY;
+  if(startY<2){ _bounceHeaderOnArrival(); return; }
+  const dur=Math.min(900, Math.max(300, startY*0.5));
+  const t0=performance.now();
+  const easeOut=t=>1-Math.pow(1-t,3);
+  function step(now){
+    const p=Math.min(1,(now-t0)/dur);
+    window.scrollTo(0, startY*(1-easeOut(p)));
+    if(p<1) requestAnimationFrame(step);
+    else _bounceHeaderOnArrival();
+  }
+  requestAnimationFrame(step);
+}
+function _bounceHeaderOnArrival(){
+  const hdr=document.querySelector('.page.active .page-header');
+  if(!hdr) return;
+  hdr.classList.remove('scrolltop-bounce');
+  void hdr.offsetWidth; // reinicia la animación si se toca varias veces seguidas
+  hdr.classList.add('scrolltop-bounce');
+}
 function updateScrollTopBtn(){
   const btn=document.getElementById('scrolltop-btn');
   if(!btn) return;
@@ -307,4 +335,59 @@ function updateScrollTopBtn(){
     scheduleRest();
   }, {passive:true});
   updateScrollTopBtn();
+})();
+
+// ══════════════════════════════════════════════════════════════════════════
+// R9 · Cápsula de navegación flotante + encabezado que se encoge al bajar.
+// Reutiliza el mismo listener de scroll de arriba (mismo requestAnimationFrame,
+// sin duplicar trabajo). Umbral de "bajaste" = 26px, igual que el prototipo.
+// ══════════════════════════════════════════════════════════════════════════
+
+// Ancla el ancho de la cápsula UNA sola vez (medido con la etiqueta visible,
+// es decir SIN la clase .shrunk), para que el punto de centrado
+// (left:50%+translateX(-50%)) nunca vuelva a recalcularse. Ver la lección
+// completa en el comentario de .nav-outer en estilos.css.
+function _navAnchorWidth(){
+  const outer=document.getElementById('navOuter');
+  const cap=document.getElementById('navCapsule');
+  if(!outer||!cap) return;
+  const wasShrunk=cap.classList.contains('shrunk');
+  if(wasShrunk) cap.classList.remove('shrunk');
+  const w=cap.getBoundingClientRect().width;
+  outer.style.width=Math.ceil(w)+'px';
+  if(wasShrunk) cap.classList.add('shrunk');
+}
+
+function updateHeaderShrink(){
+  const hdr=document.querySelector('.page.active .page-header');
+  if(!hdr) return;
+  hdr.classList.toggle('header-shrink', window.scrollY>26);
+}
+
+(function(){
+  let navRestTimer=null;
+  const outer=document.getElementById('navOuter');
+  const cap=document.getElementById('navCapsule');
+  function shrinkNav(){
+    if(!outer||!cap) return;
+    outer.classList.add('shrunk');
+    cap.classList.add('shrunk');
+  }
+  function growNav(){
+    if(!outer||!cap) return;
+    outer.classList.remove('shrunk');
+    cap.classList.remove('shrunk');
+  }
+  function scheduleNavRest(){
+    if(navRestTimer) clearTimeout(navRestTimer);
+    navRestTimer=setTimeout(growNav, 500);
+  }
+  window.addEventListener('scroll', ()=>{
+    shrinkNav();
+    scheduleNavRest();
+    updateHeaderShrink();
+  }, {passive:true});
+  // Al arrancar, mide el ancla y dispara el estado inicial (arriba del todo).
+  requestAnimationFrame(()=>{ _navAnchorWidth(); updateHeaderShrink(); });
+  window.addEventListener('resize', ()=>{ requestAnimationFrame(_navAnchorWidth); });
 })();

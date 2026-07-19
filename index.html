@@ -29,21 +29,20 @@
     <p id="hdr-date"></p>
     <button class="reload-btn" onclick="forceReload(event)" title="Recargar datos">↻</button>
   </div>
-  <!-- R9 Fase 3 · Recordatorios en acordeón (Opción A del prototipo):
-       colapsado por default (una píldora); al tocarla se abre HACIA ABAJO sin
-       moverse de sitio, mostrando la tarjeta completa. Móvil: uno a la vez con
-       flechas. Escritorio: hasta 3 en vista previa, y al tocar una se enfoca. -->
-  <div class="rem-wrap" id="rem-card" style="display:none">
-    <div class="rem-pill" id="rem-pill" onclick="toggleRemCard()">
-      <span class="rem-pill-ico" id="rem-pill-ico">🔔</span>
+  <!-- R9 Fase 3 · Recordatorios en CÁPSULA (Opción A + acento en el icono).
+       Es UNA sola caja: al abrir crece su altura, y como el radio es constante,
+       las esquinas de abajo viajan hacia abajo mientras la banda central estira.
+       El encabezado es la "tapa" fija; el cuerpo aparece cuando la forma terminó. -->
+  <div class="rem-cap" id="rem-card" style="display:none">
+    <div class="rem-head" id="rem-pill" onclick="toggleRemCard()">
+      <span class="rem-ico-wrap">
+        <span class="rem-ico-circle" id="rem-pill-ico">🔔</span>
+        <span class="rem-badge" id="rem-badge" style="display:none"></span>
+      </span>
       <span class="rem-pill-txt" id="rem-pill-txt"></span>
       <span class="rem-pill-chev" id="rem-pill-chev">›</span>
     </div>
-    <div class="rem-collapse" id="rem-collapse">
-      <div class="rem-collapse-inner">
-        <div class="rem-panel" id="rem-panel"></div>
-      </div>
-    </div>
+    <div class="rem-panel" id="rem-panel"></div>
   </div>
   <div class="form-wrap">
     <!-- Segmented control deslizante estilo iOS -->
@@ -186,7 +185,7 @@
         <div class="chips">
           <button class="chip active" id="method-credito" data-method="Tarjeta de crédito" onclick="setMethod('Tarjeta de crédito',this)">Crédito</button>
           <button class="chip" data-method="Efectivo" onclick="setMethod('Efectivo',this)">Efectivo</button>
-          <button class="chip" data-method="Bono de despensa" onclick="setMethod('Bono de despensa',this)">Bono despensa</button>
+          <button class="chip" data-method="Bono de despensa" onclick="setMethod('Bono de despensa',this)"><span class="mth-full">Bono de despensa</span><span class="mth-short">Bono</span></button>
           <button class="chip" data-method="SPEI" onclick="setMethod('SPEI',this)">SPEI</button>
           <button class="chip" data-method="Débito" onclick="setMethod('Débito',this)">Débito</button>
         </div>
@@ -312,7 +311,7 @@
       <div class="sub">Recompensas del mes</div>
     </div>
     <!-- Detalle desplegable del bono -->
-    <div id="bono-detail-row" style="display:none;grid-column:1/-1;background:var(--surface2);border-radius:var(--radius-sm);padding:12px 14px;margin-top:-4px;"></div>
+    <div id="bono-detail-row" style="display:none;grid-column:1/-1;background:var(--surface2);border-radius:var(--radius-sm);padding:12px 14px;"></div>
     <!-- R9 · Cuando NO hay beneficios pero SÍ hay bono, el detalle del bono
          ocupa el hueco que dejaría la tarjeta de Beneficios (media columna). -->
     <div id="bono-slot-detail" class="stat bono-slot" style="display:none"></div>
@@ -342,7 +341,8 @@
     <div class="sec-lbl">Ingresos vs Egresos por mes</div>
     <div style="padding:0 16px;margin-bottom:20px;">
       <div class="card" style="padding:16px;">
-        <canvas id="annual-canvas" height="200"></canvas>
+        <div class="annual-chart" id="annual-chart"></div>
+        <div class="annual-xaxis" id="annual-xaxis"></div>
         <div style="display:flex;justify-content:center;gap:16px;margin-top:12px;flex-wrap:wrap;">
           <div id="legend-ingreso" onclick="toggleChartSeries('ingreso')" style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2);cursor:pointer;user-select:none;transition:opacity 0.18s;"><span style="width:10px;height:10px;border-radius:2px;background:#34c759;"></span>Ingresos</div>
           <div id="legend-egreso" onclick="toggleChartSeries('egreso')" style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2);cursor:pointer;user-select:none;transition:opacity 0.18s;"><span style="width:10px;height:10px;border-radius:2px;background:#ff3b30;"></span>Egresos</div>
@@ -393,8 +393,10 @@
   <div class="page-header">
     <div style="display:flex;justify-content:space-between;align-items:flex-start">
       <div><h1>Historial</h1><p>Todos tus movimientos</p></div>
-      <button onclick="exportCSV()" style="margin-top:8px;background:none;border:1px solid var(--border2);border-radius:100px;padding:6px 14px;font-family:inherit;font-size:12px;font-weight:600;color:var(--text2);cursor:pointer;">↓ CSV</button>
-    <button class="reload-btn" onclick="forceReload(event)" title="Recargar datos">↻</button>
+      <div class="hdr-btn-group">
+        <button onclick="exportCSV()" style="background:none;border:1px solid var(--border2);border-radius:100px;padding:6px 14px;font-family:inherit;font-size:12px;font-weight:600;color:var(--text2);cursor:pointer;">↓ CSV</button>
+        <button class="reload-btn reload-btn-inline" onclick="forceReload(event)" title="Recargar datos">↻</button>
+      </div>
     </div>
   </div>
   <div style="padding: 0 20px; margin-top:-10px; margin-bottom:10px;" class="edit-hint">Toca un registro para editarlo · ✕ para eliminar</div>
@@ -673,7 +675,7 @@
           <div class="chips" id="e-chips">
             <button class="chip" onclick="setEditMethod('Tarjeta de crédito',this)">Crédito</button>
             <button class="chip" onclick="setEditMethod('Efectivo',this)">Efectivo</button>
-            <button class="chip" onclick="setEditMethod('Bono de despensa',this)">Bono despensa</button>
+            <button class="chip" onclick="setEditMethod('Bono de despensa',this)"><span class="mth-full">Bono de despensa</span><span class="mth-short">Bono</span></button>
             <button class="chip" onclick="setEditMethod('SPEI',this)">SPEI</button>
             <button class="chip" onclick="setEditMethod('Débito',this)">Débito</button>
           </div>
@@ -814,25 +816,29 @@
 </div>
 
 
-<!-- NAV -->
-<nav>
-  <button class="nav-btn active" onclick="goNav('registro',this)">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
-    Registrar
-  </button>
-  <button class="nav-btn" onclick="goNav('balance',this)">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
-    Balance
-  </button>
-  <button class="nav-btn" onclick="goNav('presupuesto',this)" style="display:none">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-    Presupuesto
-  </button>
-  <button class="nav-btn" onclick="goNav('historial',this)">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="9"/></svg>
-    Historial
-  </button>
-</nav>
+<!-- NAV — R9 · Cápsula flotante (aprobada en prototipo_barras.html): flota
+     separada de la orilla con transparencia; se contrae al hacer scroll y
+     crece 500ms después de detenerse; rebota al cambiar de sección. -->
+<div class="nav-outer" id="navOuter">
+  <nav id="navCapsule">
+    <button class="nav-btn active" data-nav="registro" onclick="goNav('registro',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+      <span class="nav-lbl-track"><span class="nav-lbl">Registrar</span></span>
+    </button>
+    <button class="nav-btn" data-nav="balance" onclick="goNav('balance',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      <span class="nav-lbl-track"><span class="nav-lbl">Balance</span></span>
+    </button>
+    <button class="nav-btn" data-nav="presupuesto" onclick="goNav('presupuesto',this)" style="display:none">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+      <span class="nav-lbl-track"><span class="nav-lbl">Presupuesto</span></span>
+    </button>
+    <button class="nav-btn" data-nav="historial" onclick="goNav('historial',this)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="9"/></svg>
+      <span class="nav-lbl-track"><span class="nav-lbl">Historial</span></span>
+    </button>
+  </nav>
+</div>
 
 <script src="01_nucleo.js"></script>
 <script src="02_registro.js"></script>

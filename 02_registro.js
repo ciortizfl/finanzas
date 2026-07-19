@@ -263,6 +263,13 @@ function goNav(id, btn) {
   if(id==='registro'){ try{ updateReminderCard(); }catch(e){} }
   // El botón "ir arriba" solo vive en Historial: refrescar su visibilidad
   try{ if(typeof updateScrollTopBtn==='function') updateScrollTopBtn(); }catch(e){}
+  // R9 · Rebote sutil de la cápsula al cambiar de sección + el encabezado de
+  // la página nueva arranca en su tamaño correcto según dónde quedó el scroll.
+  try{
+    const nav=document.getElementById('navCapsule');
+    if(nav){ nav.classList.remove('nav-bounce'); void nav.offsetWidth; nav.classList.add('nav-bounce'); }
+    if(typeof updateHeaderShrink==='function') updateHeaderShrink();
+  }catch(e){}
 
   // Render inmediato desde cache CON animación, luego refresco silencioso desde Sheets
   if(id==='balance'){
@@ -445,6 +452,7 @@ function setType(t) {
   document.getElementById('method-field').style.display=t==='beneficio'?'none':'block';
   // Efecto de despliegue en el formulario al cambiar de tipo
   revealAnimate(document.getElementById('register-form-card'));
+  try{ refreshSubmitDisabled(); }catch(e){}      // R9
 }
 
 function buildCatBlocks() {

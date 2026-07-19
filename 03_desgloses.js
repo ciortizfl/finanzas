@@ -404,7 +404,17 @@ function updateAddDesgloseBtnVisibility(){
 // CUALQUIERA está prendida — así corregir uno no re-habilita por error al otro.
 let _benExceed=false;
 let _desgExceed=false;
-function refreshSubmitDisabled(){ setSubmitDisabled(_benExceed || _desgExceed); }
+// R9 · El botón Guardar se bloquea si CUALQUIER panel abierto quedó a medio
+// llenar: no solo "excede el monto" (ya cubierto por _benExceed/_desgExceed)
+// sino también "empezaste un bloque pero no lo completaste" — antes esto NO
+// se checaba para beneficios/desglose fuera del submit, y Recordar no se
+// checaba en absoluto (podías guardar con el panel de Recordar a medias).
+function refreshSubmitDisabled(){
+  const benIncomplete = (typeof firstIncompleteBeneficio==='function') && !!firstIncompleteBeneficio(beneficios);
+  const desgIncomplete = (typeof firstIncompleteDesglose==='function') && !!firstIncompleteDesglose(desgloses, curType);
+  const remIncomplete = (typeof remIsIncomplete==='function') && remIsIncomplete();
+  setSubmitDisabled(_benExceed || _desgExceed || benIncomplete || desgIncomplete || remIncomplete);
+}
 
 // Muestra cuánto queda del monto original tras restar desgloses.
 // R7.2: los beneficios tienen PRIORIDAD sobre los desgloses — el disponible

@@ -316,14 +316,38 @@ let _remQueue = [];     // cola visible actual
 
 function _remIsWide(){ return window.matchMedia && window.matchMedia('(min-width: 700px)').matches; }
 
-// Texto corto de la píldora: con UNO muestra "descripción · cadencia" (la
-// oración completa no cabe y truncada no dice nada); con VARIOS, el conteo.
-function _remPillText(queue){
+// Texto del encabezado. Con UNO: "descripción · cadencia" (la oración completa
+// no cabe y truncada no dice nada). Con VARIOS: se intenta listar las
+// descripciones en fila ("Uber · Netflix · Izzi") y SOLO si no caben en el
+// ancho disponible se cambia a "Tienes X recordatorios". La decisión se toma
+// MIDIENDO (scrollWidth vs clientWidth), no contando caracteres: así funciona
+// igual con nombres cortos que largos, y aprovecha el ancho de escritorio.
+function _remPaintPillText(queue){
+  const el=document.getElementById('rem-pill-txt');
+  if(!el) return;
   if(queue.length===1){
     const r=queue[0];
-    return `<span class="rem-pill-main">${r.desc}</span><span class="rem-pill-muted"> · ${_remRuleLabel(r)}</span>`;
+    el.innerHTML=`<span class="rem-pill-main">${r.desc}</span><span class="rem-pill-muted"> · ${_remRuleLabel(r)}</span>`;
+    return;
   }
-  return `<span class="rem-pill-main">Tienes ${queue.length} recordatorios</span>`;
+  const nombres=queue.map(r=>r.desc).join(' · ');
+  el.innerHTML=`<span class="rem-pill-main">${nombres}</span>`;
+  if(el.scrollWidth > el.clientWidth + 0.5){
+    el.innerHTML=`<span class="rem-pill-main">Tienes ${queue.length} recordatorios</span>`;
+  }
+}
+
+// Alto de la cápsula: tapa sola cuando está cerrada, tapa + cuerpo al abrir.
+// Se vuelve a medir en cada repintado porque el cuerpo cambia de alto al
+// navegar entre recordatorios o al enfocar uno en escritorio.
+function _remSyncHeight(){
+  const cap=document.getElementById('rem-card');
+  if(!cap) return;
+  const head=document.getElementById('rem-pill');
+  const panel=document.getElementById('rem-panel');
+  if(!head||!panel) return;
+  const h=head.offsetHeight;
+  cap.style.height = (_remOpen ? h + panel.offsetHeight : h) + 'px';
 }
 
 function _remActionsHtml(r){
@@ -345,11 +369,12 @@ function _remActionsHtml(r){
 // Tarjeta completa de un recordatorio (la interfaz de siempre)
 function _remFullCard(r, pager){
   const lbl=_remLabel(r);
+  // R9 · Se quitó el emoji/campanita lateral (ya está el icono grande en la
+  // tapa colapsada, arriba) y su columna — el contenido queda centrado.
   // Con paginador, la tarjeta reserva espacio arriba para que las flechas
   // (sobre todo la de "atrás") nunca queden empalmadas con el texto.
   return `<div class="rem-full${pager?' has-pager':''}">
       ${pager||''}
-      <div class="rem-ico">${r.type==='ingreso'?'💰':'🔔'}</div>
       <div class="rem-body">
         <div class="rem-title">${lbl.title}</div>
         <div class="rem-sub">${lbl.sub}</div>
@@ -380,6 +405,7 @@ function _remPaintPanel(){
     if(_remIdx>=q.length) _remIdx=0;
     _remCurrent=q[_remIdx];
     panel.innerHTML=_remFullCard(q[_remIdx], _remPager(_remIdx, q.length));
+    _remSyncHeight();
     return;
   }
 
@@ -388,6 +414,7 @@ function _remPaintPanel(){
     _remCurrent=q[_remFocus];
     const back=`<button type="button" class="rem-back" onclick="remUnfocus()">‹ Volver a los ${q.length} recordatorios</button>`;
     panel.innerHTML=back+_remFullCard(q[_remFocus], _remPager(_remFocus, q.length));
+    _remSyncHeight();
     return;
   }
   // Vista previa de hasta 3: título + subtítulo, clicables
@@ -408,6 +435,7 @@ function _remPaintPanel(){
       <button type="button" class="rem-arrow" onclick="remNav(3)" ${_remIdx+3>=q.length?'disabled':''}>›</button>
     </div>` : '';
   panel.innerHTML=`<div class="rem-mini-row">${minis}</div>${nav}`;
+  _remSyncHeight();
 }
 
 // Navegación (flechas). Paso negativo/positivo; en escritorio enfocado navega
@@ -427,14 +455,12 @@ function remUnfocus(){ _remFocus=null; _remPaintPanel(); }
 
 // Abrir/cerrar el acordeón (animación elegante en ambos sentidos vía CSS grid).
 function toggleRemCard(){
-  const wrap=document.getElementById('rem-card');
-  const col=document.getElementById('rem-collapse');
-  const pill=document.getElementById('rem-pill');
-  if(!wrap||!col) return;
+  const cap=document.getElementById('rem-card');
+  if(!cap) return;
   _remOpen=!_remOpen;
-  if(_remOpen){ _remFocus=null; _remPaintPanel(); }
-  col.classList.toggle('open', _remOpen);
-  if(pill) pill.classList.toggle('open', _remOpen);
+  if(_remOpen){ _remFocus=null; _remPaintPanel(); }   // pinta antes de medir
+  cap.classList.toggle('open', _remOpen);
+  _remSyncHeight();
 }
 
 function updateReminderCard(){
@@ -446,19 +472,21 @@ function updateReminderCard(){
 
   if (queue.length === 0) {
     if (card.style.display !== 'none') {
-      _remAnimateOut(card, () => { card.style.display = 'none'; _remCurrent = null; _remOpen=false;
-        const col=document.getElementById('rem-collapse'); if(col) col.classList.remove('open');
-        const p=document.getElementById('rem-pill'); if(p) p.classList.remove('open');
-      });
+      _remAnimateOut(card, () => { card.style.display = 'none'; _remCurrent = null; _remCloseAccordion(); });
     }
     return;
   }
 
-  // Píldora colapsada (siempre visible, ocupa lo mínimo)
-  const txt=document.getElementById('rem-pill-txt');
-  if(txt) txt.innerHTML=_remPillText(queue);
+  // Encabezado (tapa de la cápsula, siempre visible)
+  _remPaintPillText(queue);
   const ico=document.getElementById('rem-pill-ico');
   if(ico) ico.textContent = queue.length===1 ? (queue[0].type==='ingreso'?'💰':'🔔') : '🔔';
+  // Badge contador estilo iOS: solo cuando hay más de un recordatorio
+  const badge=document.getElementById('rem-badge');
+  if(badge){
+    if(queue.length>1){ badge.textContent=queue.length; badge.style.display=''; }
+    else { badge.style.display='none'; }
+  }
 
   if(_remIdx>=queue.length) _remIdx=0;
   if(_remFocus!==null && _remFocus>=queue.length) _remFocus=null;
@@ -467,7 +495,14 @@ function updateReminderCard(){
 
   if (card.style.display === 'none') {
     card.style.display = 'block';
+    // El texto se RE-mide ya visible: con display:none los anchos son 0 y la
+    // comprobación de "¿caben las descripciones?" nunca detectaba el desborde.
+    _remPaintPillText(queue);
+    _remSyncHeight();
     _remAnimateIn(card);
+  } else {
+    _remPaintPillText(queue);
+    _remSyncHeight();
   }
 }
 
@@ -500,8 +535,9 @@ function _remAnimateOut(el, done){
 // tarjeta vuelve a su estado compacto con los que queden).
 function _remCloseAccordion(){
   _remOpen=false; _remIdx=0; _remFocus=null;
-  const col=document.getElementById('rem-collapse'); if(col) col.classList.remove('open');
-  const p=document.getElementById('rem-pill'); if(p) p.classList.remove('open');
+  const cap=document.getElementById('rem-card');
+  if(cap){ cap.classList.remove('open'); }
+  _remSyncHeight();
 }
 
 function remApply(){
@@ -575,6 +611,14 @@ function remHasData(){
   if(!_remFreq || !_remUntilMode) return false;
   if(_remUntilMode==='date' && !(document.getElementById('rem-until-value')?.value)) return false;
   return true;
+}
+
+// R9 · Empezó algo (frecuencia o vigencia) pero no completó ambas — sin
+// importar si el panel está visualmente abierto o se cerró con la píldora
+// (los datos se conservan al cerrar, ver toggleRemPanel). Bloquea Guardar.
+function remIsIncomplete(){
+  if(!_remFreq && !_remUntilMode) return false; // nada empezado, no hay problema
+  return !remHasData();
 }
 
 
@@ -685,6 +729,7 @@ function toggleRemPanel(){
   updateRemToggleIndicator();
   // Bug 2: abrir/cerrar Recordar debe esconder/devolver el botón Diferir
   try{ refreshTopTabsVisibility(); }catch(e){}
+  try{ refreshSubmitDisabled(); }catch(e){}      // R9
 }
 
 // R8.3 · ✕ del módulo Recordar (registro): BORRA la selección y cierra el panel
@@ -701,6 +746,7 @@ function clearRemModule(){
   try{ updateNoteDesgloseIndicators(); }catch(e){}
   updateRemToggleIndicator();
   try{ refreshTopTabsVisibility(); }catch(e){}
+  try{ refreshSubmitDisabled(); }catch(e){}      // R9
 }
 
 // Pinta el estado activo/inactivo de los 4 chips según la selección actual
@@ -731,6 +777,7 @@ function setRemFreq(f){
   _remHintUpdate();
   try{ updateNoteDesgloseIndicators(); }catch(e){}
   try{ refreshTopTabsVisibility(); }catch(e){}   // Bug 2
+  try{ refreshSubmitDisabled(); }catch(e){}      // R9 · Guardar se bloquea si queda a medias
 }
 
 function setRemUntil(mode){
@@ -763,6 +810,7 @@ function setRemUntil(mode){
           _remHintUpdate();
           try{ updateNoteDesgloseIndicators(); }catch(e){}
           try{ refreshTopTabsVisibility(); }catch(e){}   // Bug 2
+          try{ refreshSubmitDisabled(); }catch(e){}      // R9
         }
       });
     }
@@ -771,6 +819,7 @@ function setRemUntil(mode){
   _remHintUpdate();
   try{ updateNoteDesgloseIndicators(); }catch(e){}
   try{ refreshTopTabsVisibility(); }catch(e){}   // Bug 2
+  try{ refreshSubmitDisabled(); }catch(e){}      // R9
 }
 
 function resetRemToggle(){

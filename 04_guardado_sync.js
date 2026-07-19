@@ -517,6 +517,7 @@ function showSyncing(msg) {
   const icoEl=document.getElementById('toast-ico');
   const titleEl=document.getElementById('toast-title');
   const subEl=document.getElementById('toast-sub');
+  const linkEl=document.getElementById('toast-link');
   const clean=String(msg||'Sincronizando…').replace(/^[⟳↻]\s*/,'').trim();
   if(icoEl && titleEl && subEl){
     icoEl.className='toast-ico';
@@ -526,6 +527,11 @@ function showSyncing(msg) {
   } else {
     t.textContent=clean;
   }
+  // R9 · Un mensaje temporal (Guardando…/Actualizando…) NUNCA debe mostrar el
+  // enlace "Ver" — antes, si un toast anterior lo había dejado visible
+  // (ej. "✓ Registro guardado"), showSyncing no lo tocaba y quedaba pegado
+  // encima del spinner, incluso en mensajes secuenciales.
+  if(linkEl){ linkEl.style.display='none'; linkEl.onclick=null; }
   // Cancelar cualquier auto-ocultado programado por toast(): el spinner debe
   // quedarse hasta que la operación termine.
   if(typeof _toastTimer!=='undefined') clearTimeout(_toastTimer);
@@ -831,6 +837,10 @@ function monthData(){
 }
 
 let balView = null;
+// R9 · Estado explícito de si el usuario ACTIVÓ (tocó) la tarjeta de Bono de
+// despensa. El detalle solo debe pintarse cuando esto es true — antes se
+// mostraba siempre que había movimientos de bono, incluso sin activar la tarjeta.
+let bonoOpen = false;
 
 function clearBalView(){
   balView=null;
@@ -838,8 +848,11 @@ function clearBalView(){
 
   document.getElementById('dash-cats').innerHTML='';
   const tmw=document.getElementById('bal-treemap-wrap'); if(tmw) tmw.style.display='none';
+  bonoOpen=false;
   const bonoDetail=document.getElementById('bono-detail-row');
   if(bonoDetail) bonoDetail.style.display='none';
+  const bonoSlot=document.getElementById('bono-slot-detail');
+  if(bonoSlot){ bonoSlot.style.display='none'; bonoSlot.innerHTML=''; }
   const bonoStat=document.getElementById('bono-stat');
   if(bonoStat) bonoStat.classList.remove('active-filter');
 }
@@ -849,8 +862,11 @@ function setBalView(type, el) {
   balView=type;
   document.querySelectorAll('#page-balance .grid2 .stat').forEach(s=>s.classList.remove('active-filter'));
   // Cerrar detalle del bono al abrir cualquier otra vista
+  bonoOpen=false;
   const bonoDetail=document.getElementById('bono-detail-row');
   if(bonoDetail) bonoDetail.style.display='none';
+  const bonoSlot=document.getElementById('bono-slot-detail');
+  if(bonoSlot){ bonoSlot.style.display='none'; bonoSlot.innerHTML=''; }
   const bonoStat=document.getElementById('bono-stat');
   if(bonoStat) bonoStat.classList.remove('active-filter');
   if(el) el.classList.add('active-filter');

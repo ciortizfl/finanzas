@@ -60,40 +60,15 @@ function renderBalance(){
     }
     // Subtítulo: "Disponible" si hay saldo, "Excedido" si te pasaste
     if(bonoSub) bonoSub.textContent = bonoNeg ? 'Excedido este mes' : 'Disponible';
-    if(bonoDetail){
-      bonoDetail.innerHTML=`
-        ${bonoIng>0?`<div style="display:flex;justify-content:space-between;font-size:13px;padding:3px 0;color:var(--text2)"><span>Ingresado</span><span style="font-weight:600;color:var(--green)">+${fmt(bonoIng)}</span></div>`:''}
-        ${bonoEgr>0?`<div style="display:flex;justify-content:space-between;font-size:13px;padding:3px 0;color:var(--text2)"><span>Gastado</span><span style="font-weight:600;color:var(--danger)">−${fmt(bonoEgr)}</span></div>`:''}
-        <div style="display:flex;justify-content:space-between;font-size:13px;padding:6px 0 0;margin-top:4px;border-top:1px solid var(--border2);color:var(--text)"><span style="font-weight:600">${bonoNeg?'Excedido':'Disponible'}</span><span style="font-weight:700;color:${bonoNeg?'var(--danger)':'var(--green)'}">${bonoNeg?'−':''}${fmt(bonoNet)}</span></div>`;
-    }
   } else {
     if(bonoStat) bonoStat.style.display='none';
-    if(bonoDetail) bonoDetail.style.display='none';
+    bonoOpen=false; // sin movimientos, no hay nada que mantener abierto
   }
-
-  // R9 · Si NO hay beneficios pero SÍ hay bono, el detalle del bono ocupa el
-  // hueco que dejaría la tarjeta de Beneficios (media columna). Si hay
-  // beneficios, el detalle vuelve a desplegarse abajo, a todo lo ancho.
+  // El detalle (hueco de Beneficios o desplegable de abajo) se pinta aparte,
+  // y respeta si el usuario activó la tarjeta (bonoOpen) — ver _paintBonoDetail.
+  _paintBonoDetail(false);
   const bonoSlot=document.getElementById('bono-slot-detail');
   const usarHuecoBeneficios = bonoHasMov && !(pas>0);
-  if(bonoSlot){
-    if(usarHuecoBeneficios){
-      const bonoNeg2 = bonoNet<0;
-      bonoSlot.innerHTML=`
-        <div class="lbl">Bono despensa</div>
-        ${bonoIng>0?`<div class="bono-slot-line"><span>Ingresado</span><span style="font-weight:600;color:var(--green)">+${fmt(bonoIng)}</span></div>`:''}
-        ${bonoEgr>0?`<div class="bono-slot-line"><span>Gastado</span><span style="font-weight:600;color:var(--danger)">−${fmt(bonoEgr)}</span></div>`:''}
-        <div class="bono-slot-line total"><span style="font-weight:600">${bonoNeg2?'Excedido':'Disponible'}</span><span style="font-weight:700;color:${bonoNeg2?'var(--danger)':'var(--green)'}">${bonoNeg2?'−':''}${fmt(bonoNet)}</span></div>`;
-      bonoSlot.style.display='';
-      // Al ocupar su propio espacio, el desplegable inferior sobra.
-      if(bonoDetail){ bonoDetail.style.display='none'; }
-      const bs=document.getElementById('bono-stat');
-      if(bs) bs.classList.remove('active-filter');
-    } else {
-      bonoSlot.style.display='none';
-      bonoSlot.innerHTML='';
-    }
-  }
 
   // ── Visibilidad + orden por jerarquía ──
   // Cada tarjetón aparece solo si tiene datos. Orden fijo: Ingresos, Egresos, Bono, Beneficios.
@@ -132,19 +107,12 @@ function renderBalance(){
 }
 
 function toggleBonoDetail(){
-  const detail=document.getElementById('bono-detail-row');
   const bonoStat=document.getElementById('bono-stat');
-  if(!detail) return;
-  const isOpen = detail.style.display!=='none';
-  if(isOpen){
-    // Cerrar
-    detail.style.display='none';
-    if(bonoStat) bonoStat.classList.remove('active-filter');
-  } else {
+  bonoOpen = !bonoOpen;
+  if(bonoOpen){
     // Abrir bono → cerrar cualquier otra vista (ingresos/egresos/pasivo)
     balView=null;
     document.querySelectorAll('#page-balance .grid2 .stat').forEach(s=>s.classList.remove('active-filter'));
-  
     document.getElementById('dash-cats').innerHTML='';
     // El bono solo muestra su propia información: no dejar el treemap del tipo anterior.
     const tmw=document.getElementById('bal-treemap-wrap');
@@ -153,9 +121,55 @@ function toggleBonoDetail(){
     if(tmc) tmc.innerHTML='';
     const mb=document.getElementById('bal-method-row');
     if(mb) mb.innerHTML='';
-    detail.style.display='block';
-    revealAnimate(detail);
     if(bonoStat) bonoStat.classList.add('active-filter');
+  } else {
+    if(bonoStat) bonoStat.classList.remove('active-filter');
+  }
+  _paintBonoDetail(true);
+}
+
+// R9 · Pinta el detalle del bono en la superficie que corresponda — el hueco
+// de Beneficios (cuando no hay beneficios este mes) o el desplegable de abajo
+// (cuando sí los hay) — pero SOLO si bonoOpen es true. Se llama al togglear Y
+// en cada renderBalance() para que el panel abierto se mantenga sincronizado
+// (cambio de mes, refresco silencioso) sin reaparecer solo si está cerrado.
+function _paintBonoDetail(animate){
+  const md=monthData();
+  const bonoEgr=md.filter(e=>e.method==='Bono de despensa'&&e.type==='egreso').reduce((s,e)=>s+e.amountMXN,0);
+  const bonoIng=md.filter(e=>e.category==='Bono de despensa'&&e.type==='ingreso').reduce((s,e)=>s+e.amountMXN,0);
+  const bonoNet=bonoIng-bonoEgr;
+  const bonoNeg=bonoNet<0;
+  const pas=sum(md,'beneficio');
+  const usarHuecoBeneficios = (bonoEgr>0||bonoIng>0) && !(pas>0);
+  const detail=document.getElementById('bono-detail-row');
+  const bonoSlot=document.getElementById('bono-slot-detail');
+
+  if(!bonoOpen){
+    if(detail) detail.style.display='none';
+    if(bonoSlot){ bonoSlot.style.display='none'; bonoSlot.innerHTML=''; }
+    return;
+  }
+  if(usarHuecoBeneficios){
+    if(detail) detail.style.display='none';
+    if(bonoSlot){
+      bonoSlot.innerHTML=`
+        <div class="lbl">Bono despensa</div>
+        ${bonoIng>0?`<div class="bono-slot-line"><span>Ingresado</span><span style="font-weight:600;color:var(--green)">+${fmt(bonoIng)}</span></div>`:''}
+        ${bonoEgr>0?`<div class="bono-slot-line"><span>Gastado</span><span style="font-weight:600;color:var(--danger)">−${fmt(bonoEgr)}</span></div>`:''}
+        <div class="bono-slot-line total"><span style="font-weight:600">${bonoNeg?'Excedido':'Disponible'}</span><span style="font-weight:700;color:${bonoNeg?'var(--danger)':'var(--green)'}">${bonoNeg?'−':''}${fmt(bonoNet)}</span></div>`;
+      bonoSlot.style.display='';
+      if(animate) revealAnimate(bonoSlot);
+    }
+  } else {
+    if(bonoSlot){ bonoSlot.style.display='none'; bonoSlot.innerHTML=''; }
+    if(detail){
+      detail.innerHTML=`
+        ${bonoIng>0?`<div style="display:flex;justify-content:space-between;font-size:13px;padding:3px 0;color:var(--text2)"><span>Ingresado</span><span style="font-weight:600;color:var(--green)">+${fmt(bonoIng)}</span></div>`:''}
+        ${bonoEgr>0?`<div style="display:flex;justify-content:space-between;font-size:13px;padding:3px 0;color:var(--text2)"><span>Gastado</span><span style="font-weight:600;color:var(--danger)">−${fmt(bonoEgr)}</span></div>`:''}
+        <div style="display:flex;justify-content:space-between;font-size:13px;padding:6px 0 0;margin-top:4px;border-top:1px solid var(--border2);color:var(--text)"><span style="font-weight:600">${bonoNeg?'Excedido':'Disponible'}</span><span style="font-weight:700;color:${bonoNeg?'var(--danger)':'var(--green)'}">${bonoNeg?'−':''}${fmt(bonoNet)}</span></div>`;
+      detail.style.display='block';
+      if(animate) revealAnimate(detail);
+    }
   }
 }
 
@@ -246,6 +260,8 @@ function renderMethodBreakdown(container, entries){
   if(!Object.keys(methods).length) return;
   const total=Object.values(methods).reduce((s,v)=>s+v,0);
   const methodColors={'Tarjeta de crédito':'#007aff','Efectivo':'#34c759','Bono de despensa':'#ff9500','SPEI':'#af52de','Débito':'#00c7be'};
+  // R9 · Solo estos dos tienen forma corta; el resto ya es breve.
+  const shortNames={'Tarjeta de crédito':'TDC','Bono de despensa':'Bono'};
   const sorted=Object.entries(methods).sort((a,b)=>b[1]-a[1]);
   const wrap=document.createElement('div');
   wrap.style.cssText='padding:0 16px;';
@@ -260,16 +276,33 @@ function renderMethodBreakdown(container, entries){
   wrap.appendChild(bar);
   // Labels
   const labels=document.createElement('div');
-  labels.style.cssText='display:flex;flex-wrap:wrap;gap:6px 12px;';
-  sorted.forEach(([m,v])=>{
+  labels.style.cssText='display:flex;flex-wrap:nowrap;gap:6px 12px;overflow:hidden;';
+  const mkLabel=(m,v,useShort)=>{
     const pct=((v/total)*100).toFixed(0);
     const lbl=document.createElement('span');
-    lbl.style.cssText='font-size:11px;color:var(--text3);display:flex;align-items:center;gap:4px;';
-    lbl.innerHTML=`<span style="width:7px;height:7px;border-radius:50%;background:${methodColors[m]||'#8e8e93'};display:inline-block"></span>${m} ${pct}%`;
-    labels.appendChild(lbl);
-  });
+    lbl.style.cssText='font-size:11px;color:var(--text3);display:flex;align-items:center;gap:4px;white-space:nowrap;flex-shrink:0;';
+    const name = useShort ? (shortNames[m]||m) : m;
+    lbl.innerHTML=`<span style="width:7px;height:7px;border-radius:50%;background:${methodColors[m]||'#8e8e93'};display:inline-block;flex-shrink:0"></span>${name} ${pct}%`;
+    return lbl;
+  };
+  sorted.forEach(([m,v])=>labels.appendChild(mkLabel(m,v,false)));
   wrap.appendChild(labels);
   container.appendChild(wrap);
+
+  // R9 · Si el renglón no cabe completo (móvil), se abrevian TDC/Bono
+  // empezando por el de MENOR porcentaje — solo lo necesario para que todo
+  // quepa en una sola línea, sin abreviar de más.
+  requestAnimationFrame(()=>{
+    if(labels.scrollWidth<=labels.clientWidth+0.5) return;
+    // Candidatos abreviables, ordenados de menor a mayor porcentaje (el de
+    // menor peso se abrevia primero).
+    const abbreviable=sorted.filter(([m])=>shortNames[m]).sort((a,b)=>a[1]-b[1]);
+    for(const [m,v] of abbreviable){
+      const idx=sorted.findIndex(([mm])=>mm===m);
+      labels.replaceChild(mkLabel(m,v,true), labels.children[idx]);
+      if(labels.scrollWidth<=labels.clientWidth+0.5) break;
+    }
+  });
 }
 
 // opts.treemap === true habilita la interacción de control del Treemap:
@@ -401,6 +434,9 @@ function setBalPeriod(period){
   btnM.style.color=period==='monthly'?'white':'var(--text2)';
   btnA.style.background=period==='annual'?'var(--accent)':'var(--surface2)';
   btnA.style.color=period==='annual'?'white':'var(--text2)';
+  // R9 · El subtítulo del encabezado refleja la vista activa.
+  const sub=document.querySelector('#page-balance .page-header p');
+  if(sub) sub.textContent = period==='annual' ? 'Resumen anual' : 'Resumen mensual';
   if(period==='annual'){ populateAnnualYear(); renderAnnual(); }
 }
 
@@ -434,12 +470,9 @@ function renderAnnual(){
   const sel=document.getElementById('bal-annual-year-sel');
   if(!sel) return;
   const yr=parseInt(sel.value);
-  const canvas=document.getElementById('annual-canvas');
-  if(!canvas) return;
-  const ctx=canvas.getContext('2d');
-  const W=canvas.parentElement.clientWidth-32||300;
-  canvas.width=W; canvas.height=200;
-  ctx.clearRect(0,0,W,200);
+  const chartEl=document.getElementById('annual-chart');
+  const xaxisEl=document.getElementById('annual-xaxis');
+  if(!chartEl||!xaxisEl) return;
 
   const ingData=Array.from({length:12},(_,m)=>sum(data.filter(e=>{if(isFutureEntry(e))return false;const d=parseDate(e.date);return d.getMonth()===m&&d.getFullYear()===yr;}),'ingreso'));
   const egrData=Array.from({length:12},(_,m)=>sum(data.filter(e=>{if(isFutureEntry(e))return false;const d=parseDate(e.date);return d.getMonth()===m&&d.getFullYear()===yr;}),'egreso'));
@@ -471,106 +504,53 @@ function renderAnnual(){
     }
   }
 
-  // El máximo SOLO considera las series visibles (para reescalar en vivo).
-  // Cada serie ahora es su propia barra agrupada (no apilada).
+  // R9 · Gráfica en BARRAS SUPERPUESTAS (Opción A del prototipo, aprobada):
+  // cada mes es UNA columna; las series activas se anidan una dentro de otra
+  // (egresos más angostos al frente, sobre ingresos), en vez de ir lado a
+  // lado — así caben los 12 meses hasta en móvil. Los switches de leyenda
+  // (misma lógica de siempre: chartSeriesVisible + candado de última serie)
+  // deciden qué se dibuja, igual que en la gráfica agrupada anterior.
   let maxCandidates=[1];
   if(chartSeriesVisible.ingreso) maxCandidates.push(...ingData);
   if(chartSeriesVisible.egreso) maxCandidates.push(...egrData);
   if(chartSeriesVisible['beneficio']) maxCandidates.push(...benData);
-  const dataMax=Math.max(...maxCandidates);
+  const maxVal=Math.max(...maxCandidates);
 
-  // ── Eje Y: intervalo escalado según el máximo ──
-  // >= $10,000 → intervalos de $10,000; >= $1,000 → $1,000; si no → $100.
-  let step;
-  if(dataMax>=10000) step=10000;
-  else if(dataMax>=1000) step=1000;
-  else step=100;
-  // Evitar demasiadas líneas: si con este intervalo saldrían más de 6, duplicar/subir.
-  while(Math.ceil(dataMax/step) > 6){
-    if(step===100) step=200;
-    else if(step===200) step=500;
-    else if(step===500) step=1000;
-    else if(step===1000) step=2000;
-    else if(step===2000) step=5000;
-    else if(step===5000) step=10000;
-    else step=step*2;
-  }
-  // Redondear el tope hacia arriba al múltiplo del intervalo (mínimo un intervalo)
-  const maxVal=Math.max(step, Math.ceil(dataMax/step)*step);
-  const nLines=Math.round(maxVal/step); // cantidad de intervalos
-
-  // Etiqueta compacta para el eje ($10k, $1.5k, $500)
-  const yLabel=v=>{
-    if(v>=1000){ const k=v/1000; return '$'+(k%1===0?k:k.toFixed(1))+'k'; }
-    return '$'+v;
-  };
-  // Ancho del área de etiquetas Y (depende del texto más largo)
-  const yAxisW=34;
-
-  const padL=yAxisW,padR=6,padT=10,padB=24;
-  const chartW=W-padL-padR;
-  const chartH=200-padT-padB;
-  const groupW=chartW/12;
-
-  // ── Dibujar gridlines horizontales sutiles + etiquetas Y ──
-  ctx.textAlign='right';
-  ctx.font='9px -apple-system,sans-serif';
-  for(let i=0;i<=nLines;i++){
-    const val=i*step;
-    const y=padT+chartH-(val/maxVal)*chartH;
-    // Línea sutil
-    ctx.strokeStyle='rgba(142,142,147,0.18)';
-    ctx.lineWidth=1;
-    ctx.beginPath();
-    ctx.moveTo(padL,y+0.5);
-    ctx.lineTo(W-padR,y+0.5);
-    ctx.stroke();
-    // Etiqueta
-    ctx.fillStyle='#8e8e93';
-    ctx.fillText(yLabel(val), padL-6, y+3);
-  }
-
-  // Determinar cuántas barras se muestran por grupo (para el ancho)
   const visibleSeries=['ingreso','egreso','beneficio'].filter(t=>chartSeriesVisible[t]);
-  const nBars=visibleSeries.length||1;
-  // Ancho de cada barra según cuántas series visibles (más delgadas si son 3)
-  const barW=Math.max(3,Math.floor(groupW*0.62/nBars));
-  const gap=Math.max(1,Math.floor(barW*0.18));
-  const colorMap={ingreso:'#34c759',egreso:'#ff3b30','beneficio':'#af52de'};
+  const n=visibleSeries.length||1;
+  const colorMap={ingreso:'var(--green)',egreso:'var(--danger)','beneficio':'#af52de'};
   const dataMap={ingreso:ingData,egreso:egrData,'beneficio':benData};
+  // Capas anidadas simétricas: con 1 serie ocupa el centro ancho; con 2-3 se
+  // anidan hacia adentro (mismo patrón validado en el prototipo).
+  const step=n>1 ? 28/(n-1) : 0;
 
-  Array.from({length:12},(_,m)=>{
-    const cx=padL+m*groupW+groupW/2;
-    // Ancho total del grupo de barras visibles
-    const totalW=nBars*barW+(nBars-1)*gap;
-    let bx=cx-totalW/2;
-    visibleSeries.forEach(type=>{
+  chartEl.innerHTML='';
+  xaxisEl.innerHTML='';
+  Array.from({length:12}).forEach((_,m)=>{
+    const hasRecords = ingData[m]>0 || egrData[m]>0 || benData[m]>0;
+    const mo=document.createElement('div');
+    mo.className='annual-mo'+(annualSelMonth===m?' sel':'');
+    mo.style.cursor = hasRecords ? 'pointer' : 'default';
+    visibleSeries.forEach((type,k)=>{
       const val=dataMap[type][m];
-      const h=Math.max(0,(val/maxVal)*chartH);
-      if(h>0){
-        ctx.fillStyle=colorMap[type];
-        ctx.beginPath();
-        if(ctx.roundRect) ctx.roundRect(bx,padT+chartH-h,barW,h,[2,2,0,0]);
-        else ctx.rect(bx,padT+chartH-h,barW,h);
-        ctx.fill();
-      }
-      bx+=barW+gap;
+      if(val<=0) return;
+      const hPct=(val/maxVal)*100;
+      const inset = n===1 ? 8 : 8+k*step;
+      const bar=document.createElement('div');
+      bar.className='annual-bar';
+      bar.style.height=hPct+'%';
+      bar.style.left=inset+'%'; bar.style.right=inset+'%';
+      bar.style.background=colorMap[type];
+      mo.appendChild(bar);
     });
-    ctx.fillStyle='#8e8e93';
-    ctx.font=`9px -apple-system,sans-serif`;
-    ctx.textAlign='center';
-    ctx.fillText(MONTHS_ES[m].slice(0,3),cx,200-6);
-  });
+    mo.onclick=()=>{ if(hasRecords) showAnnualMonthDetail(m,yr); };
+    chartEl.appendChild(mo);
 
-  canvas.onclick=(ev)=>{
-    const rect=canvas.getBoundingClientRect();
-    const cx=(ev.clientX-rect.left)*(canvas.width/rect.width);
-    const m=Math.floor((cx-padL)/groupW);
-    if(m>=0&&m<12){
-      const hasRecords = ingData[m]>0 || egrData[m]>0 || benData[m]>0;
-      if(hasRecords) showAnnualMonthDetail(m,yr);
-    }
-  };
+    const xl=document.createElement('div');
+    xl.className='annual-xl'+(annualSelMonth===m?' sel':'');
+    xl.textContent=MONTHS_ES[m].slice(0,3);
+    xaxisEl.appendChild(xl);
+  });
 
   const lbl=document.getElementById('annual-month-lbl');
   const cats=document.getElementById('annual-cats');
@@ -582,6 +562,10 @@ let annualDetailView = null; // 'ingreso' | 'egreso' | 'beneficio' | null
 function showAnnualMonthDetail(m,yr){
   annualSelMonth=m;
   annualDetailView=null; // resetear la tabla desglosada al cambiar de mes
+  // R9 · Repinta la gráfica para que el mes elegido se marque visualmente
+  // (.annual-mo.sel) — antes se guardaba annualSelMonth pero nada volvía a
+  // pintar la gráfica con ese valor, así que el resalte nunca se veía.
+  try{ renderAnnual(); }catch(e){}
   const lbl=document.getElementById('annual-month-lbl');
   const cats=document.getElementById('annual-cats');
   if(!lbl||!cats) return;
