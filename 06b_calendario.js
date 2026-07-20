@@ -313,7 +313,12 @@ function renderCalendar(){
   const valueFor=(t)=>{
     if(!t) return {show:false};
     if(calType==='todos'){
-      if(t.inc===0 && t.exp===0) return {show:false};
+      // Un día sin ingresos ni egresos pero CON beneficios no se queda vacío:
+      // muestra el beneficio. El morado (aquí y en el número del día) indica
+      // siempre "esto es un beneficio", así el color dice qué estás viendo.
+      if(t.inc===0 && t.exp===0){
+        return t.ben>0 ? {show:true, val:t.ben, isBen:true} : {show:false};
+      }
       return {show:true, val:t.inc-t.exp};
     }
     if(calType==='egreso')    return t.exp>0 ? {show:true,val:t.exp} : {show:false};
@@ -341,9 +346,13 @@ function renderCalendar(){
     const dObj=new Date(calYear,calMonth,day);
     const iso=`${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
     const isToday=dObj.getTime()===today.getTime();
+    // En "Todos", cualquier día con beneficios marca su número en morado —
+    // señal sutil y CONSISTENTE: el morado siempre significa beneficio, haya
+    // o no además ingresos/egresos ese día.
+    const hasBen = calType==='todos' && byDay[day] && byDay[day].ben>0;
     const cell=document.createElement('div');
     cell.className='cal-cell'+(info.show?' has-amt':' no-amt')+(isToday?' today':'')
-      +(calSelDay===iso?' cal-sel':'');
+      +(hasBen?' cal-has-ben':'')+(calSelDay===iso?' cal-sel':'');
 
     const num=document.createElement('div'); num.className='cal-num'; num.textContent=day;
     cell.appendChild(num);
@@ -351,7 +360,7 @@ function renderCalendar(){
     if(info.show){
       const amt=document.createElement('div'); amt.className='cal-amt';
       amt.textContent = wide ? _calFmtCompact(info.val) : _calFmtCell(info.val);
-      amt.style.color=_calAmtColor(calType, info.val);
+      amt.style.color = info.isBen ? '#af52de' : _calAmtColor(calType, info.val);
       cell.appendChild(amt);
       // Día clickeable → seleccionar + scroll suave al día en el listado
       cell.classList.add('cal-clickable');

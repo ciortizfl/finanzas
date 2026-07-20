@@ -126,14 +126,18 @@ nav.nav-bounce{ animation: navBounce 0.5s cubic-bezier(0.34,1.4,0.64,1); }
   background: none; border: none; cursor: pointer; color: var(--text3);
   font-family: inherit; font-size: 10px; font-weight: 500;
   letter-spacing: -0.01em; padding: 7px 14px; border-radius: 100px;
-  transition: color 0.2s, padding 0.34s cubic-bezier(0.34,1.4,0.64,1);
+  transition: color 0.2s, background 0.25s ease, padding 0.34s cubic-bezier(0.34,1.4,0.64,1);
 }
 /* Su ancho lo fija _navBtnWidths() por JS (medido sin .shrunk) — por eso el
    padding horizontal de aquí abajo se mantiene IGUAL que arriba (14px): solo
    cambia el vertical, y aun si no hubiera JS el layout ya no depende de esto
    para mantenerse centrado. */
 nav.shrunk .nav-btn{ padding: 5px 14px; }
-.nav-btn.active { color: var(--accent); }
+/* Sección activa: además del color, una píldora de fondo detrás del botón.
+   Funciona igual en ambos estados porque el botón conserva su ancho fijo y
+   solo cambia de alto al comprimirse — la píldora simplemente lo acompaña,
+   sin depender de que la etiqueta esté visible. */
+.nav-btn.active { color: var(--accent); background: var(--accent-light); }
 .nav-btn svg { width: 24px; height: 24px; stroke-width: 1.5;
   transition: width 0.34s cubic-bezier(0.34,1.4,0.64,1), height 0.34s cubic-bezier(0.34,1.4,0.64,1); }
 nav.shrunk .nav-btn svg{ width: 21px; height: 21px; }
@@ -335,6 +339,8 @@ nav.shrunk .nav-lbl{ opacity: 0; }
 .seg-control {
   position: relative;
   display: flex;
+  width: max-content;
+  max-width: 100%;
   background: var(--surface2);
   border-radius: 100px;
   padding: 3px;
@@ -355,6 +361,7 @@ nav.shrunk .nav-lbl{ opacity: 0; }
 }
 .seg-option {
   flex: 1;
+  min-width: 104px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1266,6 +1273,14 @@ nav.shrunk .nav-lbl{ opacity: 0; }
   #date-field-wrap .date-strip-scroll, #e-date-field-wrap .date-strip-scroll {
     flex: 0 0 220px; width: 220px;
   }
+  /* El grupo [‹ barra ›] tiene ancho fijo, así que todo el espacio sobrante se
+     iba al final (la barra quedaba recargada a la izquierda). Con estos auto
+     el sobrante se reparte a ambos lados: el grupo queda centrado entre el
+     separador del ícono y la orilla derecha. */
+  #date-field-wrap .date-strip-divider + .date-strip-nav,
+  #e-date-field-wrap .date-strip-divider + .date-strip-nav { margin-left: auto; }
+  #date-field-wrap .date-strip-scroll + .date-strip-nav,
+  #e-date-field-wrap .date-strip-scroll + .date-strip-nav { margin-right: auto; }
 }
 .date-strip-scroll {
   flex: 1;
@@ -1692,6 +1707,13 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
 .calseg-4[data-active="ingreso"]   .calseg-thumb{ transform:translateX(200%); }
 .calseg-4[data-active="beneficio"] .calseg-thumb{ transform:translateX(300%); }
 .calseg-2 .calseg-option{ min-width:90px; padding:9px 12px; }
+/* Todas las píldoras de toggle se leen como UNA sola píldora compacta (mismo
+   criterio que Mensual/Anual de Balance): ancho natural, no estiradas de
+   extremo a extremo — estiradas, el indicador cubre solo un tercio/cuarto del
+   ancho y se leen como zonas separadas en vez de una píldora. */
+.calseg{ width:max-content; max-width:100%; }
+.calseg-4 .calseg-option{ min-width:76px; padding:9px 8px; }
+@media (max-width: 400px){ .calseg-4 .calseg-option{ min-width:0; padding:9px 6px; } }
 .calseg-option{ flex:1; padding:9px 4px; border:none; background:transparent; cursor:pointer;
   font-family:inherit; font-size:13.5px; font-weight:600; letter-spacing:-0.01em; color:var(--text3);
   transition:color 0.25s ease; z-index:1; white-space:nowrap; -webkit-tap-highlight-color:transparent; }
@@ -1704,6 +1726,7 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
 .calseg-4[data-active="beneficio"] .calseg-thumb{ background:#af52de22; }
 .calseg-4[data-active="beneficio"] .calseg-option.active{ color:#af52de; }
 @media (max-width: 400px){ .calseg-option{ font-size:12px; padding:9px 2px; } }
+@media (max-width: 400px){ .seg-option{ min-width:0; padding:10px 10px; } }
 
 /* Alternancia de vistas */
 #page-historial.cal-mode #hist-filters-view{ display:none; }
@@ -1757,6 +1780,12 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
 .cal-cell.cal-clickable:active{ transform:scale(0.93); }
 .cal-num{ font-size:13px; font-weight:600; color:var(--text); line-height:1.15; flex-shrink:0;
   width:21px; height:21px; display:flex; align-items:center; justify-content:center; border-radius:50%; }
+/* Día con beneficios (solo en la vista "Todos"): el número va en morado —
+   misma señal que el monto morado cuando el monto ES el beneficio, así el
+   color siempre significa lo mismo. Va ANTES de .today/.cal-sel a propósito:
+   tienen la misma especificidad, así que el orden decide y esos dos (que
+   pintan un círculo sólido) deben seguir ganando. */
+.cal-cell.cal-has-ben .cal-num{ color:#af52de; }
 .cal-cell.today .cal-num{ color:#fff; background:var(--accent); }
 /* Día seleccionado: círculo en color distinto al de hoy */
 .cal-cell.cal-sel .cal-num{ color:var(--bg); background:var(--text); }
@@ -1810,7 +1839,10 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
 .tm-cell.tm-clickable:hover{ filter:brightness(1.06); }
 /* Nivel de solo emoji: 2px menos de padding (6px→4px) para darle al emoji
    más oportunidad de caber antes de rendirse al nivel de solo color. */
-.tm-cell.tm-tight .tm-inner{ padding: 2px; }
+/* Nivel de solo emoji: con el encogimiento dinámico haciendo el trabajo (ver
+   TM_EMOJI_* en 05b_treemap.js), el padding ya no necesita quedar al ras —
+   vuelve a 4px para que el emoji no toque la orilla del recuadro. */
+.tm-cell.tm-tight .tm-inner{ padding: 4px; }
 .tm-inner{ width:100%; height:100%; display:flex; flex-direction:column; align-items:center;
   justify-content:center; gap:5px; padding:6px; box-sizing:border-box; }
 /* R9 · punto 1: rectángulo más ancho que alto — emoji a la izquierda, subcategoría

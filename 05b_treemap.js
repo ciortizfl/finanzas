@@ -11,6 +11,12 @@
 // ══════════════════════════════════════════════════════════════════════════
 
 const _TM_SEP = '\u0000';
+// R9 · Encogimiento dinámico del emoji: antes de rendirse y perder texto, el
+// emoji se prueba a tamaños decrecientes hasta un piso. Los tamaños "normales"
+// coinciden con .tm-emoji (14px) y .tm-emoji-big (19px) de estilos.css; los
+// pisos evitan que quede miniatura.
+const TM_EMOJI_TEXT = 14, TM_EMOJI_TEXT_MIN = 11;  // acompañado de subcat/monto
+const TM_EMOJI_SOLO = 19, TM_EMOJI_SOLO_MIN = 15;  // emoji solo en la celda
 // Conjunto de claves DESACTIVADAS (estado inicial: vacío = todo visible).
 // Claves: 'Categoría' (planas / sin subcats) o 'Categoría\u0000Subcat'.
 let _tmDeactivated = new Set();
@@ -238,45 +244,79 @@ function renderBalanceTreemap(){
     const inner=document.createElement('div'); inner.className='tm-inner';
     cell.appendChild(inner); canvas.appendChild(cell);
 
-    // Nivel 1: emoji + subcategoría + monto
+    // ── Cascada de niveles, con ENCOGIMIENTO DINÁMICO del emoji ──
+    // En cada nivel, antes de rendirse y perder información, se prueba encoger
+    // el emoji 1px a la vez hasta un piso (nunca miniatura). Cada emoji mide
+    // distinto en ambos ejes, así que unos px de margen bastan para que muchas
+    // celdas conserven el monto o la subcategoría en vez de caer al nivel
+    // siguiente. El piso es menor cuando el emoji va acompañado de texto
+    // (compite por espacio) que cuando va solo.
     const showSubLine = l.sub!==l.cat; // en planos (ingreso/beneficio) sub==cat: no repetir
-    inner.innerHTML=`<div class="tm-emoji">${l.emoji}</div>`+
-      (showSubLine?`<div class="tm-sub">${l.sub}</div>`:`<div class="tm-sub">${l.cat}</div>`)+
-      `<div class="tm-amt">${_tmFmt0(l.amt)}</div>`;
-    let tier=1;
-    if(!_tmFits(inner)){
-      // Nivel 1-apaisado (solo si el rectángulo es más ancho que alto): antes de
-      // perder la subcategoría, probar emoji a la izquierda + subcategoría y
-      // monto en dos líneas a la derecha. El conjunto queda centrado por el
-      // propio .tm-inner (justify-content/align-items:center); el emoji se
-      // centra verticalmente respecto a esas dos líneas por ser flex row.
-      let wideFits=false;
-      if(r.w > r.h){
+    const _subTxt = showSubLine ? l.sub : l.cat;
+    const _amtTxt = _tmFmt0(l.amt);
+    let tier=null;
+
+    // Prueba una variante a tamaños decrecientes; devuelve el tamaño que cupo o null.
+    const _tryShrink = (paint, from, min)=>{
+      for(let s=from; s>=min; s--){
+        paint(s);
+        if(_tmFits(inner)) return s;
+      }
+      return null;
+    };
+    const _em = (s, big)=>`<div class="tm-emoji${big?' tm-emoji-big':''}" style="font-size:${s}px">${l.emoji}</div>`;
+
+    // Nivel 1: emoji + subcategoría + monto (apilados)
+    let got=_tryShrink(s=>{
+      inner.classList.remove('tm-wide');
+      inner.innerHTML=_em(s)+`<div class="tm-sub">${_subTxt}</div><div class="tm-amt">${_amtTxt}</div>`;
+    }, TM_EMOJI_TEXT, TM_EMOJI_TEXT_MIN);
+    if(got!==null) tier=1;
+
+    // Nivel 1-apaisado (solo si el rectángulo es más ancho que alto): emoji a la
+    // izquierda + subcategoría y monto en dos líneas a la derecha.
+    if(tier===null && r.w > r.h){
+      got=_tryShrink(s=>{
         inner.classList.add('tm-wide');
-        inner.innerHTML=`<div class="tm-emoji">${l.emoji}</div><div class="tm-text">`+
-          (showSubLine?`<div class="tm-sub">${l.sub}</div>`:`<div class="tm-sub">${l.cat}</div>`)+
-          `<div class="tm-amt">${_tmFmt0(l.amt)}</div></div>`;
-        wideFits=_tmFits(inner);
-        if(wideFits) tier='1w';
-        else inner.classList.remove('tm-wide');
-      }
-      if(!wideFits){
-      // Nivel 2: emoji + monto
-      inner.innerHTML=`<div class="tm-emoji">${l.emoji}</div><div class="tm-amt">${_tmFmt0(l.amt)}</div>`;
-      tier=2;
-      if(!_tmFits(inner)){
-        // Nivel 3: emoji + monto abreviado
-        const ab=_tmAbbrev(l.amt);
-        if(ab){ inner.innerHTML=`<div class="tm-emoji">${l.emoji}</div><div class="tm-amt">${ab}</div>`; tier=3; }
-        if(!ab || !_tmFits(inner)){
-          // Nivel 4: solo emoji — 2px menos de padding le da más oportunidad de caber
-          cell.classList.add('tm-tight');
-          inner.innerHTML=`<div class="tm-emoji tm-emoji-big">${l.emoji}</div>`; tier=4;
-          if(!_tmFits(inner)){ cell.classList.remove('tm-tight'); inner.innerHTML=''; tier=5; } // Nivel 5: solo color
-        }
-      }
+        inner.innerHTML=_em(s)+`<div class="tm-text"><div class="tm-sub">${_subTxt}</div><div class="tm-amt">${_amtTxt}</div></div>`;
+      }, TM_EMOJI_TEXT, TM_EMOJI_TEXT_MIN);
+      if(got!==null) tier='1w';
+      else inner.classList.remove('tm-wide');
+    }
+
+    // Nivel 2: emoji + monto
+    if(tier===null){
+      got=_tryShrink(s=>{
+        inner.classList.remove('tm-wide');
+        inner.innerHTML=_em(s)+`<div class="tm-amt">${_amtTxt}</div>`;
+      }, TM_EMOJI_TEXT, TM_EMOJI_TEXT_MIN);
+      if(got!==null) tier=2;
+    }
+
+    // Nivel 3: emoji + monto abreviado
+    if(tier===null){
+      const ab=_tmAbbrev(l.amt);
+      if(ab){
+        got=_tryShrink(s=>{
+          inner.classList.remove('tm-wide');
+          inner.innerHTML=_em(s)+`<div class="tm-amt">${ab}</div>`;
+        }, TM_EMOJI_TEXT, TM_EMOJI_TEXT_MIN);
+        if(got!==null) tier=3;
       }
     }
+
+    // Nivel 4: solo emoji. Con el encogimiento haciendo el trabajo, el padding
+    // ya no necesita quedar al ras (sube de 2px a 4px vía .tm-tight).
+    if(tier===null){
+      cell.classList.add('tm-tight');
+      got=_tryShrink(s=>{
+        inner.classList.remove('tm-wide');
+        inner.innerHTML=_em(s, true);
+      }, TM_EMOJI_SOLO, TM_EMOJI_SOLO_MIN);
+      if(got!==null) tier=4;
+      else { cell.classList.remove('tm-tight'); inner.innerHTML=''; tier=5; } // Nivel 5: solo color
+    }
+
     // Clickeable (con tooltip) cuando NO alcanza a mostrar emoji+subcat+monto juntos
     if(tier!==1 && tier!=='1w'){
       cell.classList.add('tm-clickable');
