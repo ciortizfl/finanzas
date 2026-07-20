@@ -1,0 +1,918 @@
+// ══════════════════════════════════════
+// DIFERIR en EDICIÓN — paridad total con el registro
+// ══════════════════════════════════════
+let _eDiferirVisible=false;
+
+function editDiferirHasData(){ return editDiferirMonths>0; }
+
+// Al abrir edición: si el registro ya es diferido, mostrar el panel desplegado
+// con los meses actuales. Si no, dejar el botón Diferir disponible como en registro.
+function setupEditDiferirPanel(){
+  const panel=document.getElementById('e-diferir-panel');
+  if(!panel) return;
+  if(editDeferGroup){
+    // Es un diferido existente: cargar meses y desplegar el panel
+    const grp=data.filter(x=>sameGroup(x.deferGroup,editDeferGroup));
+    editDiferirMonths = grp.length>0 ? grp[0].deferTotal : 0;
+    editDiferirCustom = !DIFERIR_PRESETS.includes(editDiferirMonths);
+    // El diferido abre su tab; Propina y Beneficio conservan sus datos y sus botones
+    _eDiferirVisible=true;
+    const ci=document.getElementById('e-diferir-custom');
+    if(ci) ci.value = editDiferirCustom ? editDiferirMonths : '';
+    panel.style.display='block';
+    renderEditDiferirPresets();
+    renderEditDiferirPreview();
+  } else {
+    editDiferirMonths=0; editDiferirCustom=false; _eDiferirVisible=false;
+    panel.style.display='none';
+    const ci=document.getElementById('e-diferir-custom');
+    if(ci) ci.value='';
+  }
+  try{ refreshEditTopTabs(); }catch(e){}
+}
+
+// Diferir como TERCER TAB del modal. Ya NO borra la propina ni el beneficio
+// (antes hacía editPropinaOn=false; editBenOn=false: eso destruía el cashback
+// de un diferido con solo abrir el panel).
+function editInlineToggleDiferir(){
+  const abrir = !_eDiferirVisible;
+  try{ _closeOtherEditTopTabs('diferir'); }catch(e){}
+  _eDiferirVisible = abrir;
+  const panel=document.getElementById('e-diferir-panel');
+  if(panel){
+    panel.style.display = abrir ? 'block' : 'none';
+    if(abrir){
+      revealAnimate(panel);
+      renderEditDiferirPresets();
+      renderEditDiferirPreview();
+    }
+  }
+  try{ refreshEditTopTabs(); }catch(e){}
+}
+
+// Delegan en el nuevo gestor de tabs (se conservan los nombres porque hay otros
+// flujos que las invocan; el crossfade viejo quedó retirado).
+function editHidePropinaBenButtons(){ try{ refreshEditTopTabs(); }catch(e){} }
+function editShowPropinaBenButtons(){ try{ refreshEditTopTabs(); }catch(e){} }
+
+function _editCrossfadeRetirado_hide(){
+  const row=document.getElementById('e-inline-row-main');
+  const full=document.getElementById('e-inline-diferir-full');
+  if(!row || !full) return;
+  row.getAnimations().forEach(a=>a.cancel());
+  full.getAnimations().forEach(a=>a.cancel());
+  row.animate([{opacity:1},{opacity:0}],{duration:220,easing:'cubic-bezier(0.4,0,0.2,1)',fill:'forwards'});
+  row.style.pointerEvents='none';
+  full.style.pointerEvents='auto';
+  full.animate([{opacity:0,transform:'scale(0.98)'},{opacity:1,transform:'scale(1)'}],{duration:220,easing:'cubic-bezier(0.22,0.61,0.36,1)',fill:'forwards'});
+}
+function _editCrossfadeRetirado_show(){
+  const row=document.getElementById('e-inline-row-main');
+  const full=document.getElementById('e-inline-diferir-full');
+  if(row && full){
+    row.getAnimations().forEach(a=>a.cancel());
+    full.getAnimations().forEach(a=>a.cancel());
+    full.animate([{opacity:1,transform:'scale(1)'},{opacity:0,transform:'scale(0.98)'}],{duration:220,easing:'cubic-bezier(0.4,0,0.2,1)',fill:'forwards'});
+    full.style.pointerEvents='none';
+    row.style.pointerEvents='auto';
+    row.animate([{opacity:0},{opacity:1}],{duration:220,easing:'cubic-bezier(0.22,0.61,0.36,1)',fill:'forwards'});
+  }
+  editUpdateDesgloseForDiferir();
+}
+
+// HOTFIX (post-R2, fuera de alcance de persistencia): esta función es un
+// residuo de cuando Diferido y Desglose se excluían mutuamente en el modal de
+// edición. La regla cambió (ahora conviven, igual que en el registro) pero
+// aquí seguía vaciando `editDesgloses` cada vez que el panel de diferido
+// estaba activo — por eso un diferido con desglose perdía su desglose al
+// editarse. El equivalente del lado del REGISTRO (updateDesgloseButtonForDiferir
+// en 02_registro.js) ya no borra nada; esta versión ahora hace lo mismo:
+// solo reparte el ancho del renglón, nunca toca los datos.
+function editUpdateDesgloseForDiferir(){
+  // R7.2: sin botón Nota — Desglose y Recordar se reparten el renglón; con
+  // Diferido activo, Recordar se esconde (renderEditReminderSection) y
+  // Desglose toma el 100%.
+  const desgBtn=document.getElementById('e-desglose-toggle-btn');
+  const remBtn=document.getElementById('e-rem-toggle-btn');
+  if(!desgBtn) return;
+  desgBtn.style.display = (editType==='egreso') ? '' : 'none';
+  const visibles=[desgBtn,remBtn].filter(b=>b && b.style.display!=='none');
+  visibles.forEach(b=>{ b.style.flex='1 1 0'; });
+}
+
+function renderEditDiferirPresets(){
+  const cont=document.getElementById('e-diferir-presets');
+  if(!cont) return;
+  cont.innerHTML='';
+  DIFERIR_PRESETS.forEach(p=>{
+    const b=document.createElement('button');
+    b.type='button';
+    b.className='month-preset'+(!editDiferirCustom && editDiferirMonths===p?' on':'');
+    b.textContent=p+'m';
+    b.onclick=()=>toggleEditDiferirPreset(p);
+    cont.appendChild(b);
+  });
+  // R8 · 4º slot = campo personalizado (mismo aspecto que un preset)
+  const inp=document.createElement('input');
+  // R8.2: type text para poder mostrar el sufijo "m" mientras se escribe.
+  inp.type='text'; inp.id='e-diferir-custom';
+  inp.placeholder='Elegir'; inp.inputMode='numeric'; inp.maxLength=4;
+  inp.className='month-preset month-preset-input'+(editDiferirCustom?' on':'');
+  if(editDiferirCustom && editDiferirMonths) inp.value=editDiferirMonths+'m';
+  inp.oninput=onEditDiferirCustomInput;
+  cont.appendChild(inp);
+}
+
+function toggleEditDiferirPreset(p){
+  if(!editDiferirCustom && editDiferirMonths===p){
+    editDiferirMonths=0; // desactivar
+  } else {
+    editDiferirMonths=p;
+    editDiferirCustom=false;
+    const ci=document.getElementById('e-diferir-custom');
+    if(ci) ci.value='';
+  }
+  renderEditDiferirPresets();
+  renderEditDiferirPreview();
+  updateInlineBtn('e-inline-diferir-btn', true, editDiferirHasData());
+  editUpdateDesgloseForDiferir();
+  try{ refreshEditTopTabs(); }catch(e){}   // Bug 2: mantener la exclusión al vuelo
+}
+
+function onEditDiferirCustomInput(){
+  const inp=document.getElementById('e-diferir-custom');
+  const v=_formatMonthField(inp);   // R8.2: normaliza a "<n>m" (helper en 02)
+  if(v && v>=2){
+    editDiferirMonths=v;
+    editDiferirCustom=!DIFERIR_PRESETS.includes(v);
+  } else {
+    editDiferirMonths=0;
+    editDiferirCustom=false;
+  }
+  // R8: actualizar resaltado sin re-crear el input (preserva el foco)
+  const cont=document.getElementById('e-diferir-presets');
+  if(cont){
+    const btns=cont.querySelectorAll('.month-preset');
+    DIFERIR_PRESETS.forEach((p,i)=>{
+      if(btns[i]) btns[i].classList.toggle('on', !editDiferirCustom && editDiferirMonths===p);
+    });
+  }
+  if(inp) inp.classList.toggle('on', editDiferirCustom);
+  renderEditDiferirPreview();
+  updateInlineBtn('e-inline-diferir-btn', true, editDiferirHasData());
+  editUpdateDesgloseForDiferir();
+  try{ refreshEditTopTabs(); }catch(e){}   // Bug 2: mantener la exclusión al vuelo
+}
+
+// Quitar diferido: vuelve el gasto a ser único (de una vez)
+function editClearDiferir(){
+  editDiferirMonths=0;
+  editDiferirCustom=false;
+  const ci=document.getElementById('e-diferir-custom');
+  if(ci) ci.value='';
+  _eDiferirVisible=false;
+  document.getElementById('e-diferir-panel').style.display='none';
+  updateInlineBtn('e-inline-diferir-btn', false, false);
+  editShowPropinaBenButtons();
+  // R7.2 (gemelo de clearDiferir): al desactivar el diferido en edición, el
+  // botón Recordar debe reaparecer. renderEditReminderSection lo restaura según
+  // el estado (ya no en diferido) y editUpdateDesgloseForDiferir reparte el ancho.
+  try{ if(typeof renderEditReminderSection==='function') renderEditReminderSection(); }catch(e){}
+  try{ if(typeof refreshEditTopTabs==='function') refreshEditTopTabs(); }catch(e){}
+  try{ if(typeof editUpdateDesgloseForDiferir==='function') editUpdateDesgloseForDiferir(); }catch(e){}
+}
+
+function renderEditDiferirPreview(){
+  const prev=document.getElementById('e-diferir-preview');
+  if(!prev) return;
+  if(!editDiferirHasData()){
+    prev.style.display='none';
+    return;
+  }
+  const amount=parseFloat(rawAmount(document.getElementById('e-amount').value))||0;
+  const n=editDiferirMonths;
+  const perMonth=Math.floor((amount/n)*100)/100;
+  // Fecha de inicio: si ya era diferido, la del mes 1; si es nuevo, la fecha del registro
+  const grp=data.filter(x=>sameGroup(x.deferGroup,editDeferGroup)).sort((a,b)=>a.deferIndex-b.deferIndex);
+  const base=(editDeferGroup && grp.length>0) ? parseDate(grp[0].date) : (parseDate(document.getElementById('e-date').value)||new Date());
+  const start=diferirMonthlyDate(base,0);
+  const end=diferirMonthlyDate(base,n-1);
+  const startLbl=`${MONTHS_ES[start.getMonth()].slice(0,3)} ${start.getFullYear()}`;
+  const endLbl=`${MONTHS_ES[end.getMonth()].slice(0,3)} ${end.getFullYear()}`;
+  prev.style.display='block';
+  prev.innerHTML=`
+    <div style="font-size:20px;font-weight:700;letter-spacing:-0.02em;color:var(--accent);margin-bottom:3px;">${fmt(perMonth)} <span style="font-size:13px;font-weight:500;color:var(--text3);">/ mes</span></div>
+    <div style="font-size:12.5px;color:var(--text2);margin-bottom:2px;">Durante <b>${n} meses</b> · ${startLbl} – ${endLbl}</div>
+    <div style="font-size:11.5px;color:var(--text3);">Cada día ${base.getDate()} de cada mes</div>
+  `;
+}
+
+async function saveEditDeferred({amount, desc, cur, note, subcat, date}){
+  const group=data.filter(x=>sameGroup(x.deferGroup,editDeferGroup)).sort((a,b)=>a.deferIndex-b.deferIndex);
+  if(group.length===0){ closeModal(); return; }
+  // Nuevo número de meses (editable); si no es válido, conservar el original
+  let n = (editDiferirMonths && editDiferirMonths>=2) ? editDiferirMonths : group[0].deferTotal;
+  // FECHA: la del modal manda. El campo muestra la fecha de la mensualidad que
+  // estás editando, así que la serie se re-ancla desde ahí: si editas el mes 1 y
+  // pones el 25 de mayo, el mes 2 cae el 25 de junio, y así. Si editas el mes 3,
+  // la serie entera se recorre para que ESE mes caiga en la fecha elegida.
+  // (Antes se ignoraba el campo y se reusaba la fecha vieja: cambiarla no hacía nada.)
+  let startDate;
+  const _nuevaFecha = date ? parseDate(date) : null;
+  if(_nuevaFecha && !isNaN(_nuevaFecha.getTime())){
+    const _editada = group.find(x=>String(x.id)===String(editId));
+    const _idx = _editada && _editada.deferIndex ? (_editada.deferIndex - 1) : 0;
+    startDate = diferirMonthlyDate(_nuevaFecha, -_idx);   // retroceder hasta el mes 1
+  } else {
+    startDate = parseDate(group[0].date);
+  }
+  const method=group[0].method;
+  const oldIds=group.map(x=>x.id);
+  const groupId=genId();   // grupo NUEVO: los borrados del viejo no pueden tocarlo
+
+  const _origFx=data.find(x=>String(x.id)===String(editId))||null; // TC histórico
+  const _metaBase={};   // R6: TC automático del momento → meta, no la nota
+  // TC manual en un diferido: recalcula TODAS las mensualidades y sus hijos
+  if(cur!=='MXN'){
+    if(_fxOverrideEdit && _fxOverrideEdit>0){
+      const _auto=(typeof _editFxAuto!=='undefined' && _editFxAuto) ? _editFxAuto : fxRateForEdit(_origFx,cur);
+      if(_auto>0) _metaBase.fxAuto=_auto;
+    } else if(typeof _editFxAuto!=='undefined' && _editFxAuto){
+      _fxOverrideEdit=_editFxAuto;   // revertido: vuelve al TC automático
+    }
+    // R7 · la marca "TC pendiente" sobrevive a las ediciones hasta que de verdad
+    // captures un tipo de cambio. Si solo cambiaste la nota, sigue pendiente.
+    if(!(_fxOverrideEdit>0) && _origFx && metaOf(_origFx).fxPendiente) _metaBase.fxPendiente=true;
+  }
+
+  // Desgloses del diferido: se PRORRATEAN entre las N mensualidades
+  const activeDesg=(typeof editDesgloses!=='undefined'?editDesgloses:[]).filter(d=>d.amount>0);
+  const totalDesg=activeDesg.reduce((s,d)=>s+d.amount,0);
+
+  // R7.2 · Beneficios del diferido: TODOS son descuentos aplicados y reducen
+  // el total ANTES de prorratear (bajan todas las mensualidades). Sus registros
+  // hijos viven vinculados a la mensualidad 1 — la "compra" del grupo.
+  const _benErr=(typeof firstIncompleteBeneficio==='function') ? firstIncompleteBeneficio(editBeneficios) : null;
+  if(_benErr){ toast(_benErr); return; }
+  const benDet=editBeneficiosDetalle();
+  const benDescuento=benDet.total;
+
+  const principalTotal=+(amount-totalDesg-benDescuento).toFixed(2);
+  if(principalTotal<0){ toast('Los desgloses y los beneficios no pueden superar el gasto'); return; }
+
+  // Total realmente diferido (tras el descuento), para que las mensualidades
+  // cuadren y para que "deferOriginal" no infle el monto original al editar.
+  const deferTotalAmount = principalTotal;
+
+  const perMonth=Math.floor((principalTotal/n)*100)/100;
+  let acc=0;
+  const newEntries=[];
+  const desgAcc=activeDesg.map(()=>0);
+  const desgPer=activeDesg.map(d=>Math.floor((d.amount/n)*100)/100);
+
+  for(let i=0;i<n;i++){
+    let monthAmt=perMonth;
+    if(i===n-1) monthAmt=+(principalTotal-acc).toFixed(2);
+    acc+=perMonth;
+    const d=diferirMonthlyDate(startDate,i);
+    const dateStr=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    const madre={
+      id: genId(), type:'egreso',
+      amount:monthAmt, amountMXN:toMXNEdit(monthAmt,cur,_origFx), currency:cur,
+      desc, category:editCat, subcategory:subcat,
+      method, date:dateStr, note,
+      meta:{..._metaBase},
+      deferGroup:groupId, deferIndex:i+1, deferTotal:n, deferOriginal:deferTotalAmount
+    };
+    newEntries.push(madre);
+
+    activeDesg.forEach((dg,k)=>{
+      let dAmt=desgPer[k];
+      if(i===n-1) dAmt=+(dg.amount-desgAcc[k]).toFixed(2);
+      desgAcc[k]+=desgPer[k];
+      if(dAmt<=0) return;
+      const dsubs=sortedSubcats(editType, dg.category);
+      const dHasSubs=dsubs && !(dsubs.length===1 && dsubs[0]==='—');
+      newEntries.push({
+        id:genId(), type:editType,
+        amount:dAmt, amountMXN:toMXNEdit(dAmt,cur,_origFx), currency:cur,
+        desc:((dg.desc||'').trim()) ? dg.desc.trim() : desc,
+        category:dg.category, subcategory: dHasSubs?dg.subcategory:'',
+        method, date:dateStr,
+        note: dg.note||'',
+        meta:{rel:'desglose'},
+        linkedTo:madre.id
+      });
+    });
+
+    // R7.2: TODOS los beneficios viven en la mensualidad 1, cada uno como
+    // registro independiente, en su orden de cálculo.
+    if(benDescuento>0 && i===0){
+      // R8.2: persistir en orden de captura (el cálculo ya priorizó el %)
+      benItemsOrdenCaptura(benDet, editBeneficios).forEach(({b, val})=>{
+        if(val<=0 || !b.category) return;
+        const _bm={rel:'beneficio'};
+        if(b.mode==='pct') _bm.ben={pct:b.pct, base:amount};
+        newEntries.push({
+          id:genId(), type:'beneficio',
+          amount:val, amountMXN:toMXNEdit(val,cur,_origFx), currency:cur,
+          desc:desc, category:b.category, subcategory:'',
+          method:null, date:dateStr,
+          note:'', meta:_bm,
+          linkedTo:madre.id
+        });
+      });
+    }
+  }
+  // ⛔ BLINDAJE: si por cualquier razón no se reconstruyó nada, NO se borra nada.
+  if(newEntries.length===0){ toast('No se pudo actualizar el diferido'); return; }
+
+  // Borrar el grupo viejo COMPLETO (mensualidades + sus hijos) del estado local
+  const oldGroupIds=new Set(group.map(x=>x.id));
+  data=data.filter(x=>!oldGroupIds.has(x.id) && !(x.linkedTo && oldGroupIds.has(x.linkedTo)));
+  newEntries.forEach(e=>data.unshift(e));
+  save();
+  showSyncing('⟳ Guardando...');
+  // ORDEN SEGURO: primero se CREA lo nuevo y solo después se borra lo viejo.
+  // (Borrar primero fue lo que permitió perder un registro completo si el
+  // guardado fallaba a medio camino. Además, el borrado en Sheets arrastra en
+  // cascada a los hijos vinculados, así que basta con borrar las mensualidades.)
+  //
+  // AJUSTE: antes esta cadena se disparaba SIN esperar (el modal se cerraba de
+  // inmediato mientras el guardado/borrado seguía en curso). Si el usuario
+  // navegaba a otra pantalla o la app se suspendía en ese instante, el borrado
+  // de limpieza podía quedar a medias — sin aviso, porque el modal ya se había
+  // cerrado. Ahora la función ESPERA a que la cadena completa termine antes de
+  // cerrar el modal: mientras tanto, el usuario ve "Guardando..." y no puede
+  // alejarse a media operación.
+  const r = await saveBatchToSheets(newEntries);
+  if(!r.ok){
+    // R2: la escritura falló → NO se borra nada. Quedan las mensualidades
+    // viejas en la nube (duplicado recuperable) en vez de perderlo todo.
+    hideSyncing();
+    toast('⚠️ No se pudo sincronizar: no se borró nada');
+  } else {
+    let delOk = true;
+    for(const oid of oldIds){
+      const dr = await deleteEntryInSheets(oid);
+      if(!dr.ok) delOk = false;
+    }
+    hideSyncing();
+    if(delOk) toast('✓ Gasto diferido actualizado', {gotoId:newEntries[0].id});
+    else toast('⚠️ Se guardó, pero quedaron mensualidades viejas sin borrar');
+  }
+  // El modal se cierra en AMBOS casos (igual que antes de este ajuste); lo único
+  // que cambió es que ahora se cierra DESPUÉS de que la cadena termine, no antes.
+  closeModalWithSlide();
+  renderHistorial(); renderBalance();
+}
+
+// Convierte un gasto único (no diferido) en un grupo diferido de N mensualidades.
+async function saveEditConvertToDefer({amount, desc, cur, note, subcat}){
+  const orig=data.find(x=>x.id===editId);
+  const method=orig?orig.method:selMethod;
+  const startDate=parseDate(document.getElementById('e-date').value)||new Date();
+  const n=editDiferirMonths;
+  const groupId=genId();
+  const _origFx=orig||null;   // TC histórico (antes se buscaba DESPUÉS de borrarlo: siempre null)
+
+  // ── R7.2 · BENEFICIOS EN LA CONVERSIÓN ──
+  // Todos son descuentos aplicados: reducen el total antes de prorratear y sus
+  // registros hijos viven en la mensualidad 1.
+  const _benErr=(typeof firstIncompleteBeneficio==='function') ? firstIncompleteBeneficio(editBeneficios) : null;
+  if(_benErr){ toast(_benErr); return; }
+  const benDet=editBeneficiosDetalle();
+  const benDescuento=benDet.total;
+
+  const principalTotal=+(amount-benDescuento).toFixed(2);
+  if(principalTotal<0){ toast('Los beneficios no pueden superar el gasto'); return; }
+  const deferTotalAmount = principalTotal;
+  // FIX (pre-existente): _metaBase se usaba aquí sin declararse — convertir un
+  // gasto a diferido tronaba con ReferenceError. Se declara con la misma lógica
+  // de TC que el resto de los guardados de edición.
+  const _metaBase={};
+  if(cur!=='MXN'){
+    if(_fxOverrideEdit && _fxOverrideEdit>0){
+      const _auto=(typeof _editFxAuto!=='undefined' && _editFxAuto) ? _editFxAuto : fxRateForEdit(_origFx,cur);
+      if(_auto>0) _metaBase.fxAuto=_auto;
+    } else if(typeof _editFxAuto!=='undefined' && _editFxAuto){
+      _fxOverrideEdit=_editFxAuto;
+    }
+    if(!(_fxOverrideEdit>0) && _origFx && metaOf(_origFx).fxPendiente) _metaBase.fxPendiente=true;
+  }
+
+  // Borrar el registro original y sus hijos del estado local
+  const oldChildIds=data.filter(x=>x.linkedTo===editId).map(x=>x.id);
+  data=data.filter(x=>x.id!==editId && x.linkedTo!==editId);
+
+  const perMonth=Math.floor((principalTotal/n)*100)/100;
+  let acc=0;
+  const newEntries=[];
+  for(let i=0;i<n;i++){
+    let monthAmt=perMonth;
+    if(i===n-1) monthAmt=+(principalTotal-acc).toFixed(2);
+    acc+=perMonth;
+    const d=diferirMonthlyDate(startDate,i);
+    const dateStr=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    const madre={
+      id: genId(), type:'egreso',
+      amount:monthAmt, amountMXN:toMXNEdit(monthAmt,cur,_origFx), currency:cur,
+      desc, category:editCat, subcategory:subcat,
+      method, date:dateStr, note,
+      meta:{..._metaBase},
+      deferGroup:groupId, deferIndex:i+1, deferTotal:n, deferOriginal:deferTotalAmount
+    };
+    newEntries.push(madre);
+    // R7.2: TODOS los beneficios viven en la mensualidad 1
+    if(benDescuento>0 && i===0){
+      // R8.2: persistir en orden de captura (el cálculo ya priorizó el %)
+      benItemsOrdenCaptura(benDet, editBeneficios).forEach(({b, val})=>{
+        if(val<=0 || !b.category) return;
+        const _bm={rel:'beneficio'};
+        if(b.mode==='pct') _bm.ben={pct:b.pct, base:amount};
+        newEntries.push({
+          id: genId(), type:'beneficio',
+          amount:val, amountMXN:toMXNEdit(val,cur,_origFx), currency:cur,
+          desc, category:b.category, subcategory:'',
+          method:null, date:dateStr,
+          note:'', meta:_bm,
+          linkedTo:madre.id
+        });
+      });
+    }
+  }
+  newEntries.forEach(e=>data.unshift(e));
+  save();
+  showSyncing('⟳ Guardando...');
+  // R2 · ORDEN SEGURO: este flujo BORRABA el registro original ANTES de guardar
+  // las mensualidades nuevas — el mismo patrón que causó la pérdida de datos.
+  // Ahora se crea primero, se verifica, y solo entonces se borra lo viejo.
+  //
+  // AJUSTE: antes esta cadena se disparaba sin esperarla (el modal se cerraba de
+  // inmediato). Esto fue justo lo que le pasó a Carlos: convirtió un gasto en
+  // diferido, el modal se cerró al instante, y el borrado del registro original
+  // quedó pendiente en segundo plano — si en ese momento se navega a otra
+  // pantalla o la app se suspende, el borrado nunca llega a completarse y el
+  // registro viejo sobrevive como duplicado fantasma. Ahora se espera la cadena
+  // completa antes de cerrar el modal.
+  const r = await saveBatchToSheets(newEntries);
+  if(!r.ok){
+    hideSyncing();
+    toast('⚠️ No se pudo sincronizar: no se borró nada');
+  } else {
+    let delOk = true;
+    const dr = await deleteEntryInSheets(editId);
+    if(!dr.ok) delOk = false;
+    for(const cid of oldChildIds){
+      const dc = await deleteEntryInSheets(cid);
+      if(!dc.ok) delOk = false;
+    }
+    hideSyncing();
+    if(delOk) toast(`✓ Gasto diferido en ${n} meses`, {gotoId:newEntries[0].id});
+    else toast('⚠️ Se guardó, pero el registro viejo no se borró');
+  }
+  // El modal se cierra en AMBOS casos (igual que antes); solo cambia el momento.
+  closeModalWithSlide();
+  renderHistorial(); renderBalance();
+}
+
+// Quita el diferido: colapsa el grupo a un solo gasto único (de una vez).
+async function saveEditRemoveDefer({amount, desc, cur, note, subcat, date}){
+  const group=data.filter(x=>sameGroup(x.deferGroup,editDeferGroup)).sort((a,b)=>a.deferIndex-b.deferIndex);
+  if(group.length===0){ closeModal(); return; }
+  // Al colapsar en gasto único también manda la fecha del modal
+  let startDate = date ? parseDate(date) : null;
+  if(!startDate || isNaN(startDate.getTime())) startDate = parseDate(group[0].date);
+  const method=group[0].method;
+  const oldIds=group.map(x=>x.id);
+  const dateStr=`${startDate.getFullYear()}-${String(startDate.getMonth()+1).padStart(2,'0')}-${String(startDate.getDate()).padStart(2,'0')}`;
+  // FIX (pre-existente): _metaBase se usaba abajo sin declararse — quitar el
+  // diferido tronaba con ReferenceError. Misma lógica de TC que los demás flujos.
+  const _origFx=group[0]||null;
+  const _metaBase={};
+  if(cur!=='MXN'){
+    if(_fxOverrideEdit && _fxOverrideEdit>0){
+      const _auto=(typeof _editFxAuto!=='undefined' && _editFxAuto) ? _editFxAuto : fxRateForEdit(_origFx,cur);
+      if(_auto>0) _metaBase.fxAuto=_auto;
+    } else if(typeof _editFxAuto!=='undefined' && _editFxAuto){
+      _fxOverrideEdit=_editFxAuto;
+    }
+    if(!(_fxOverrideEdit>0) && _origFx && metaOf(_origFx).fxPendiente) _metaBase.fxPendiente=true;
+  }
+  // R4: borrar todo el grupo Y a sus hijos vinculados (desglose/beneficio de
+  // cualquier mensualidad) — antes solo se quitaban las mensualidades y los
+  // hijos quedaban huérfanos localmente hasta la próxima recarga.
+  data=data.filter(x=>!sameGroup(x.deferGroup,editDeferGroup) && !(x.linkedTo && oldIds.includes(x.linkedTo)));
+  // Crear un único gasto con el monto total
+  const single={
+    id: genId(), type:'egreso',
+    amount:amount, amountMXN:toMXNEdit(amount,cur,group[0]), currency:cur,
+    desc, category:editCat, subcategory:subcat,
+    method, date:dateStr, note, meta:{..._metaBase}, linkedTo:null
+  };
+  data.unshift(single);
+  save();
+  showSyncing('⟳ Guardando...');
+  // R2 · ORDEN SEGURO: antes los borrados del grupo y el guardado del registro
+  // nuevo salían EN PARALELO; si el guardado fallaba y los borrados triunfaban,
+  // se perdía todo. Ahora: guardar → verificar → borrar, y AHORA TAMBIÉN se
+  // espera a que la cadena completa termine antes de cerrar el modal.
+  const r = await saveEntryToSheets(single);
+  if(!r.ok){
+    hideSyncing();
+    toast('⚠️ No se pudo sincronizar: no se borró nada');
+  } else {
+    let delOk = true;
+    for(const oid of oldIds){
+      const dr = await deleteEntryInSheets(oid);
+      if(!dr.ok) delOk = false;
+    }
+    hideSyncing();
+    if(delOk) toast('✓ Diferido convertido en gasto único');
+    else toast('⚠️ Se guardó, pero quedaron mensualidades viejas sin borrar');
+  }
+  closeModalWithSlide();
+  renderHistorial(); renderBalance();
+}
+
+async function saveEdit(){
+  const amount=parseFloat(rawAmount(document.getElementById('e-amount').value));
+  const desc=document.getElementById('e-desc').value.trim();
+  const cur=document.getElementById('e-currency').value;
+  const date=document.getElementById('e-date').value;
+  const note=document.getElementById('e-note').value.trim();
+
+  // Validar subcategoría según si la categoría la requiere
+  const eSubs=editCat?sortedSubcats(editType, editCat):[];
+  const eHasSubs=eSubs && !(eSubs.length===1 && eSubs[0]==='—');
+  const subcat = eHasSubs ? editSubcat : '';
+
+  if(!amount||amount<=0) return toast('Ingresa un monto válido');
+  if(!desc) return toast('Agrega una descripción');
+  if(!editCat) return toast('Selecciona una categoría');
+  if(eHasSubs && !subcat) return toast('Selecciona una subcategoría');
+  if(!date) return toast('Selecciona una fecha');
+  // Desgloses a medio llenar → no se guarda nada
+  const _dErr=(typeof firstIncompleteDesglose==='function') ? firstIncompleteDesglose(editDesgloses, editType) : null;
+  if(_dErr) return toast(_dErr);
+
+  // Persistir emoji personalizado por comercio+subcategoría (si el usuario eligió uno)
+  if(editEmojiOverride){
+    setMerchantEmoji(desc, subcat || editCat, editEmojiOverride);
+  }
+
+  // R9 · Si el usuario RENOMBRÓ el registro, arrastramos su recordatorio al
+  // nombre nuevo (los recordatorios se identifican por type+desc, así que sin
+  // esto quedarían huérfanos apuntando al nombre viejo).
+  // BUG CORREGIDO: esto vivía más abajo, DESPUÉS de la bifurcación a
+  // saveEditDeferred/saveEditRemoveDefer/saveEditConvertToDefer (que retornan
+  // temprano) — así que para cualquier registro que YA fuera diferido, este
+  // bloque nunca se ejecutaba y el recordatorio quedaba huérfano con el
+  // nombre viejo. Se mueve aquí, antes de esa bifurcación, para cubrir los
+  // cuatro caminos de guardado por igual.
+  try{
+    if(typeof renameReminderOnDescChange==='function' && editOrigDesc){
+      const _remRenamed = renameReminderOnDescChange(editOrigType||editType, editOrigDesc, desc);
+      if(_remRenamed){
+        try{ saveRemindersToSheets(); }catch(_e){}
+        try{ updateReminderCard(); }catch(_e){}
+      }
+    }
+  }catch(_e){}
+
+  // ── GASTO DIFERIDO: manejar conversiones ──
+  const wasDeferred = !!editDeferGroup;
+  const nowDeferred = editType==='egreso' && editDiferirHasData();
+  if(wasDeferred && nowDeferred){
+    // Sigue diferido: recrear el grupo con nuevos valores/meses/FECHA
+    return await saveEditDeferred({amount, desc, cur, note, subcat, date});
+  } else if(wasDeferred && !nowDeferred){
+    // Quitó el diferido: colapsar el grupo a un solo gasto único
+    return await saveEditRemoveDefer({amount, desc, cur, note, subcat, date});
+  } else if(!wasDeferred && nowDeferred){
+    // Se volvió diferido: convertir el gasto único en grupo diferido
+    return await saveEditConvertToDefer({amount, desc, cur, note, subcat});
+  }
+  // else: no diferido ni antes ni ahora → flujo normal
+
+  // ── Validar desgloses (egreso, ingreso y beneficio) ──
+  const activeEditDesgloses = editDesgloses.filter(d=>d.amount>0);
+  if(activeEditDesgloses.length>0){
+    for(const d of activeEditDesgloses){
+      if(!d.category) return toast('Cada desglose necesita una categoría');
+      const dsubs=sortedSubcats(editType, d.category);
+      const dHasSubs=dsubs && !(dsubs.length===1 && dsubs[0]==='—');
+      if(dHasSubs && !d.subcategory) return toast('Cada desglose necesita una subcategoría');
+    }
+  }
+
+  // R7.2 · Beneficios múltiples: cada bloque iniciado debe estar completo
+  const _benErr=(typeof firstIncompleteBeneficio==='function') ? firstIncompleteBeneficio(editBeneficios) : null;
+  if(editType==='egreso' && _benErr) return toast(_benErr);
+  const benDet = (editType==='egreso') ? editBeneficiosDetalle() : {items:[], total:0};
+
+  // Total de desgloses
+  const totalDesg = activeEditDesgloses.reduce((s,d)=>s+d.amount,0);
+
+  // Propina: si es "incluida", se resta del monto madre (formaba parte del cobro).
+  // Si es "adicional", NO reduce el monto madre (es un gasto extra aparte).
+  let propinaIncludedAmt = 0;
+  if(editType==='egreso' && editPropinaOn && editPropinaIncluida){
+    propinaIncludedAmt = getEditPropinaAmount();
+  }
+
+  // R7.2: TODOS los beneficios son descuentos aplicados y reducen el gasto.
+  const benDescuento = benDet.total;
+
+  // Validar que reducciones no excedan el monto
+  if(benDescuento + totalDesg + propinaIncludedAmt > amount) return toast('Beneficios, desgloses y propina exceden el monto');
+
+  let mainAmount = +(amount - benDescuento - totalDesg - propinaIncludedAmt).toFixed(2);
+  if(mainAmount < 0) mainAmount = 0;
+
+  // Regla: ningún desglose individual puede superar el remanente del gasto principal
+  if(activeEditDesgloses.length>0){
+    const maxDesg=activeEditDesgloses.reduce((mx,d)=>Math.max(mx,d.amount),0);
+    if(mainAmount < maxDesg) return toast('Ningún desglose puede superar el gasto principal');
+  }
+  // TC histórico del registro que se está editando (respeta el TC del pasado)
+  const _origFx=data.find(x=>String(x.id)===String(editId))||null;
+  const _parentId = editId;
+  const amountMXN=toMXNEdit(mainAmount,cur,_origFx);
+
+  // Nota principal: SOLO la nota del usuario (sin "Monto original", que se
+  // muestra dinámicamente en el listado). Se conserva el TC si aplica.
+  const mainNote=note;
+  const _mainMeta={};   // R6: fxAuto va aquí, no en la nota
+  // Etiqueta de sistema del TC: si al guardar hay TC manual, se conserva/crea el
+  // "TCauto" (el automático original) para poder revertir después. Si el campo se
+  // vació (revertir), la etiqueta desaparece y todo vuelve al TC automático original.
+  if(cur!=='MXN'){
+    if(_fxOverrideEdit && _fxOverrideEdit>0){
+      const _auto = (typeof _editFxAuto!=='undefined' && _editFxAuto) ? _editFxAuto : fxRateForEdit(_origFx,cur);
+      if(_auto>0) _mainMeta.fxAuto=_auto;
+    } else if(typeof _editFxAuto!=='undefined' && _editFxAuto){
+      _fxOverrideEdit=_editFxAuto;   // revertido
+    }
+    if(!(_fxOverrideEdit>0) && _origFx && metaOf(_origFx).fxPendiente) _mainMeta.fxPendiente=true;   // R7
+  }
+  // R6: el "TC:" ya no se escribe — el listado lo calcula desde amountMXN/amount.
+  const noteWithRate=mainNote;
+
+  const idx=data.findIndex(x=>x.id===editId);
+  if(idx===-1) return;
+
+  // Capturar IDs de TODOS los hijos viejos (incluida la propina) para borrarlos de Sheets
+  const oldChildIds = data
+    .filter(x=>x.linkedTo===editId)
+    .map(x=>x.id);
+
+  // Eliminar TODOS los hijos vinculados viejos (se recrean desde el estado del modal)
+  data=data.filter(x=>x.linkedTo!==editId);
+
+  // Actualizar el registro madre
+  const newIdx=data.findIndex(x=>x.id===editId);
+  data[newIdx]={
+    ...data[newIdx],
+    type:editType, amount:mainAmount, amountMXN, currency:cur,
+    desc, category:editCat, subcategory:subcat,
+    method:editType!=='beneficio'?editMethod:null,
+    date, note:noteWithRate, meta:_mainMeta
+  };
+
+  const newChildren=[];
+
+  // Recrear propina (desde el estado del modal)
+  if(editType==='egreso' && editPropinaOn){
+    const propinaAmt=getEditPropinaAmount();
+    if(propinaAmt>0){
+      const propinaAmtMXN=toMXNEdit(propinaAmt,cur,_origFx);
+      // R7.2: la base (monto total del egreso) se guarda SIEMPRE — el tagline
+      // del historial la muestra también cuando la propina fue de monto fijo.
+      const _tm={rel:'propina', tip:{inc:!!editPropinaIncluida, base:amount}};
+      if(editPropinaType==='pct'){
+        const pct=parseFloat(document.getElementById('e-propina-pct').value)||0;
+        _tm.tip.pct=pct;
+      }
+      const propinaEntry={
+        id:genId(), type:'egreso',
+        amount:propinaAmt, amountMXN:propinaAmtMXN, currency:cur,
+        desc:desc, category:'Generosidad', subcategory:'Propina',
+        method:editPropinaMethod||editMethod, date,
+        note:'', meta:_tm, linkedTo:_parentId
+      };
+      data.unshift(propinaEntry);
+      newChildren.push(propinaEntry);
+    }
+  }
+
+  // Recrear beneficios (R7.2: uno por bloque, en su orden de cálculo)
+  if(editType==='egreso' && benDet.total>0){
+    const _benNew=[];
+    benDet.items.forEach(({b, val})=>{
+      if(val<=0 || !b.category) return;
+      const _bmN={rel:'beneficio'};
+      if(b.mode==='pct') _bmN.ben={pct:b.pct, base:amount};
+      const benEntry={
+        id:genId(), type:'beneficio',
+        amount:val, amountMXN:toMXNEdit(val,cur,_origFx), currency:cur,
+        desc:desc, category:b.category, subcategory:'',
+        method:null, date,
+        note:'', meta:_bmN, linkedTo:_parentId
+      };
+      _benNew.push(benEntry);
+      newChildren.push(benEntry);
+    });
+    // Insertar en reversa para conservar el orden de cálculo en `data`
+    for(let _k=_benNew.length-1; _k>=0; _k--) data.unshift(_benNew[_k]);
+  }
+
+  // Recrear desgloses (heredan tipo, moneda, fecha y método del padre)
+  if(activeEditDesgloses.length>0){
+    activeEditDesgloses.forEach(d=>{
+      const dMXN=toMXNEdit(d.amount, cur, _origFx);
+      const dsubs=sortedSubcats(editType, d.category);
+      const dHasSubs=dsubs && !(dsubs.length===1 && dsubs[0]==='—');
+      const dEntry={
+        id: genId(), type:editType,
+        amount:d.amount, amountMXN:dMXN, currency:cur,
+        desc:((d.desc||'').trim()) ? d.desc.trim() : desc,
+        category:d.category, subcategory: dHasSubs?d.subcategory:'',
+        method:editType!=='beneficio'?editMethod:null, date,
+        note:d.note||'', meta:{rel:'desglose'}, linkedTo:_parentId
+      };
+      data.unshift(dEntry);
+      newChildren.push(dEntry);
+    });
+  }
+
+  // Recordatorio programado desde el modal (paridad con el formulario):
+  // solo si se cumplieron ambas condiciones (frecuencia + vigencia).
+  try{
+    if(typeof eRemHasData==='function' && eRemHasData()){
+      createManualReminderFromEditModal(desc, editType, date);
+      try{ updateReminderCard(); }catch(_e){}
+    }
+  }catch(_e){}
+
+  save();
+  showSyncing('⟳ Actualizando...');
+  // ORDEN SEGURO: crear/actualizar primero, borrar los hijos viejos al final.
+  // Se espera a que termine antes de cerrar el modal (evita el registro
+  // fantasma si se navega a media operación).
+  const updatedEntry = data.find(x=>x.id===editId);
+  const rPadre = await updateEntryInSheets({...updatedEntry, benType:'', benAmount:0, benDesc:''});
+  const rHijos = await Promise.all(newChildren.map(c=>saveEntryToSheets({...c, benType:'', benAmount:0, benDesc:''})));
+  // R2: si la escritura no se confirmó, NO se borran los hijos viejos.
+  if(!rPadre.ok || !_allOk(rHijos)){
+    hideSyncing();
+    toast('⚠️ No se pudo sincronizar: no se borró nada');
+  } else {
+    let delOk = true;
+    for(const oid of oldChildIds){
+      const dr = await deleteEntryInSheets(oid);
+      if(!dr.ok) delOk = false;
+    }
+    hideSyncing();
+    if(delOk) toast('✓ Registro actualizado', {gotoId:_parentId});
+    else toast('⚠️ Se guardó, pero quedaron desgloses viejos sin borrar');
+  }
+
+  const _finalId = _parentId;
+  closeModalWithSlide();
+  renderHistorial(); renderBalance();
+  // Resaltar el registro actualizado en el listado (pulso + destello de color)
+  highlightUpdatedRecord(_finalId);
+}
+
+// Cierra el modal deslizándolo hacia abajo
+function closeModalWithSlide(){
+  const modal=document.getElementById('edit-modal');
+  const sheet=document.getElementById('modal-sheet');
+  const reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if(sheet && !reduced){
+    let anim;
+    try{
+      anim=sheet.animate([
+        {transform:'translateY(0)',opacity:1},
+        {transform:'translateY(100%)',opacity:0.5}
+      ],{duration:520,easing:'cubic-bezier(0.4,0,0.6,1)'}); // más lento, sale por abajo
+    }catch(e){}
+    setTimeout(()=>{
+      // Cancelar animación y limpiar CUALQUIER estilo residual antes de cerrar
+      if(anim) try{ anim.cancel(); }catch(e){}
+      sheet.style.transform='';
+      sheet.style.opacity='';
+      closeModal();
+    }, 500);
+  } else {
+    closeModal();
+  }
+}
+
+// Pulso (crece hacia afuera) + destello de color en el registro actualizado
+// R7 · el retraso ahora es configurable. 833ms era el tiempo de espera para que
+// el modal terminara de bajar; el enlace del toast no tiene modal que esperar.
+function highlightUpdatedRecord(id, delay){
+  const reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if(reduced) return;
+  const wait = (typeof delay === 'number') ? delay : 833;
+  setTimeout(()=>{
+    const rows=Array.from(document.querySelectorAll('#hist-list .tx-item'));
+    if(!rows.length) return;
+    // R8 · El "Ver" no resalta solo la madre: recorre TODO el conjunto (madre +
+    // desgloses/propinas/beneficios/mensualidades visibles) como una ola de
+    // arriba hacia abajo, para que se sienta como un grupo relacionado.
+    //
+    // El grupo son las filas cuyo _parentId apunta a la madre (los hijos ya lo
+    // llevan; la madre tiene _parentId = su propio id). En un diferido, `id` es
+    // la mensualidad 1 (la "compra"), y sus hijos cuelgan de ella.
+    const groupEls = rows.filter(el => el._entryId===id || el._parentId===id);
+    const targets = groupEls.length ? groupEls
+                                    : rows.filter(el => el._entryId===id);
+    if(!targets.length) return;
+    // Orden visual (de arriba a abajo) para la ola
+    targets.sort((a,b)=> a.getBoundingClientRect().top - b.getBoundingClientRect().top);
+    const colorOf = (el)=>{
+      const e = data.find(x=>x.id===el._entryId);
+      return e ? (e.type==='ingreso'?'52,199,89' : e.type==='beneficio'?'175,82,222' : e.type==='egreso'?'255,59,48' : '0,113,227') : '0,113,227';
+    };
+    targets.forEach((el, i)=>{
+      const flash = colorOf(el);
+      const prevZ=el.style.zIndex, prevPos=el.style.position;
+      el.style.position='relative';
+      el.style.zIndex=String(5 + (targets.length - i)); // los de arriba, encima
+      const delayMs = i * 90; // escalonado = sensación de ola
+      try{
+        el.animate([
+          { transform:'scale(1)',    boxShadow:`0 0 0 0 rgba(${flash},0)` },
+          { transform:'scale(1.045)', boxShadow:`0 0 0 3px rgba(${flash},0.6), 0 6px 22px rgba(${flash},0.28)`, offset:0.42 },
+          { transform:'scale(1)',    boxShadow:`0 0 0 0 rgba(${flash},0)` }
+        ],{ duration:950, delay:delayMs, easing:'cubic-bezier(0.34,1.4,0.64,1)', fill:'backwards' });
+      }catch(err){}
+      setTimeout(()=>{ el.style.zIndex=prevZ; el.style.position=prevPos; }, 1000 + delayMs);
+    });
+  }, wait);
+}
+
+function deleteEntry(){
+  if(!editId) return;
+  // Gasto diferido: alerta especial y borrado de todo el grupo
+  if(editDeferGroup){
+    const grp=data.filter(x=>sameGroup(x.deferGroup,editDeferGroup));
+    const anyE=grp[0];
+    if(!confirm(`Este es un gasto diferido (mes ${anyE?anyE.deferIndex:'?'} de ${anyE?anyE.deferTotal:'?'}).\n\nBorrarlo eliminará las ${grp.length} mensualidades ligadas, incluyendo las anteriores y futuras. ¿Continuar?`)) return;
+    const groupId=editDeferGroup;
+    const groupIds=grp.map(x=>x.id);
+    closeModalWithSlide();
+    setTimeout(()=>{
+      // R4: filtrar también a los hijos vinculados (mismo arreglo que en el
+      // borrado desde el historial y en el colapso a gasto único).
+      data=data.filter(x=>!sameGroup(x.deferGroup,groupId) && !(x.linkedTo && groupIds.includes(x.linkedTo)));
+      save();
+      showSyncing('⟳ Eliminando...');
+      Promise.all(groupIds.map(gid=>deleteEntryInSheets(gid))).then(results=>{
+        hideSyncing();
+        // R2: el borrado local ya ocurrió y está protegido; se dice la verdad
+        // sobre si la nube lo recibió o no.
+        if(_allOk(results)) toast('Gasto diferido eliminado');
+        else toastSyncFailed('Eliminado');
+      });
+      renderHistorial(); renderBalance();
+    }, 520);
+    return;
+  }
+  if(!confirm('¿Eliminar este registro?')) return;
+  const _delId=editId;
+  closeModalWithSlide();
+  // Tras cerrar el modal, calcular índice y animar la eliminación en el listado
+  setTimeout(()=>{
+    const list=document.getElementById('hist-list');
+    let cascadeFrom=0;
+    if(list){
+      const allItems=Array.from(list.querySelectorAll('.day-group-hdr, .tx-item'));
+      let targetEl=null;
+      allItems.forEach(el=>{ if(el._entryId===_delId) targetEl=el; });
+      if(targetEl){
+        cascadeFrom=allItems.indexOf(targetEl);
+        const listWrap=targetEl.closest('.tx-list');
+        const siblings=listWrap?listWrap.querySelectorAll('.tx-item').length:1;
+        if(siblings<=1 && listWrap){
+          const hdr=listWrap.previousElementSibling;
+          if(hdr && hdr.classList.contains('day-group-hdr')){ const hi=allItems.indexOf(hdr); if(hi>=0) cascadeFrom=hi; }
+        }
+      }
+    }
+    playDeleteAnimation(_delId, ()=>{
+      data=data.filter(x=>x.id!==_delId&&x.linkedTo!==_delId);
+      save();
+      showSyncing('⟳ Eliminando...');
+      deleteEntryInSheets(_delId).then(r=>{
+        hideSyncing();
+        if(r && r.ok) toast('Registro eliminado');
+        else toastSyncFailed('Eliminado');
+      });
+      renderHistorial({cascadeFromIndex:cascadeFrom}); renderBalance();
+    });
+  }, 520); // esperar a que el modal termine de bajar
+}

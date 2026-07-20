@@ -1,0 +1,1792 @@
+/* ── APPLE.COM INSPIRED DESIGN SYSTEM ── */
+:root {
+  --bg: #f5f5f7;
+  --surface: #ffffff;
+  --surface2: #f5f5f7;
+  --surface3: #e8e8ed;
+  --border: rgba(0,0,0,0.08);
+  --border2: rgba(0,0,0,0.12);
+  --text: #1d1d1f;
+  --text2: #6e6e73;
+  --text3: #aeaeb2;
+  --accent: #0071e3;
+  --accent-light: #e8f0fb;
+  --accent-dark: #0077ed;
+  --danger: #ff3b30;
+  --danger-light: #fff2f1;
+  --amber: #ff9500;
+  --amber-light: #fff8ec;
+  /* R9 · acciones de descarte de recordatorios */
+  --rem-mustard: #946a16;   /* mostaza legible sobre fondo claro (4.85:1) */
+  --rem-softred: #c0453c;   /* rojo sutil, no escandaloso */
+  --green: #34c759;
+  --green-light: #f0fbf3;
+  --blue: #007aff;
+  --blue-light: #f0f6ff;
+  --radius: 18px;
+  --radius-sm: 12px;
+  --radius-xs: 8px;
+  --shadow: 0 2px 8px rgba(0,0,0,0.06), 0 0 0 0.5px rgba(0,0,0,0.04);
+  --shadow-md: 0 4px 20px rgba(0,0,0,0.08), 0 0 0 0.5px rgba(0,0,0,0.04);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #000000;
+    --surface: #1c1c1e;
+    --surface2: #2c2c2e;
+    --surface3: #3a3a3c;
+    --border: rgba(255,255,255,0.08);
+    --border2: rgba(255,255,255,0.14);
+    --text: #f5f5f7;
+    --text2: #98989d;
+    --text3: #48484a;
+    --accent: #2997ff;
+    --accent-light: #0a1f38;
+    --accent-dark: #409cff;
+    --danger: #ff453a;
+    --danger-light: #2d1210;
+    --amber: #ffa040;
+    --amber-light: #2d1e08;
+    --rem-mustard: #e0b341;
+    --rem-softred: #ff8078;
+    --green: #32d74b;
+    --green-light: #0d2615;
+    --blue: #0a84ff;
+    --blue-light: #071d38;
+    --shadow: 0 2px 8px rgba(0,0,0,0.4), 0 0 0 0.5px rgba(255,255,255,0.04);
+    --shadow-md: 0 4px 20px rgba(0,0,0,0.5), 0 0 0 0.5px rgba(255,255,255,0.04);
+  }
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body {
+  height: 100%; background: var(--bg); color: var(--text);
+  font-family: -apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif;
+  font-size: 15px; -webkit-font-smoothing: antialiased; letter-spacing: -0.01em;
+}
+
+/* NAV — R9 · Cápsula flotante (prototipo_barras.html, aprobado).
+   Lecciones del prototipo, ya incorporadas de raíz aquí:
+   1) el ANCLA (.nav-outer, left:50%+translateX(-50%)) tiene ancho FIJO
+      medido por JS una sola vez — así nunca se "recentra como bloque".
+   2) .nav-capsule (la cápsula visible) tiene flex-shrink:0 — nunca se
+      comprime dentro del ancla, así que el texto nunca se recorta aunque
+      la medición no sea perfecta.
+   3) la etiqueta colapsa por ALTO (grid-template-rows), nunca por ancho —
+      así el ícono no viaja de más al contraerse/expandirse.
+   4) padding/ícono/etiqueta comparten LA MISMA curva con rebote — sin eso
+      se ve "primero crece, luego se mueve", el bug que Carlos reportó.
+   5) R9 · punto 2 (19-jul, ajuste de fondo): lo anterior reducía la deriva
+      horizontal pero no la eliminaba — cada botón seguía cambiando de ANCHO
+      (por su padding horizontal y el tamaño del ícono), y ese cambio se
+      acumulaba de botón en botón dentro del flex row, corriendo cada ícono
+      unos px hacia la izquierda al comprimir (y de vuelta al expandir).
+      Encima, nav.shrunk aplicaba transform:scale() a TODA la cápsula, lo que
+      además desplazaba los botones de los extremos hacia el centro. Ahora:
+      cada .nav-btn tiene un ANCHO FIJO por JS (_navBtnWidths, en
+      10_presupuesto_csv_init.js, medido sin .shrunk) y su padding HORIZONTAL
+      nunca cambia; el padding horizontal de la propia cápsula tampoco cambia.
+      Solo cambian: el padding VERTICAL (cápsula y botón), el tamaño del
+      ícono y el alto de la etiqueta — nada de eso mueve nada en el eje X,
+      porque ícono y etiqueta quedan centrados dentro de una caja de ancho
+      constante. Ya no hay transform:scale() al comprimir/expandir. */
+.nav-outer{
+  position: fixed; left: 50%; bottom: max(18px, calc(6px + env(safe-area-inset-bottom)));
+  transform: translateX(-50%); z-index: 100;
+  transition: bottom 0.3s ease;
+}
+.nav-outer.shrunk{ bottom: max(14px, calc(2px + env(safe-area-inset-bottom))); }
+nav{
+  display: flex; gap: 4px; align-items: center; flex-shrink: 0;
+  background: rgba(255,255,255,0.72);
+  backdrop-filter: blur(22px) saturate(180%);
+  -webkit-backdrop-filter: blur(22px) saturate(180%);
+  border: 0.5px solid var(--border2); border-radius: 100px;
+  box-shadow: 0 6px 24px rgba(0,0,0,0.14), 0 1px 3px rgba(0,0,0,0.08);
+  padding: 7px 8px;
+  transition: padding 0.34s cubic-bezier(0.34,1.4,0.64,1);
+}
+@media (prefers-color-scheme: dark) {
+  nav{ background: rgba(38,38,41,0.72);
+    box-shadow: 0 6px 26px rgba(0,0,0,0.6), 0 0 0 0.5px rgba(255,255,255,0.07); }
+}
+/* Solo el padding VERTICAL encoge (8px horizontal se mantiene siempre). */
+nav.shrunk{ padding: 4px 8px; }
+/* Rebote al cambiar de sección — una sola variante: ya no hay transform:scale
+   persistente en .shrunk del que "rebotar", así que el mismo keyframe sirve
+   para ambos estados (arranca y termina en scale:1 de cualquier forma). */
+nav.nav-bounce{ animation: navBounce 0.5s cubic-bezier(0.34,1.4,0.64,1); }
+@keyframes navBounce{
+  0%{ transform: scale(1); } 35%{ transform: scale(1.08); }
+  70%{ transform: scale(0.975); } 100%{ transform: scale(1); }
+}
+.nav-btn {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  flex-shrink: 0;
+  background: none; border: none; cursor: pointer; color: var(--text3);
+  font-family: inherit; font-size: 10px; font-weight: 500;
+  letter-spacing: -0.01em; padding: 7px 14px; border-radius: 100px;
+  transition: color 0.2s, padding 0.34s cubic-bezier(0.34,1.4,0.64,1);
+}
+/* Su ancho lo fija _navBtnWidths() por JS (medido sin .shrunk) — por eso el
+   padding horizontal de aquí abajo se mantiene IGUAL que arriba (14px): solo
+   cambia el vertical, y aun si no hubiera JS el layout ya no depende de esto
+   para mantenerse centrado. */
+nav.shrunk .nav-btn{ padding: 5px 14px; }
+.nav-btn.active { color: var(--accent); }
+.nav-btn svg { width: 24px; height: 24px; stroke-width: 1.5;
+  transition: width 0.34s cubic-bezier(0.34,1.4,0.64,1), height 0.34s cubic-bezier(0.34,1.4,0.64,1); }
+nav.shrunk .nav-btn svg{ width: 21px; height: 21px; }
+/* La etiqueta colapsa por ALTO (no por ancho) — el ícono nunca viaja de más.
+   width:max-content es necesario: .nav-btn calcula SU propio ancho a partir
+   de sus hijos, y un track "1fr" dentro de ese contexto circular no se
+   expandía de forma confiable al contenido (medido: el texto quedaba
+   recortado ~8-9px aunque nunca se aplicara la clase .shrunk). */
+.nav-lbl-track{ display: grid; grid-template-rows: 1fr; width: max-content;
+  transition: grid-template-rows 0.34s cubic-bezier(0.34,1.4,0.64,1); }
+nav.shrunk .nav-lbl-track{ grid-template-rows: 0fr; }
+.nav-lbl{ overflow: hidden; opacity: 1; transition: opacity 0.2s ease; min-height: 0; }
+nav.shrunk .nav-lbl{ opacity: 0; }
+
+/* PAGES */
+.page { display: none; min-height: 100vh; padding-bottom: 90px; }
+.page.active { display: block; }
+
+/* HEADER */
+.page-header {
+  position: sticky; top: 0; z-index: 20;
+  padding: 56px 20px 16px; background: var(--surface);
+  border-bottom: 0.5px solid var(--border2); margin-bottom: 20px;
+  /* R9 · Transición más larga y con la misma curva en TODO lo que cambia de
+     tamaño (padding, título, subtítulo, botones), para que el encogido se
+     lea como un solo movimiento continuo y no como varios saltos sueltos. */
+  transition: padding 0.38s cubic-bezier(0.22,0.61,0.36,1);
+  will-change: padding;
+}
+.page-header h1 {
+  font-size: 28px; font-weight: 700; color: var(--text);
+  letter-spacing: -0.03em; line-height: 1.1;
+  transition: font-size 0.38s cubic-bezier(0.22,0.61,0.36,1);
+}
+.page-header p {
+  font-size: 13px; color: var(--text2); margin-top: 3px; font-weight: 400;
+  max-height: 20px; opacity: 1; overflow: hidden;
+  transition: max-height 0.38s cubic-bezier(0.22,0.61,0.36,1), opacity 0.24s ease, margin-top 0.38s cubic-bezier(0.22,0.61,0.36,1);
+}
+/* R9 · Empieza en su tamaño actual; al bajar se recorre y encoge el texto y
+   los botones; al volver arriba recupera su tamaño original. */
+.page-header.header-shrink { padding: 14px 20px 10px; }
+.page-header.header-shrink h1 { font-size: 18px; }
+.page-header.header-shrink p { max-height: 0; opacity: 0; margin-top: 0; }
+.page-header.header-shrink .reload-btn,
+.page-header.header-shrink .hdr-btn-group .reload-btn-inline { width: 27px; height: 27px; font-size: 13px; bottom: 10px; top: auto; }
+.page-header.header-shrink .hdr-btn-group { bottom: 10px; }
+.page-header.header-shrink .hdr-btn-group button:not(.reload-btn-inline) { padding: 4px 11px; font-size: 11px; }
+
+/* CARD */
+.card {
+  background: var(--surface); border-radius: var(--radius);
+  border: none; padding: 18px 16px; box-shadow: var(--shadow);
+}
+
+/* ── R8.1 · NOTA OPCIONAL bajo Descripción ──
+   La Nota vive DEBAJO de Descripción en profundidad: al aparecer se desliza
+   SALIENDO de abajo del campo (los hijos del slot se animan y overflow:hidden
+   recorta el trayecto — la Nota nunca se pinta encima de Descripción), y una
+   franja de sombra fija en el borde superior (::before, de borde a borde,
+   también sobre la ✕) hace que Descripción "proyecte sombra" sobre ella. */
+.note-slot {
+  position: relative;
+  margin-top: 0;             /* pegada a Descripción: se leen como un solo bloque */
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+  overflow: hidden;          /* recorta el deslizamiento: emerge, no se encima */
+}
+/* R8.6 · En EDICIÓN, Descripción comparte renglón con el botón de emoji (46px +
+   8px de gap). La Nota vive fuera de ese renglón, así que hay que reservar ese
+   ancho a la derecha para que termine justo donde termina Descripción y no se
+   extienda por debajo del selector de emoji. */
+#e-note-field-wrap { margin-right: 54px; }
+.note-slot::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0; height: 7px;   /* R8.2: sombra un poco más corta */
+  background: linear-gradient(to bottom, rgba(0,0,0,0.10), rgba(0,0,0,0));  /* R8.3: más suave */
+  pointer-events: none; z-index: 2;
+}
+@media (prefers-color-scheme: dark) {
+  .note-slot::before { background: linear-gradient(to bottom, rgba(0,0,0,0.28), rgba(0,0,0,0)); }  /* R8.3: más suave */
+}
+/* R8.2 · Con la Nota presente, Descripción cuadra sus esquinas inferiores para
+   que ambos campos se lean como un solo bloque continuo (la sombra de la Nota
+   es la única separación). El .field gana .note-open desde JS al mostrar la
+   Nota y lo pierde al ocultarla; sin la clase, Descripción luce sus 4 esquinas
+   redondeadas y sin sombra inferior (que de todos modos no se ve, porque la
+   Nota está display:none). */
+.field.note-open > input#desc,
+.field.note-open .e-desc-row > input#e-desc {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+.field .note-slot .note-input,
+.note-input {
+  width: 100%;
+  padding: 9px 38px 9px 14px; /* espacio a la derecha para la ✕ */
+  border: none;
+  /* R8.2: superiores RECTAS, inferiores redondeadas (mayor especificidad para
+     ganarle a la regla general `.field input`, que redondea las 4). */
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+  background: var(--surface2);
+  color: var(--text);
+  font-family: inherit; font-size: 13px; font-weight: 400;
+  outline: none;
+}
+/* R8.1 · ✕ protegida: fondo propio con degradado a la izquierda — el texto
+   largo del input (que scrollea por debajo del padding) se desvanece antes de
+   tocarla, nunca se le encima. */
+.note-clear {
+  position: absolute; top: 0; right: 0; bottom: 0; width: 38px; z-index: 1;
+  display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(to right, rgba(0,0,0,0), var(--surface2) 14px);
+  border: none; cursor: pointer;
+  color: var(--text3); font-size: 14px; line-height: 1; padding: 0 6px 0 10px;
+  transition: color 0.15s;
+  border-radius: 0 0 var(--radius-sm) 0;
+}
+.note-clear:hover, .note-clear:active { color: var(--danger); }
+
+/* R8 · Propina: en móvil el campo del monto ocupa el flex disponible (default).
+   En web ese ancho resultaba excesivo, así que se limita a un tamaño razonable;
+   el espacio recuperado lo absorbe el flex del renglón, balanceando los tres
+   controles hacia la izquierda. Solo afecta escritorio. */
+/* R8 · Propina: en móvil el campo del monto ocupa el flex disponible (base).
+   En web ese ancho resultaba excesivo, así que se limita a un tamaño razonable;
+   el espacio recuperado lo absorbe el flex del renglón, balanceando los tres
+   controles hacia la izquierda. El flex vive AQUÍ (no inline) para que la media
+   query pueda ganarle. */
+.propina-val { flex: 1 1 0; min-width: 0; }
+@media (min-width: 768px) {
+  .propina-val { flex: 0 1 128px; }   /* R8.2: ~20% más angosto que los 160px de R8 */
+}
+
+/* R8 · Tipo de beneficio: dropdown en móvil, chips en web.
+   Por defecto (móvil) se ve el <select> y se ocultan los chips + la barra.
+   R8.3 · En WEB los chips viven EN EL MISMO renglón que el toggle y el campo,
+   separados por una barra vertical (.ben-type-sep); el <select> se oculta. */
+.ben-type-chips { display: none; }
+.ben-type-sep { display: none; }
+@media (min-width: 768px) {
+  .ben-type-select { display: none; }
+  .ben-type-sep {
+    display: block; flex: 0 0 auto; align-self: stretch;
+    width: 1px; background: var(--border2); margin: 2px 2px;
+  }
+  .ben-type-chips {
+    display: flex; flex-wrap: nowrap; gap: 6px;
+    flex: 1 1 0; min-width: 0;   /* toma el espacio restante del renglón */
+    overflow-x: auto; -webkit-overflow-scrolling: touch;
+  }
+  .ben-type-chips::-webkit-scrollbar { display: none; }
+  /* Misma altura que los campos del bloque (input: padding 8px 10px, 14px). */
+  .ben-type-chip {
+    flex: 0 0 auto; white-space: nowrap;
+    padding: 8px 12px; border-radius: 100px;
+    border: none; background: var(--surface); color: var(--text2);
+    font-family: inherit; font-size: 13px; font-weight: 500;
+    cursor: pointer; transition: all 0.18s cubic-bezier(0.34,1.56,0.64,1);
+  }
+  .ben-type-chip:active { transform: scale(0.95); }
+  .ben-type-chip.active { background: var(--accent); color: white; font-weight: 600; }
+}
+
+/* TYPE SELECTOR */
+.type-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 6px; margin-bottom: 28px; }
+.type-btn {
+  display: flex; flex-direction: column; align-items: center; gap: 5px;
+  padding: 12px 4px; border-radius: var(--radius-sm);
+  border: none; background: var(--surface2);
+  cursor: pointer; font-family: inherit;
+  font-size: 10px; font-weight: 600; letter-spacing: -0.01em;
+  color: var(--text2); transition: all 0.18s cubic-bezier(0.34,1.56,0.64,1);
+}
+.type-btn .icon { font-size: 20px; line-height: 1; }
+.type-btn:active { transform: scale(0.94); }
+.type-btn.active.t-ingreso { background: var(--green-light); color: var(--green); }
+.type-btn.active.t-egreso  { background: var(--danger-light); color: var(--danger); }
+.type-btn.active.t-ahorro  { background: var(--blue-light);   color: var(--blue); }
+.type-btn.active.t-pasivo  { background: #af52de22;  color: #af52de; }
+
+/* ── Animación de despliegue estilo apple.com (revela de arriba a abajo con expansión) ── */
+@keyframes revealDown {
+  from {
+    opacity: 0;
+    -webkit-transform: translate3d(0, -24px, 0);
+    transform: translate3d(0, -24px, 0);
+  }
+  to {
+    opacity: 1;
+    -webkit-transform: translate3d(0, 0, 0);
+    transform: translate3d(0, 0, 0);
+  }
+}/* Escalonado: los hijos directos aparecen en cascada de arriba a abajo */@media (prefers-reduced-motion: reduce) {
+  .reveal-down, .reveal-stagger > * { -webkit-animation: none; animation: none; opacity: 1; }
+  .seg-thumb { transition: none; }
+}
+
+/* ── Segmented control deslizante estilo iOS ── */
+.seg-control {
+  position: relative;
+  display: flex;
+  background: var(--surface2);
+  border-radius: 12px;
+  padding: 3px;
+  margin-bottom: 28px;
+  isolation: isolate;
+}
+.seg-thumb {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  left: 3px;
+  width: calc((100% - 6px) / 3);
+  background: var(--surface);
+  border-radius: 9px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.14), 0 1px 2px rgba(0,0,0,0.10);
+  transition: transform 0.32s cubic-bezier(0.32, 0.72, 0, 1), background 0.25s ease;
+  z-index: -1;
+}
+.seg-option {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 4px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text3);
+  transition: color 0.25s ease;
+  -webkit-tap-highlight-color: transparent;
+  z-index: 1;
+}
+.seg-option .seg-ico { font-size: 15px; line-height: 1; }
+.seg-option.active { color: var(--text); }
+/* Colores del thumb según tipo activo */
+.seg-control[data-active="egreso"]  .seg-thumb { background: var(--danger-light); }
+.seg-control[data-active="egreso"]  .seg-option.active { color: var(--danger); }
+.seg-control[data-active="ingreso"] .seg-thumb { background: var(--green-light); }
+.seg-control[data-active="ingreso"] .seg-option.active { color: var(--green); }
+.seg-control[data-active="beneficio"] .seg-thumb { background: #af52de22; }
+.seg-control[data-active="beneficio"] .seg-option.active { color: #af52de; }
+
+/* FIELDS */
+.field { margin-bottom: 14px; }
+.field label {
+  display: block; font-size: 12px; font-weight: 600; letter-spacing: -0.01em;
+  color: var(--text2); margin-bottom: 7px;
+}
+.field input, .field select, .field textarea {
+  width: 100%; padding: 12px 14px;
+  border: none; border-radius: var(--radius-sm);
+  background: var(--surface2); color: var(--text);
+  font-family: inherit; font-size: 15px; font-weight: 400;
+  outline: none; transition: background 0.15s, box-shadow 0.15s;
+  -webkit-appearance: none; appearance: none;
+}
+/* R8.5 · Los campos editables NO cambian nada al enfocar: sin anillo azul y sin
+   aclarado de fondo — conservan su color "desactivado" (var(--surface2)), igual
+   que los inputs de Beneficio/Desglose. (Antes esta regla aclaraba el fondo a
+   --surface y añadía un anillo de 3px.) Aplica a todos los campos del
+   formulario de registro y edición. */
+.field input:focus, .field select:focus, .field textarea:focus {
+  background: var(--surface2); box-shadow: none;
+}
+.field textarea { resize: none; height: 64px; }
+
+.amount-row { display: flex; gap: 8px; }
+.amount-row .cur-sel { width: 96px; flex-shrink: 0; }
+.amount-row input { flex: 1; }
+/* R7 · el badge "TC: 1 CAD = $12.60 MXN" que vivía arriba del campo murió:
+   ese contenido ahora es el placeholder del propio campo de TC (ver .fx-row). */
+
+/* CAT BLOCKS */
+.cat-grid-ui { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 8px; }
+.cat-block {
+  padding: 11px 8px; border-radius: var(--radius-sm);
+  border: 1.5px solid transparent; background: var(--surface2);
+  cursor: pointer; font-family: inherit;
+  font-size: 14px; font-weight: 600; color: var(--text2);
+  transition: all 0.18s cubic-bezier(0.34,1.56,0.64,1); text-align: center; line-height: 1.3;
+}
+.cat-block:active { transform: scale(0.95); }
+.cat-block.sel-eg { background: var(--danger-light); color: var(--danger); }
+.cat-block.sel-in { background: var(--green-light);  color: var(--green); }
+.cat-block.sel-ah { background: var(--blue-light);   color: var(--blue); }
+.cat-block.sel-pa { background: #af52de22;  color: #af52de; }
+/* Borde de color por categoría (sutil, como en balance/historial) *//* Layout colapsado: categoría elegida + subcategorías lado a lado */
+.cat-collapsed-row { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; align-items: start; margin-bottom: 8px; }
+.cat-collapsed-row .cat-col-left { display: flex; flex-direction: column; gap: 6px; }
+.cat-collapsed-row .cat-col-right { display: flex; flex-direction: column; gap: 6px; }
+
+.subcat-wrap { display: none; margin-top: 4px; }
+.subcat-wrap.vis { display: block; }
+.subcat-lbl { font-size: 12px; font-weight: 600; color: var(--text2); margin-bottom: 7px; }
+
+/* CHIPS */
+.chips {
+  display: flex; flex-wrap: nowrap; gap: 6px;
+  overflow-x: auto; -webkit-overflow-scrolling: touch;
+  scrollbar-width: none; padding-bottom: 2px;
+}
+.chips::-webkit-scrollbar { display: none; }
+.chip {
+  padding: 7px 14px; border-radius: 100px;
+  border: none; background: var(--surface2);
+  font-family: inherit; font-size: 13px; font-weight: 500;
+  color: var(--text2); cursor: pointer; transition: all 0.18s cubic-bezier(0.34,1.56,0.64,1);
+}
+.chip:active { transform: scale(0.95); }
+/* R9 · "Bono de despensa" es el chip más ancho del renglón de método y el que
+   hacía desbordar la fila en el modal de edición (76px vs 66-59px del resto).
+   Móvil = solo "Bono"; escritorio = texto completo. */
+.mth-short{ display:inline; }
+.mth-full{ display:none; }
+@media (min-width: 700px){
+  .mth-short{ display:none; }
+  .mth-full{ display:inline; }
+}
+.chip.active { background: var(--accent); color: white; font-weight: 600; }
+
+/* Botones de MÉTODO DE PAGO (registro, edición, y los de la propina en ambos).
+   Punto 4: eran 29px de alto / 13px de fuente. Se acercan al chip de búsqueda
+   del Historial (24px / 11.5px) sin llegar a él: siguen siendo el control
+   principal del formulario, no un filtro secundario. Los chips de Recordar
+   (Semanal/Mensual/Indefinido) NO se tocan: comparten la clase .chip pero no
+   son métodos de pago. */
+#method-field .chip,
+#e-chips .chip,
+#propina-method-chips .chip,
+#e-propina-method-chips .chip {
+  padding: 6px 12px;
+  font-size: 12px;
+}
+
+/* ── R8.1 · Métodos de pago de la PROPINA (aparecen en modo $) ──
+   Aspecto: chips INACTIVOS con fondo propio (el panel es surface2; sin fondo se
+   fundían y parecían texto plano). El elegido lo pinta .chip.active (accent).
+   WEB: viven en el MISMO renglón que los campos, tras una línea divisoria
+   (border-left del wrap) — sin etiqueta, el renglón tenía espacio de sobra.
+   MÓVIL: renglón propio debajo (flex-basis 100% dentro del mismo flex con
+   wrap), con la etiqueta y los chips justificados a todo el ancho. */
+#propina-method-chips .chip,
+#e-propina-method-chips .chip {
+  background: var(--surface);
+  box-shadow: 0 0 0 1px var(--border2);
+  color: var(--text3);
+}
+#propina-method-chips .chip.active,
+#e-propina-method-chips .chip.active {
+  background: var(--accent); color: #fff; box-shadow: none; font-weight: 600;
+}
+.propina-row { flex-wrap: wrap; }
+/* R8.2 · El ring (box-shadow) de los chips inactivos se recortaba porque el
+   contenedor .chips scrollea con overflow-x:auto (recorta lo que se pinta fuera
+   del área de contenido, incluido el ring superior/lateral). En la propina no
+   hace falta scroll horizontal: se desactiva el overflow y se deja aire para el
+   ring. */
+.propina-method-wrap .chips {
+  overflow: visible;
+  padding: 2px;
+}
+@media (min-width: 768px) {
+  .propina-method-wrap {
+    display: flex; align-items: center; min-width: 0;
+    border-left: 1px solid var(--border2);
+    padding-left: 12px; margin-left: 4px;
+    align-self: stretch;
+  }
+  .propina-method-wrap .propina-method-lbl { display: none; }
+}
+/* MÓVIL · R8.3: los 5 métodos caben en UN solo renglón — chips compactos, sin
+   wrap, repartidos a lo ancho. Los selectores incluyen el id
+   (#propina-method-chips / #e-propina-method-chips) para ganarle en
+   especificidad a la regla `#...-method-chips .chip { padding:6px 12px }`; sin
+   el id, ese padding de 12px recortaba "Crédito"/"Efectivo" y el texto se
+   recargaba a la derecha en vez de centrarse. */
+@media (max-width: 767px) {
+  .propina-method-wrap { flex: 0 0 100%; min-width: 0; margin-top: 2px; }
+  .propina-method-wrap #propina-method-chips,
+  .propina-method-wrap #e-propina-method-chips { flex-wrap: nowrap; gap: 5px; }
+  .propina-method-wrap #propina-method-chips .chip,
+  .propina-method-wrap #e-propina-method-chips .chip {
+    flex: 1 1 0; min-width: 0; text-align: center;
+    padding: 6px 2px; font-size: 11px;
+  }
+}
+
+/* BENEFIT TOGGLE */.t-box {
+  width: 22px; height: 22px; border-radius: 50%;
+  border: 2px solid var(--amber); flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.18s; font-size: 11px; color: white; font-weight: 700;
+}
+.t-box.on { background: var(--amber); border-color: var(--amber); }.ben-extra { display: none; }
+.ben-extra.vis { display: block; }
+
+/* SUBMIT */
+.btn-submit {
+  width: 100%; padding: 16px; background: var(--accent); color: white; border: none;
+  border-radius: var(--radius-sm); font-family: inherit;
+  font-size: 15px; font-weight: 600; letter-spacing: -0.01em;
+  cursor: pointer; transition: all 0.18s cubic-bezier(0.34,1.56,0.64,1); margin-top: 6px;
+}
+.btn-submit:active { transform: scale(0.98); background: var(--accent-dark); }
+
+/* ── Botones inline (Propina / Beneficio / Nota / Desglose) ── */
+.inline-row { display: flex; gap: 10px; }
+.inline-tgl {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 7px 14px; border-radius: 100px; border: 1.5px solid var(--border2);
+  background: var(--surface2); font-family: inherit; font-size: 13px; font-weight: 600;
+  color: var(--text2); cursor: pointer; transition: all 0.18s;
+}
+/* Estado activo (panel abierto) */
+.inline-tgl.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+/* Estado "tiene contenido" (aunque el panel esté cerrado) — indicador sutil */
+.inline-tgl.has-data:not(.on) {
+  border-color: var(--accent); color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface2));
+}
+/* En web: recargados a la izquierda, tamaño natural */
+@media (min-width: 768px) {
+  .inline-row { justify-content: flex-start; }
+  .inline-tgl { flex: 0 0 auto; }
+}
+/* En móvil: cada botón ocupa 50% del renglón */
+@media (max-width: 767px) {
+  .inline-tgl { flex: 1 1 0; }
+}
+/* R7.2 · Renglón inferior (Desglose + Recordar): se reparte el ancho completo
+   también en web — ~50% cada botón; con uno solo visible, ese toma el 100%.
+   (Va después de las media queries para ganarles en especificidad de cascada.) */
+#note-desglose-row .inline-tgl,
+#e-note-desglose-row .inline-tgl { flex: 1 1 0; }
+
+/* Presets de meses (Diferir) */
+.month-preset{
+  flex:1 1 0;min-width:50px;padding:9px 4px;border-radius:10px;border:1.5px solid var(--border2);
+  background:var(--surface);color:var(--text2);font-family:inherit;font-size:14px;font-weight:600;
+  cursor:pointer;transition:all 0.15s;text-align:center;
+}
+.month-preset.on{background:var(--accent);color:#fff;border-color:var(--accent);}
+/* R8 · El campo personalizado del 4º slot se ve idéntico a un preset. */
+.month-preset-input{
+  width:0; /* que el flex mande, como los demás presets */
+  -webkit-appearance:none; appearance:none;
+  -moz-appearance:textfield;
+}
+.month-preset-input::-webkit-outer-spin-button,
+.month-preset-input::-webkit-inner-spin-button{ -webkit-appearance:none; margin:0; }
+/* R9 · Como todos los campos editables de la app: al enfocar NO aparece anillo
+   ni contorno azul; el 4º slot conserva el aspecto de preset. */
+.month-preset-input:focus,
+.month-preset-input:focus-visible{ outline:none; box-shadow:none; }
+.month-preset-input:not(.on):focus{ border-color:var(--border2); }
+.month-preset-input::placeholder{ color:var(--text3); font-weight:600; }
+.month-preset-input.on::placeholder{ color:rgba(255,255,255,0.85); }
+
+/* ── R8.1 · Desglose · Renglón 1: en MÓVIL el Monto toma 1/4 del renglón y el
+   Nombre propio el resto; en web se conserva el 20/80 de R8. */
+.desg-amt { flex: 0 0 25%; min-width: 0; }
+.desg-owndesc { flex: 1 1 0; min-width: 0; }
+@media (min-width: 768px) {
+  .desg-amt { flex: 0 0 20%; }
+}
+
+/* ── R8.1 · Desglose: Categoría vs Subcategoría ──
+   MÓVIL (base): Categoría se ajusta al ancho de SU OPCIÓN SELECCIONADA (lo mide
+   fitDesgCatSelects en 03_desgloses y lo fija como width inline) y Subcategoría
+   absorbe TODO el resto — así "Espectáculos y conciertos" se lee completo junto
+   a un "Ocio" compacto. La regla R8 (min-width:max-content) no funcionó: un
+   <select> nativo mide su opción MÁS LARGA, no la elegida, y como la subcat sí
+   podía encogerse, el flex nunca obligaba a Categoría a ceder su 50%. */
+.desg-catrow .desg-cat {
+  flex: 0 0 auto;
+  min-width: 0;
+}
+.desg-catrow .desg-subcat {
+  flex: 1 1 0;
+  min-width: 0;             /* puede encogerse por debajo de su contenido */
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+/* ESCRITORIO: ambos exactamente 50% (fitDesgCatSelects limpia el width inline). */
+@media (min-width: 768px) {
+  .desg-catrow .desg-cat,
+  .desg-catrow .desg-subcat {
+    flex: 1 1 0; min-width: 0;
+  }
+}
+
+/* Stack para el crossfade de Diferir (renglón de 3 botones + botón completo encima) */
+.stack{ position:relative; }
+.emoji-group-lbl{font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.05em;margin:18px 4px 10px;}
+.emoji-group-lbl:first-child{margin-top:0;}
+.emoji-grid{display:grid;grid-template-columns:repeat(8,1fr);gap:2px;}
+.emoji-cell{
+  aspect-ratio:1;display:flex;align-items:center;justify-content:center;
+  font-size:23px;border:none;background:none;cursor:pointer;border-radius:12px;
+  transition:background 0.12s,transform 0.08s;padding:0;line-height:1;
+}
+.emoji-cell:hover{background:var(--surface2);}
+.emoji-cell:active{transform:scale(0.88);}
+.emoji-cell.current{background:var(--accent);}
+
+/* Overlay del selector */
+.emoji-overlay{
+  position:fixed;inset:0;z-index:250;background:rgba(0,0,0,0.4);
+  opacity:0;pointer-events:none;transition:opacity 0.25s;
+  display:flex;align-items:flex-end;justify-content:center;
+}
+.emoji-overlay.open{opacity:1;pointer-events:auto;}
+.emoji-dialog{
+  background:var(--surface);width:100%;max-height:72vh;
+  border-radius:22px 22px 0 0;display:flex;flex-direction:column;
+  transform:translateY(100%);transition:transform 0.32s cubic-bezier(0.22,0.61,0.36,1);
+  box-shadow:0 -8px 40px rgba(0,0,0,0.18);
+}
+.emoji-overlay.open .emoji-dialog{transform:translateY(0);}
+.emoji-dialog-hdr{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:18px 20px 12px;flex:0 0 auto;
+  font-size:17px;font-weight:700;color:var(--text);
+  border-bottom:1px solid var(--border2);
+}
+.emoji-close{
+  background:var(--surface2);border:none;width:30px;height:30px;border-radius:50%;
+  font-size:15px;color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:center;
+  line-height:1;transition:background 0.12s;
+}
+.emoji-close:hover{background:var(--border2);}
+.emoji-dialog-body{
+  overflow-y:auto;flex:1 1 auto;-webkit-overflow-scrolling:touch;
+  padding:16px 18px 24px;
+}
+/* En web: diálogo centrado, contenido y discreto (no ocupa todo) */
+@media(min-width:768px){
+  .emoji-overlay{align-items:center;}
+  .emoji-dialog{
+    width:440px;max-width:90vw;max-height:66vh;border-radius:20px;
+    transform:translateY(12px) scale(0.98);opacity:0;
+    transition:transform 0.28s cubic-bezier(0.22,0.61,0.36,1),opacity 0.28s;
+  }
+  .emoji-overlay.open .emoji-dialog{transform:translateY(0) scale(1);opacity:1;}
+  .emoji-grid{grid-template-columns:repeat(9,1fr);gap:3px;}
+  .emoji-cell{font-size:22px;}
+}
+.diferir-full{
+  position:absolute; inset:0; display:flex; align-items:center; justify-content:center; gap:6px;
+  padding:7px 14px; border-radius:100px; border:1.5px solid var(--accent);
+  background:var(--accent); color:#fff; font-family:inherit; font-size:13px; font-weight:600;
+  cursor:pointer; white-space:nowrap; opacity:0; pointer-events:none;
+}
+/* En web: el botón completo queda a tamaño natural, recargado a la izquierda */
+@media(min-width:768px){
+  .diferir-full{ inset:0 auto 0 0; }
+}
+
+/* BALANCE HERO */
+.bal-hero {
+  margin: 0 16px 20px; border-radius: var(--radius);
+  padding: 24px 20px; box-shadow: var(--shadow-md); transition: background 0.4s;
+  cursor: pointer; position: relative; overflow: hidden;
+}
+.bal-hero::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(135deg,rgba(255,255,255,0.08) 0%,transparent 60%);
+  pointer-events: none;
+}
+.bal-hero .lbl { font-size: 12px; font-weight: 600; letter-spacing: -0.01em; color: var(--hero-lbl, rgba(255,255,255,0.7)); margin-bottom: 6px; }
+.bal-hero .val { font-size: 40px; font-weight: 700; color: var(--hero-val, white); line-height: 1; letter-spacing: -0.03em; }
+.bal-hero .sub { font-size: 12px; color: var(--hero-sub, rgba(255,255,255,0.5)); margin-top: 6px; }
+.annual-hero-compact { padding: 18px 20px; }
+.annual-hero-compact .lbl { margin-bottom: 4px; }/* STAT GRID */
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 0 16px; margin-bottom: 20px; }
+.stat {
+  background: var(--surface); border-radius: var(--radius-sm);
+  border: none; padding: 16px; box-shadow: var(--shadow);
+  cursor: pointer; transition: all 0.18s cubic-bezier(0.34,1.56,0.64,1);
+}
+.stat:active { transform: scale(0.97); }
+.stat .lbl { font-size: 11px; font-weight: 600; letter-spacing: -0.01em; color: var(--text3); margin-bottom: 6px; }
+.stat .val { font-size: 22px; font-weight: 700; line-height: 1; letter-spacing: -0.02em; }
+.stat .val.g { color: var(--green); }
+.stat .val.r { color: var(--danger); }
+.stat .val.b { color: var(--blue); }
+.stat .val.a { color: #af52de; }
+.stat .sub { font-size: 11px; color: var(--text3); margin-top: 3px; }
+.stat.active-filter { box-shadow: 0 4px 16px rgba(0,0,0,0.15); }
+#ingreso-stat.active-filter { background: var(--green); }
+#egreso-stat.active-filter  { background: var(--danger); }
+#pasivo-stat.active-filter  { background: #af52de; }
+#bono-stat.active-filter    { background: var(--amber); }
+.stat.active-filter .lbl, .stat.active-filter .val, .stat.active-filter .sub { color: white !important; }
+
+/* EXPAND ROW VALUE COLORS *//* BONO EXPAND */.sec-lbl {
+  font-size: 12px; font-weight: 600; letter-spacing: -0.01em;
+  color: var(--text3); padding: 0 20px; margin-bottom: 10px;
+  text-transform: uppercase; font-size: 11px; letter-spacing: 0.04em;
+}
+/* R9 · Gráfica anual en barras SUPERPUESTAS (reemplaza el <canvas> de barras
+   agrupadas). Cada mes es una sola columna; las series activas se anidan una
+   dentro de otra (egresos más angostos al frente, sobre ingresos), lo que
+   permite que los 12 meses quepan cómodos hasta en móvil. */
+.annual-chart{
+  position: relative; height: 190px; display: flex; align-items: flex-end;
+  gap: 5px; padding: 0 2px;
+}
+.annual-mo{
+  flex: 1 1 0; min-width: 0; position: relative; height: 100%;
+  display: flex; align-items: flex-end; justify-content: center;
+}
+.annual-mo.sel{ outline: 2px solid var(--text); outline-offset: 1px; border-radius: 4px 4px 0 0; }
+.annual-bar{
+  position: absolute; bottom: 0; border-radius: 4px 4px 0 0;
+  transition: height 0.4s cubic-bezier(0.22,0.61,0.36,1);
+}
+.annual-xaxis{ display: flex; gap: 5px; padding: 6px 2px 0; }
+.annual-xl{
+  flex: 1 1 0; min-width: 0; text-align: center; font-size: 9.5px;
+  font-weight: 600; color: var(--text3); white-space: nowrap; overflow: hidden;
+}
+.annual-xl.sel{ color: var(--text); }
+
+/* CAT BARS */
+.cat-list { padding: 0 16px; display: flex; flex-direction: column; gap: 0; margin-bottom: 20px; }
+.cat-expand-row {
+  background: var(--surface); overflow: hidden; box-shadow: var(--shadow);
+}
+.cat-expand-row:first-child { border-radius: var(--radius-sm) var(--radius-sm) 0 0; }
+.cat-expand-row:last-child  { border-radius: 0 0 var(--radius-sm) var(--radius-sm); }
+.cat-expand-row:only-child  { border-radius: var(--radius-sm); }
+.cat-expand-row + .cat-expand-row { border-top: 0.5px solid var(--border2); }
+.cat-expand-hdr {
+  display: flex; align-items: center; gap: 10px;
+  padding: 13px 14px; cursor: pointer; transition: background 0.15s;
+}
+.cat-expand-hdr:active { background: var(--surface2); }
+.cat-expand-chevron { margin-left: auto; font-size: 11px; color: var(--text3); transition: transform 0.22s, background 0.15s; flex-shrink: 0;
+  width: 30px; height: 30px; border-radius: 50%; background: var(--surface2);
+  display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.cat-expand-chevron:hover { background: var(--surface3); color: var(--text2); }
+.cat-expand-chevron:active { transform: scale(0.9); }
+.cat-expand-row.open .cat-expand-chevron { transform: rotate(90deg); }
+.cat-expand-row.open .cat-expand-chevron:active { transform: rotate(90deg) scale(0.9); }
+.cat-expand-body { display: none; background: var(--surface2); }
+.cat-expand-row.open .cat-expand-body { display: block; }
+.subcat-line {
+  display: flex; align-items: center;
+  padding: 9px 14px 9px 18px; font-size: 13px;
+  border-bottom: 0.5px solid var(--border);
+  position: relative; overflow: hidden;
+}
+.subcat-line:last-child { border-bottom: none; }
+.subcat-line .s-name { color: var(--text2); flex: 1; text-align: left; }
+.subcat-line .s-val { font-weight: 600; color: var(--text); }
+
+/* TX LIST */
+.tx-list { padding: 0 16px; display: flex; flex-direction: column; gap: 0; margin-bottom: 24px; }
+.tx-item {
+  background: var(--surface);
+  padding: 12px 14px; display: flex; align-items: center; gap: 12px;
+  animation: fu 0.22s ease; box-shadow: var(--shadow);
+}
+.tx-item:first-child { border-radius: var(--radius-sm) var(--radius-sm) 0 0; }
+.tx-item:last-child  { border-radius: 0 0 var(--radius-sm) var(--radius-sm); }
+.tx-item:only-child  { border-radius: var(--radius-sm); }
+.tx-item + .tx-item  { border-top: 0.5px solid var(--border); }
+@keyframes fu { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:none; } }
+.tx-ico {
+  width: 36px; height: 36px; border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px; flex-shrink: 0;
+}
+.tx-ico.ingreso       { background: var(--green-light); }
+.tx-ico.egreso        { background: var(--danger-light); }
+.tx-ico.ahorro        { background: var(--blue-light); }
+.tx-ico.beneficio { background: #af52de22; }
+.tx-info { flex: 1; min-width: 0; }
+.tx-desc { font-size: 14px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: -0.01em; }
+.tx-meta { font-size: 11px; color: var(--text3); margin-top: 2px; }
+.tx-amt { font-size: 14px; font-weight: 600; flex-shrink: 0; text-align: right; letter-spacing: -0.01em; }
+.tx-amt.ingreso       { color: var(--green); }
+.tx-amt.egreso        { color: var(--danger); }
+.tx-amt.ahorro        { color: var(--blue); }
+.tx-amt.beneficio { color: #af52de; }
+
+/* AHORROS *//* FILTER BAR */
+.filter-bar { padding: 0 16px 12px; display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+.filter-bar::-webkit-scrollbar { display: none; }
+/* R9 · punto 5: la píldora de tipo (Todos/Egresos/Ingresos/Beneficios) vive
+   dentro de .filter-bar junto al botón de Método — toma el espacio disponible
+   y no hereda el margin-bottom que .calseg usa cuando va sola en su renglón. */
+#hist-filter-bar .calseg{ flex:1; min-width:0; margin-bottom:0; }
+.f-chip {
+  padding: 7px 16px; border-radius: 100px; white-space: nowrap;
+  border: none; background: var(--surface2);
+  font-size: 13px; font-weight: 500; color: var(--text2); cursor: pointer;
+  font-family: inherit; transition: all 0.18s cubic-bezier(0.34,1.56,0.64,1);
+}
+.f-chip:active { transform: scale(0.95); }
+.f-chip.active { background: var(--text); color: var(--bg); font-weight: 600; }
+
+/* EMPTY */
+.empty { text-align: center; padding: 48px 20px; color: var(--text3); font-size: 14px; }
+.empty .e-ico { font-size: 36px; margin-bottom: 12px; }
+
+/* TOAST — Banner estilo notificación nativa de iOS (baja desde arriba) */
+.toast {
+  position: fixed; top: 0; left: 50%;
+  transform: translateX(-50%) translateY(-140%);
+  background: rgba(250,250,250,0.82);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: blur(20px) saturate(180%);
+  color: var(--text);
+  width: calc(100% - 20px); max-width: 400px;
+  margin-top: 10px; padding: 12px 16px; border-radius: 24px;
+  display: flex; align-items: center; gap: 12px;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.16);
+  opacity: 0; z-index: 999; pointer-events: none;
+  transition: transform 0.5s cubic-bezier(0.22,0.9,0.3,1), opacity 0.3s ease;
+}
+.toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+.toast-ico {
+  width: 20px; height: 20px; border-radius: 6px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; color: #fff; background: var(--accent);
+}
+.toast-ico.ok { background: var(--green); }
+.toast-ico.err { background: var(--red); }
+.toast-ico.warn { background: var(--amber); }
+.toast-body { flex: 1; min-width: 0; }
+.toast-title { font-size: 14px; font-weight: 700; letter-spacing: -0.01em; line-height: 1.25; }
+.toast-sub { font-size: 13px; color: var(--text2); margin-top: 1px; line-height: 1.25; }
+.toast-sub:empty { display: none; }
+/* R7 · punto 5: el enlace del toast. Toca y te lleva al registro en el Historial.
+   OJO: .toast tiene `pointer-events: none` (para no bloquear toques al formulario
+   que queda debajo). Sin este `pointer-events: auto`, el botón se ve pero NO se
+   puede tocar — la función entera sería decorativa. */
+.toast-link {
+  flex: 0 0 auto; margin-left: 10px; padding: 6px 10px; border: none;
+  border-radius: 100px; background: var(--surface2); color: var(--accent);
+  font-family: inherit; font-size: 12px; font-weight: 700; cursor: pointer;
+  -webkit-appearance: none; appearance: none; white-space: nowrap;
+  pointer-events: auto;
+}
+.toast-link:active { transform: scale(0.94); }
+/* Circulito girando dentro del ícono del banner mientras se guarda/sincroniza */
+.toast-spinner {
+  display: block; width: 14px; height: 14px;
+  border: 2px solid rgba(255,255,255,0.35);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: toastSpin 0.8s linear infinite;
+}
+@keyframes toastSpin { to { transform: rotate(360deg); } }
+@media (prefers-color-scheme: dark) {
+  .toast { background: rgba(40,40,42,0.82); color: #fff; }
+}
+
+/* EDIT MODAL */
+.modal-overlay {
+  display: none; position: fixed; inset: 0; z-index: 200;
+  background: rgba(0,0,0,0.4);
+  backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+  align-items: flex-end;
+}
+.modal-overlay.open { display: flex; }
+.modal-sheet {
+  background: var(--surface); width: 100%; border-radius: 24px 24px 0 0;
+  max-height: 92vh; overflow-y: auto;
+  padding: 0 0 max(24px, env(safe-area-inset-bottom));
+  animation: slideUp 0.32s cubic-bezier(0.34,1.2,0.64,1);
+}
+@keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+
+/* Animación "respiración" del botón Aplicar rango */
+@keyframes applyBreathe {
+  0%,100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(0,113,227,0); }
+  50% { transform: scale(1.03); box-shadow: 0 0 0 5px rgba(0,113,227,0.22); }
+}
+#hist-apply-range-btn.breathe { animation: applyBreathe 1.6s ease-in-out infinite; }
+
+/* ═══════════ DATEPICKER PROPIO ═══════════ */
+.dp-overlay { position:fixed; inset:0; z-index:300; background:rgba(0,0,0,0.4);
+  opacity:0; pointer-events:none; transition:opacity 0.25s; display:flex; align-items:flex-end; justify-content:center; }
+.dp-overlay.open { opacity:1; pointer-events:auto; }
+.dp-dialog { background:var(--surface); width:100%; max-width:400px; border-radius:22px 22px 0 0;
+  padding:20px; transform:translateY(100%); transition:transform 0.32s cubic-bezier(0.22,0.61,0.36,1); }
+.dp-overlay.open .dp-dialog { transform:translateY(0); }
+@media (min-width:768px) {
+  .dp-overlay { align-items:center; }
+  .dp-dialog { border-radius:20px; max-width:360px; transform:translateY(12px) scale(0.98); opacity:0;
+    transition:transform 0.28s cubic-bezier(0.22,0.61,0.36,1),opacity 0.28s; }
+  .dp-overlay.open .dp-dialog { transform:translateY(0) scale(1); opacity:1; }
+}
+.dp-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; }
+.dp-nav { width:36px; height:36px; border-radius:50%; border:none; background:var(--surface2);
+  color:var(--text); font-size:16px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:background 0.15s; }
+.dp-nav:hover { background:var(--border2); }
+.dp-month-year { font-size:16px; font-weight:700; text-align:center; cursor:pointer;
+  padding:6px 12px; border-radius:8px; transition:background 0.15s; }
+.dp-month-year:hover { background:var(--surface2); }
+.dp-weekdays { display:grid; grid-template-columns:repeat(7,1fr); gap:2px; margin-bottom:6px; }
+.dp-weekday { text-align:center; font-size:11px; font-weight:700; color:var(--text3); text-transform:uppercase; padding:4px 0; }
+.dp-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:2px; justify-items:center; }
+.dp-day { width:40px; min-width:40px; max-width:40px; height:40px; min-height:40px; max-height:40px;
+  justify-self:center; align-self:center; flex:0 0 auto;
+  display:flex; align-items:center; justify-content:center; font-size:14px;
+  border:none; background:none; color:var(--text); border-radius:50%; cursor:pointer; transition:background 0.12s;
+  padding:0; margin:0; box-sizing:border-box; -webkit-appearance:none; appearance:none; }
+.dp-day:hover:not(.empty):not(.selected):not(.disabled) { background:var(--surface2); }
+.dp-day.empty { cursor:default; }
+.dp-day.today { font-weight:700; color:var(--accent); }
+.dp-day.selected { background:var(--accent); color:#fff; font-weight:600; }
+.dp-day.disabled { color:var(--text3); opacity:0.3; cursor:default; }
+.dp-footer { margin-top:16px; }
+.dp-cancel { width:100%; padding:11px; border:none; border-radius:var(--radius-sm); background:var(--surface2);
+  color:var(--text2); font-family:inherit; font-size:14px; font-weight:600; cursor:pointer; }
+.dp-presets { margin-top:16px; padding-top:16px; border-top:1px solid var(--border2); }
+.dp-preset-today { width:100%; padding:12px; border:none; border-radius:var(--radius-sm);
+  background:var(--accent); color:#fff; font-family:inherit; font-size:14px; font-weight:600; cursor:pointer; margin-bottom:10px; }
+.dp-preset-row { display:flex; gap:6px; }
+.dp-preset { flex:1; padding:10px 0; border:1px solid var(--border2); border-radius:10px;
+  background:var(--surface); color:var(--text); font-family:inherit; font-size:13px; font-weight:600;
+  cursor:pointer; transition:all 0.12s; }
+.dp-preset:hover:not(:disabled) { border-color:var(--accent); color:var(--accent); }
+.dp-preset:disabled { opacity:0.32; cursor:default; color:var(--text3); }
+.dp-my-select { display:none; }
+.dp-my-select.show { display:block; }
+.dp-cal-view.hide { display:none; }
+.dp-year-row { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
+.dp-year-label { font-size:18px; font-weight:700; }
+.dp-months-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+.dp-month-cell { padding:12px 0; text-align:center; border:none; background:var(--surface2);
+  border-radius:10px; font-size:13px; font-weight:600; color:var(--text); cursor:pointer; transition:background 0.12s; }
+.dp-month-cell:hover { background:var(--border2); }
+.dp-month-cell.current { background:var(--accent); color:#fff; }
+/* R9 · Meses sin registros: no activables (Balance y calendario del Historial) */
+.dp-month-cell.no-data{ opacity:.32; cursor:default; pointer-events:none; }
+.dp-month-cell.no-data:hover{ background:var(--surface2); }
+/* R9 · Selector de mes/año de Balance: mismo patrón visual que el calendario */
+.bal-nav{ margin: 0 16px 14px; }
+/* Campo de fecha con estilo botón (reemplaza input type=date) */
+.dp-field { display:flex; align-items:center; gap:8px; cursor:pointer; }
+.dp-field .dp-field-val.placeholder { color:var(--text3); }
+
+.modal-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 18px 20px 14px; position: sticky; top: 0;
+  background: var(--surface); border-bottom: 0.5px solid var(--border2); z-index: 1;
+}
+.modal-header h2 { font-size: 18px; font-weight: 700; letter-spacing: -0.02em; }
+.modal-close {
+  background: var(--surface2); border: none; border-radius: 50%;
+  width: 30px; height: 30px; font-size: 14px; cursor: pointer;
+  color: var(--text2); display: flex; align-items: center; justify-content: center;
+  font-weight: 600;
+}
+.modal-body { padding: 16px 14px 0; }
+.tx-item.tappable { cursor: pointer; }
+.tx-item.tappable:active { opacity: 0.6; }
+.edit-hint { font-size: 11px; color: var(--text3); text-align: right; margin-top: 2px; }
+
+/* DAY GROUP */
+.day-group-hdr {
+  font-size: 12px; font-weight: 600; letter-spacing: -0.01em;
+  color: var(--text2); padding: 20px 16px 8px;
+}
+
+/* DELETE BTN */
+.tx-delete-btn {
+  background: none; border: none; cursor: pointer;
+  color: var(--text3); font-size: 15px; padding: 4px 6px;
+  flex-shrink: 0; transition: color 0.15s; line-height: 1;
+}
+.tx-delete-btn:active { color: var(--danger); }
+
+/* SUB-FILTER */
+.sub-filter-panel {
+  margin: 0 16px 12px; padding: 14px;
+  background: var(--surface); border-radius: var(--radius-sm);
+  box-shadow: var(--shadow); display: none;
+}
+.sub-filter-panel.vis { display: block; }
+.sub-filter-title { font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text3); margin-bottom: 10px; }
+.sub-filter-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.sf-chip {
+  padding: 6px 12px; border-radius: 100px; border: none; background: var(--surface2);
+  font-family: inherit; font-size: 12px; font-weight: 500;
+  color: var(--text2); cursor: pointer;
+  transition: all 0.18s cubic-bezier(0.34,1.56,0.64,1);
+}
+.sf-chip:active { transform: scale(0.94); }
+.sf-chip.active { background: var(--accent); color: white; font-weight: 600; }
+.sf-chip.active.r { background: var(--danger); color: white; }
+/* MONTH SELECTORS */
+.month-sel-row {
+  padding: 0 16px; margin-bottom: 16px; display: flex; gap: 8px; align-items: center;
+}
+/* R9 · punto 5: el selector de mes/año de Filtros reutiliza .cal-nav (mismo
+   patrón que Balance/Calendario) pero vive DENTRO de la fila junto a Rango y
+   Recordatorios — necesita crecer para llenar el espacio entre esos dos
+   botones, y no el margen de 16px que .cal-nav usa cuando va solo. */
+#hist-date-row .cal-nav{ flex:1; min-width:0; margin:0; }
+.month-sel-row select {
+  padding: 8px 32px 8px 16px;
+  border: 1px solid var(--border2);
+  border-radius: 100px;
+  background: var(--surface);
+  color: var(--text);
+  font-family: inherit; font-size: 14px; font-weight: 500;
+  outline: none; -webkit-appearance: none; appearance: none;
+  cursor: pointer; flex: 1;
+  box-shadow: var(--shadow);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23888' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+}
+.month-sel-row select:focus {
+  border-color: var(--border2);   /* R8.5: sin anillo azul ni realce al enfocar */
+}
+.tx-note { font-size: 11px; color: var(--text3); margin-top: 2px; font-style: italic; }/* BUDGET */
+.bud-cat-row {
+  background: var(--surface); border-radius: var(--radius-sm);
+  box-shadow: var(--shadow); margin-bottom: 8px; overflow: hidden;
+}
+.bud-cat-hdr {
+  display: flex; align-items: center; gap: 10px; padding: 12px 14px;
+  cursor: pointer;
+}
+.bud-cat-body { display: none; padding: 0 14px 12px; }
+.bud-cat-row.open .bud-cat-body { display: block; }
+.bud-cat-row.open .cat-expand-chevron { transform: rotate(90deg); }
+.bud-field { margin-bottom: 10px; }
+.bud-field label { font-size: 12px; font-weight: 600; color: var(--text2); display: block; margin-bottom: 4px; }
+.bud-field input { width: 100%; padding: 9px 12px; border: none; border-radius: var(--radius-xs); background: var(--surface2); color: var(--text); font-family: inherit; font-size: 14px; outline: none; }
+.bud-field input:focus { box-shadow: none; }   /* R8.5: sin anillo al enfocar */
+.bud-progress-wrap { height: 4px; background: var(--surface2); border-radius: 100px; margin-top: 6px; overflow: hidden; }
+.bud-progress-bar { height: 100%; border-radius: 100px; transition: width 0.4s ease; }
+.bud-label-row { display: flex; justify-content: space-between; font-size: 11px; color: var(--text3); margin-top: 3px; }
+
+/* ANNUAL CHART */.annual-month-lbl { font-size: 9px; color: var(--text3); text-align: center; margin-top: 2px; }
+
+/* RELOAD BTN */
+/* R9 · El botón de recargar YA NO FLOTA sobre la pantalla: vive dentro del
+   encabezado de cada página (position:absolute respecto al header, que ya
+   es position:relative en su declaración principal más arriba), así que
+   sube con el scroll y solo se alcanza estando hasta arriba. El botón "ir
+   arriba" (.scrolltop-btn) sí sigue flotando: reposiciona con position:fixed. */
+.reload-btn {
+  /* R9 · Anclado a la orilla INFERIOR del encabezado, no a un `top` fijo.
+     Antes con top:56px la separación variaba por vista según qué tan alto
+     fuera su encabezado (Registro 34px, Balance 70px, Historial 26px).
+     Ahora las tres usan la misma distancia — la de Historial, 26px. */
+  position: absolute; bottom: 26px; right: 16px; top: auto; z-index: 5;
+  background: var(--surface2); border: none; border-radius: 50%;
+  width: 32px; height: 32px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--text2); font-size: 15px;
+  transition: transform 0.4s ease, opacity 0.15s; box-shadow: var(--shadow);
+}
+/* El de "ir arriba" recupera el anclaje al viewport */
+.scrolltop-btn { position: fixed; z-index: 150; }
+/* R9 · Historial tiene un botón extra (CSV) en el encabezado, junto al de
+   recargar — antes ambos caían en el mismo rincón (top:56;right:16) porque
+   .reload-btn es absolute. Se agrupan en flex y el recargar deja de ser
+   absoluto SOLO dentro de este grupo. */
+/* R9 · Historial tiene un botón extra (CSV) junto al de recargar. El grupo se
+   ancla a la MISMA orilla inferior (26px) que el botón absoluto de las otras
+   dos vistas, para que la altura del botón de recargar sea idéntica en las
+   tres (registro / balance / historial). */
+.hdr-btn-group{ display:flex; align-items:center; gap:8px;
+  position:absolute; bottom:26px; right:16px; margin-top:0; z-index:5; }
+.hdr-btn-group .reload-btn-inline{ position:static; bottom:auto; }
+.reload-btn:active { opacity: 0.7; }
+.reload-btn.spinning { animation: spin 0.6s linear; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* STAT ACTIVE — preserve text colors */
+.stat.active-filter { box-shadow: 0 4px 16px rgba(0,0,0,0.15) !important; }
+/* Fondo sólido del color del tipo + texto blanco */
+#ingreso-stat.active-filter { background: var(--green) !important; }
+#egreso-stat.active-filter  { background: var(--danger) !important; }
+#pasivo-stat.active-filter  { background: #af52de !important; }
+#bono-stat.active-filter    { background: var(--amber) !important; }
+/* Tarjetones de detalle anual: color por tipo al activarse */
+.annual-detail-stat.active-filter[data-view="ingreso"] { background: var(--green) !important; }
+.annual-detail-stat.active-filter[data-view="egreso"]  { background: var(--danger) !important; }
+.annual-detail-stat.active-filter[data-view="beneficio"] { background: #af52de !important; }
+.stat.active-filter .lbl,
+.stat.active-filter .val,
+.stat.active-filter .sub,
+.stat.active-filter .val.g,
+.stat.active-filter .val.r,
+.stat.active-filter .val.b,
+.stat.active-filter .val.a { color: white !important; }
+
+/* TX COLOR BAR */
+.tx-item { position: relative; overflow: hidden; }
+.tx-color-bar { position: absolute; left: 0; top: 0; bottom: 0; width: 3px; }
+
+/* CAT EXPAND COLOR BAR */
+.cat-expand-row { position: relative; overflow: hidden; }
+.cat-color-bar  { position: absolute; left: 0; top: 0; bottom: 0; width: 3px; }
+.modal-overlay {
+  display: none; position: fixed; inset: 0; z-index: 200;
+  background: rgba(0,0,0,0.45); align-items: flex-end;
+}
+.modal-overlay.open { display: flex; }
+.modal-sheet {
+  background: var(--bg); width: 100%; border-radius: 24px 24px 0 0;
+  max-height: 92vh; overflow-y: auto;
+  padding: 0 0 max(24px, env(safe-area-inset-bottom));
+  animation: slideUp 0.28s ease;
+}
+@keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+.modal-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 18px 20px 14px; position: sticky; top: 0;
+  background: var(--bg); border-bottom: 1px solid var(--border); z-index: 1;
+}
+.modal-header h2 { font-size: 18px; font-weight: 700; letter-spacing: -0.02em; }
+.modal-close {
+  background: var(--surface2); border: none; border-radius: 50%;
+  width: 30px; height: 30px; font-size: 16px; cursor: pointer;
+  color: var(--text2); display: flex; align-items: center; justify-content: center;
+}
+.modal-body { padding: 16px 14px 0; }
+.btn-delete {
+  width: 100%; padding: 14px; background: var(--danger-light); color: var(--danger);
+  border: none; border-radius: var(--radius-sm);
+  font-family: inherit; font-size: 15px; font-weight: 600;
+  cursor: pointer; margin-top: 10px; transition: all 0.15s;
+}
+.btn-delete:active { background: var(--danger-light); }
+.tx-item.tappable { cursor: pointer; transition: opacity 0.15s; }
+.tx-item.tappable:active { opacity: 0.7; }
+.edit-hint { font-size: 11px; color: var(--text3); text-align: right; margin-top: 2px; font-weight: 300; }
+.day-group-hdr {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.07em;
+  text-transform: uppercase; color: var(--text3);
+  padding: 14px 14px 6px;
+}
+.tx-delete-btn {
+  background: none; border: none; cursor: pointer;
+  color: var(--text3); font-size: 16px; padding: 4px 6px;
+  flex-shrink: 0; transition: color 0.15s; line-height: 1;
+}
+.tx-delete-btn:active { color: var(--danger); }
+.stat.active-filter { border-color: transparent; }
+
+/* ── DATE STRIP PICKER ── */
+.date-field-label {
+  display: flex; align-items: center; gap: 6px; margin-bottom: 8px;
+}
+.date-field-label label { margin-bottom: 0; }
+/* Botón del calendario junto a "Fecha" (registro y edición): mismo recuadro
+   que el botón 📅 del filtro por rango en el historial. */
+.date-cal-btn {
+  flex: 0 0 auto;
+  width: 34px; height: 30px;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 15px; padding: 0; line-height: 1;
+  color: var(--text3);
+  transition: border-color 0.15s, color 0.15s;
+}
+.date-cal-btn:hover { border-color: var(--accent); }
+.date-cal-btn:active { color: var(--accent); border-color: var(--accent); }
+.date-strip-wrap {
+  display: flex; align-items: center; gap: 0;
+}
+.date-strip-nav {
+  background: none; border: none; cursor: pointer;
+  width: 28px; height: 56px; display: flex; align-items: center;
+  justify-content: center; border-radius: var(--radius-xs);
+  color: var(--text3); font-size: 18px; flex-shrink: 0;
+  transition: background 0.15s, color 0.15s; z-index: 1;
+}
+.date-strip-nav:active { background: var(--surface3); color: var(--accent); }
+.date-strip-scroll {
+  flex: 1;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
+  position: relative;
+}
+.date-strip-scroll::-webkit-scrollbar { display: none; }
+.date-strip-inner {
+  display: flex; gap: 5px;
+  padding: 0 2px;
+  width: max-content;
+}
+.date-day-btn {
+  flex-shrink: 0;
+  width: 46px;
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 2px;
+  padding: 9px 0; border-radius: var(--radius-sm);
+  border: 1.5px solid transparent;
+  background: var(--surface2);
+  cursor: pointer; transition: background 0.15s, border-color 0.15s;
+  font-family: inherit;
+  scroll-snap-align: center;
+  -webkit-tap-highlight-color: transparent;
+}
+.date-day-btn .day-name {
+  font-size: 10px; font-weight: 600; color: var(--text3);
+  text-transform: uppercase; letter-spacing: 0.04em;
+}
+.date-day-btn .day-num {
+  font-size: 19px; font-weight: 700; color: var(--text);
+  line-height: 1;
+}
+.date-day-btn.selected {
+  background: var(--accent); border-color: var(--accent);
+}
+.date-day-btn.selected .day-name,
+.date-day-btn.selected .day-num { color: white; }
+.date-day-btn.today-marker .day-num { color: var(--accent); }
+.date-day-btn.today-marker.selected .day-num { color: white; }
+/* Mes completo debajo del número (solo web) */
+.date-day-btn .day-month {
+  font-size: 9px; font-weight: 600; color: var(--text3);
+  text-transform: uppercase; letter-spacing: 0.02em; margin-top: 1px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
+}
+.date-day-btn.selected .day-month { color: rgba(255,255,255,0.85); }
+/* Botón más ancho en modo web para acomodar día completo */
+.date-day-btn.web-mode {
+  width: 60px;
+}
+.date-day-btn.web-mode .day-name { font-size: 9px; }
+/* Modo web: el strip ocupa todo el ancho, cada botón 1/11 */
+.date-strip-inner.web-full {
+  width: 100%;
+}
+.date-strip-inner.web-full .date-day-btn.web-mode {
+  flex: 1;
+  width: auto;
+  min-width: 0;
+}
+/* Separador de mes (solo móvil) */
+.month-break {
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  writing-mode: vertical-rl; transform: rotate(180deg);
+  font-size: 9px; font-weight: 700; color: var(--accent);
+  text-transform: uppercase; letter-spacing: 0.08em;
+  padding: 0 2px; opacity: 0.7;
+}
+/* hidden native input *//* Hide number input spinners */
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+input[type=number] { -moz-appearance: textfield; appearance: textfield; }
+
+/* ── PRESETS DE BÚSQUEDA (comercios más comunes, un solo renglón) ── */
+.hist-presets {
+  display: flex; gap: 5px; margin-top: 6px;
+  /* Un solo renglón, rellenado de forma natural de izquierda a derecha: caben
+     tantos chips como quepan (el sobrante se recorta en JS). */
+  flex-wrap: nowrap; overflow: hidden; white-space: nowrap;
+  padding: 2px 2px 8px;
+  /* Separador sutil respecto a la barra de filtros (Todos/Egresos/…) */
+  border-bottom: 0.5px solid var(--border2);
+  margin-bottom: 10px;
+}
+@media (max-width: 640px) {
+  /* En móvil los chips ceden protagonismo: más pequeños y discretos */
+  .hist-presets { gap: 4px; padding-bottom: 7px; }
+  .preset-chip { padding: 4px 8px; font-size: 10.5px; }
+}
+.hist-presets:empty { display: none; }
+.preset-chip {
+  flex: 0 0 auto; padding: 5px 10px; border-radius: 100px;
+  border: 1px solid var(--border2); background: var(--surface);
+  color: var(--text2); font-family: inherit; font-size: 11.5px; font-weight: 600;
+  cursor: pointer; transition: all 0.15s; box-shadow: var(--shadow);
+  -webkit-appearance: none; appearance: none;
+}
+.preset-chip:active { transform: scale(0.96); }
+.preset-chip.active { background: var(--text); color: var(--bg); border-color: var(--text); }
+
+/* ── RECORDATORIOS INTELIGENTES ──
+   R9 Fase 3 · UNA sola cápsula. Al abrir crece su ALTURA; como el radio es
+   constante, las esquinas de abajo viajan hacia abajo y la banda central es la
+   que estira (la cápsula nunca se parte). El contenido entra cuando la forma
+   ya terminó de crecer, y el crecimiento lleva un rebote sutil. */
+.rem-cap {
+  position: relative; margin: 0 16px 14px;
+  background: var(--surface); border-radius: 24px; box-shadow: var(--shadow);
+  overflow: hidden; cursor: pointer;
+  height: 52px;                       /* alto de la tapa; JS lo ajusta al abrir */
+  transition: height 0.52s cubic-bezier(0.34,1.4,0.64,1);
+}
+/* Tapa fija: siempre visible, no cambia de alto */
+.rem-head { display: flex; align-items: center; gap: 10px; height: 52px; padding: 0 16px; }
+.rem-ico-wrap { position: relative; flex: 0 0 auto; }
+.rem-ico-circle {
+  background: var(--accent-light); color: var(--accent); border-radius: 50%;
+  width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;
+  font-size: 15px; line-height: 1;
+}
+/* Badge contador estilo iOS — solo con más de un recordatorio */
+.rem-badge {
+  position: absolute; top: -4px; right: -4px; min-width: 17px; height: 17px; padding: 0 4px;
+  background: var(--danger); color: #fff; border-radius: 100px;
+  font-size: 10.5px; font-weight: 700; line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+  border: 2px solid var(--surface); box-shadow: 0 1px 3px rgba(0,0,0,.2);
+}
+.rem-pill-txt {
+  flex: 1; min-width: 0; font-size: 13px; line-height: 1.3;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.rem-pill-main { font-weight: 600; color: var(--text); }
+.rem-pill-muted { font-weight: 500; color: var(--text3); }
+.rem-pill-chev {
+  flex: 0 0 auto; font-size: 12px; color: var(--text3);
+  width: 26px; height: 26px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  transition: transform 0.3s cubic-bezier(0.22,0.61,0.36,1);
+}
+.rem-cap.open .rem-pill-chev { transform: rotate(90deg); }
+
+/* Cuerpo: aparece cuando la cápsula ya terminó de crecer */
+.rem-panel { padding: 2px 16px 16px; opacity: 0; transition: opacity 0.18s ease; }
+.rem-cap.open .rem-panel { opacity: 1; transition: opacity 0.3s ease 0.26s; }
+
+.rem-ico { font-size: 22px; line-height: 1.2; flex: 0 0 auto; }
+.rem-body { flex: 1; min-width: 0; text-align: center; }
+.rem-title { font-size: 14px; font-weight: 700; letter-spacing: -0.01em; line-height: 1.3; }
+.rem-sub { font-size: 12.5px; color: var(--text2); margin-top: 2px; line-height: 1.35; }
+.rem-actions { margin-top: 10px; }
+.rem-actions-row { display: flex; gap: 6px; align-items: center; justify-content: center; flex-wrap: wrap; }
+.rem-actions-secondary { margin-top: 8px; }
+.rem-btn {
+  padding: 7px 12px; border-radius: 100px; border: 1px solid var(--border2);
+  background: var(--surface); color: var(--text2);
+  font-family: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer;
+  transition: all 0.15s; -webkit-appearance: none; appearance: none;
+}
+.rem-btn:active { transform: scale(0.96); }
+.rem-btn-apply { background: var(--accent); border-color: var(--accent); color: #fff; }
+.rem-btn-snooze { color: var(--text2); }
+/* Fila secundaria: acciones de descarte, discretas como texto.
+   R9 · "Esta/Este … no" en mostaza y "Ya no recordar" en rojo sutil. Los tonos
+   se declaran por tema para que ambos contrasten bien en claro y en oscuro. */
+.rem-btn-ghost {
+  background: none; border: none; padding: 2px 4px; cursor: pointer;
+  font-family: inherit; font-size: 12px; font-weight: 600; color: var(--text3);
+  -webkit-appearance: none; appearance: none;
+}
+.rem-btn-ghost:active { color: var(--text2); }
+.rem-btn-skip { color: var(--rem-mustard); }
+.rem-btn-skip:active { color: var(--rem-mustard); opacity: .7; }
+.rem-btn-mute { color: var(--rem-softred); }
+.rem-btn-mute:active { color: var(--rem-softred); opacity: .7; }
+.rem-ghost-sep { color: var(--text3); font-size: 12px; }
+
+/* Tarjeta completa dentro de la cápsula */
+.rem-full { display: flex; gap: 12px; align-items: flex-start; justify-content: center; position: relative; padding-top: 10px; }
+/* Con franjas laterales, el contenido se separa de ambas orillas para no
+   quedar debajo de ellas. */
+.rem-full.has-pager { padding-left: 40px; padding-right: 40px; }
+
+/* ── Franjas de navegación de orilla a orilla (Variante 2 aprobada) ──
+   Cada flecha ocupa una franja vertical completa pegada a su orilla: el
+   blanco táctil pasa de ~676px² a ~2000px², mucho más cómodo con el pulgar.
+   El degradado se desvanece HACIA ARRIBA con una máscara vertical, porque
+   arriba está la tapa blanca de la cápsula y sin eso se veía un corte duro
+   justo en la unión. La máscara también suaviza el borde inferior. */
+.rem-edge {
+  position: absolute; top: 0; bottom: 0; width: 38px; z-index: 2;
+  border: none; cursor: pointer; padding: 0;
+  color: var(--text3); font-size: 20px;
+  display: flex; align-items: center; justify-content: center;
+  font-family: inherit; -webkit-appearance: none; appearance: none;
+  transition: opacity 0.2s, color 0.15s;
+  -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 22px, #000 calc(100% - 10px), transparent 100%);
+          mask-image: linear-gradient(180deg, transparent 0, #000 22px, #000 calc(100% - 10px), transparent 100%);
+}
+.rem-edge-l { left: 0;  background: linear-gradient(90deg,  var(--surface2), transparent); }
+.rem-edge-r { right: 0; background: linear-gradient(270deg, var(--surface2), transparent); }
+.rem-edge:active { color: var(--text); }
+.rem-edge[disabled] { opacity: 0; pointer-events: none; }
+.rem-dots { font-size: 11px; color: var(--text3); text-align: center; margin-top: 9px; }
+
+/* R9 · Al cambiar de recordatorio solo se desvanece la información (la
+   cápsula ya está abierta y su alto congelado): sin re-desplegar ni rebotar. */
+.rem-body { transition: opacity 0.16s ease; }
+.rem-body.rem-fading { opacity: 0; }
+
+/* Escritorio: hasta 3 en vista previa; al tocar una se enfoca */
+.rem-mini-row { display: flex; gap: 10px; padding-top: 10px; }
+.rem-mini {
+  flex: 1 1 0; min-width: 0; cursor: pointer;
+  background: var(--surface2); border-radius: var(--radius-sm); padding: 11px 12px;
+  transition: box-shadow 0.15s, transform 0.15s;
+}
+.rem-mini:hover { box-shadow: var(--shadow); }
+.rem-mini:active { transform: scale(0.98); }
+.rem-mini-ico { font-size: 15px; line-height: 1; margin-bottom: 5px; }
+.rem-mini .rem-title { font-size: 12.5px; }
+.rem-mini .rem-sub {
+  font-size: 11px; display: -webkit-box; -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical; overflow: hidden;
+}
+.rem-desk-nav { display: flex; justify-content: center; align-items: center; gap: 8px; margin-top: 10px; }
+.rem-back {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: none; border: none; cursor: pointer; padding: 8px 0 4px;
+  color: var(--accent); font-family: inherit; font-size: 12.5px; font-weight: 600;
+  -webkit-appearance: none; appearance: none;
+}
+
+/* Panel de configuración del recordatorio manual */
+.rem-cfg-row { display: flex; gap: 8px; }
+.rem-cfg-hint { font-size: 12px; color: var(--text3); margin-top: 6px; }
+.rem-cfg-hint:empty { display: none; }
+
+/* ── R7.2 · Recordatorio: un renglón, dos columnas con separador vertical ── */
+.rem-two-cols { display: flex; gap: 12px; align-items: stretch; padding-right: 14px; }
+.rem-col { flex: 1 1 0; min-width: 0; }
+.rem-col-sep { flex: 0 0 auto; width: 1px; background: var(--border2); align-self: stretch; }
+.rem-col-title { font-size: 12px; font-weight: 600; color: var(--text3); margin-bottom: 6px; }
+.rem-col .rem-cfg-row { gap: 6px; }
+/* Chips de ancho FIJO: los dos chips de cada columna se reparten el ancho por
+   igual, así el texto del chip de fecha (dd/mm/aaaa) nunca lo redimensiona. */
+.rem-chip {
+  flex: 1 1 0; min-width: 0; text-align: center;
+  font-size: 12px; padding: 6px 4px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  /* R8: fondo propio para que se lean como chips inactivos (el panel es
+     surface2, así que sin esto se fundían y parecían texto plano). El estado
+     activo lo pinta .chip.active (fondo accent). */
+  background: var(--surface);
+  box-shadow: 0 0 0 1px var(--border2);
+}
+.rem-chip.active { box-shadow: none; }
+/* R8.3 · WEB: en la columna Fecha límite, AMBOS chips llenan el renglón al
+   50/50 igual que la columna Frecuencia (no encogidos a su contenido, como
+   quedaron en R8.2). El chip de fecha muestra "17 de agosto de 2026" completo;
+   como la columna de escritorio es ancha, cabe en su mitad — se le quita el
+   ellipsis para que no lo corte. */
+@media (min-width: 768px) {
+  #rem-until-date, #e-rem-until-date,
+  #rem-until-inf, #e-rem-until-inf { flex: 1 1 0; min-width: 0; }
+  #rem-until-date, #e-rem-until-date { overflow: visible; text-overflow: clip; }
+}
+/* R8.2 · MÓVIL: MISMA estructura que web — dos columnas lado a lado
+   (Frecuencia | Fecha límite) con separador vertical. Dentro de cada columna
+   los dos chips se reparten el 50% del ancho de ESA columna, todos con el mismo
+   tamaño; se compactan (menos padding y fuente) para que quepan sin cortarse.
+   El ellipsis del chip garantiza que un texto largo no lo ensanche. */
+@media (max-width: 767px) {
+  .rem-two-cols { gap: 8px; padding-right: 0; }
+  .rem-col { min-width: 0; }
+  .rem-col .rem-cfg-row { gap: 5px; }
+  .rem-col .rem-cfg-row .rem-chip {
+    flex: 1 1 0; min-width: 0;
+    font-size: 11px; padding: 6px 3px;
+  }
+}
+
+/* ── Representación de recordatorios ── */
+.tx-rem-ico { font-size: 10px; margin-left: 5px; opacity: 0.55; vertical-align: 1px; }
+.e-rem-box {
+  margin: 14px 0; padding: 12px 14px;
+  background: var(--surface2); border-radius: var(--radius-sm);
+  font-size: 13px; color: var(--text2); line-height: 1.5;
+}
+.e-rem-title { font-weight: 700; color: var(--text); font-size: 13px; margin-bottom: 2px; }
+.e-rem-link {
+  background: none; border: none; padding: 0; margin-top: 8px; cursor: pointer;
+  color: var(--accent); font-family: inherit; font-size: 12.5px; font-weight: 600;
+  -webkit-appearance: none; appearance: none; display: block;
+}
+
+/* ── Vista de campanita (🔔): encabezados de sección ── */
+.bell-sec-hdr {
+  font-size: 12px; font-weight: 700; color: var(--text2);
+  text-transform: uppercase; letter-spacing: 0.05em;
+  margin: 18px 16px 8px; display: flex; align-items: center; gap: 6px;
+}
+.bell-sec-hdr .bell-sec-count { font-weight: 600; color: var(--text3); text-transform: none; letter-spacing: 0; }
+
+/* ── Copiar registro ── */
+.btn-copy {
+  width: 100%; margin-top: 10px; padding: 13px;
+  border: 1px solid var(--accent); border-radius: var(--radius-sm);
+  background: var(--surface); color: var(--accent);
+  font-family: inherit; font-size: 14.5px; font-weight: 700; cursor: pointer;
+  -webkit-appearance: none; appearance: none;
+}
+.btn-copy:active { transform: scale(0.98); }
+
+/* ── Botón "ir arriba": inferior DERECHA, flotando ENCIMA de la barra de
+   navegación fija. R9 · separado un poco más de la barra para que, al crecer
+   30% medio segundo después de dejar de hacer scroll, no quede encima de ella.
+   Solo visible dentro de Historial. ── */
+.scrolltop-btn {
+  top: auto; left: auto; right: 16px;
+  /* R9 · La cápsula flotante mide ~67px de alto en reposo (antes la barra
+     sólida medía ~58px) y además flota separada del borde (18px), no pegada
+     como la barra vieja. Se recalcula la separación con margen para que,
+     al crecer 30% medio segundo después de dejar de hacer scroll, el botón
+     nunca quede encima de la cápsula. */
+  bottom: max(104px, calc(92px + env(safe-area-inset-bottom, 0px)));
+  opacity: 0; pointer-events: none; transform: translateY(8px);
+  transform-origin: center center;
+  transition: opacity 0.2s, transform 0.25s ease, bottom 0.3s ease;
+}
+.scrolltop-btn.vis { opacity: 1; pointer-events: auto; transform: translateY(0); }
+/* Al detenerse el scroll (clase añadida por JS a los 350ms, antes que la
+   cápsula) el círculo crece 30% para ofrecer un blanco más fácil de tocar.
+   R9 · Usa LA MISMA curva con rebote que la cápsula de navegación
+   (cubic-bezier(0.34,1.4,0.64,1)), para que ambos gestos se sientan del
+   mismo material aunque ocurran en momentos distintos. */
+.scrolltop-btn.vis.rested {
+  transform: translateY(0) scale(1.3);
+  transition: transform 0.34s cubic-bezier(0.34,1.4,0.64,1), opacity 0.2s;
+}
+
+/* ── Tarjeta de recordatorio: layout móvil en 3 renglones (web intacta) ── */
+@media (max-width: 640px) {
+  #rem-card .rem-mini-row { flex-direction: column; }
+  #rem-card .rem-actions-row { flex-wrap: wrap; }
+  #rem-card .rem-btn-apply { flex: 1 1 100%; text-align: center; }
+  #rem-card .rem-btn-snooze { flex: 1 1 0; text-align: center; }
+  #rem-card .rem-actions-secondary { display: flex; }
+  #rem-card .rem-btn-ghost { flex: 1 1 0; text-align: center; }
+  #rem-card .rem-ghost-sep { display: none; }
+}
+
+/* ── Tipo de cambio manual (solo en moneda extranjera) ── */
+/* R7 · TIPO DE CAMBIO
+   Sin etiqueta y sin "Vacío = usar el automático". El TC automático es el
+   PLACEHOLDER del campo ("$ 1 = $12.60"), con el símbolo de la moneda elegida.
+   El "MXN" vive afuera, discreto: todo convierte a pesos, siempre.
+   .fx-hint solo aparece cuando NO hay TC automático disponible. */
+.fx-row {
+  display: flex; align-items: center; gap: 7px; margin-top: 8px; flex-wrap: wrap;
+}
+.fx-row input {
+  width: 92px; padding: 5px 9px; border: 1px solid var(--border2);
+  border-radius: var(--radius-sm); background: var(--surface); color: var(--text);
+  font-family: inherit; font-size: 12px; outline: none;
+  -webkit-appearance: none; appearance: none;
+}
+.fx-row input::placeholder { color: var(--text3); }
+.fx-row input:focus { border-color: var(--border2); }   /* R8.5: sin realce al enfocar */
+.fx-unit { font-size: 11.5px; color: var(--text3); font-weight: 600; flex: 0 0 auto; }
+/* R9 · Conversión a MXN en el extremo derecho del mismo renglón del TC.
+   Mismo tamaño que el placeholder del campo, pero en negritas. */
+.fx-mxn { margin-left: auto; font-size: 12px; font-weight: 700; color: var(--text);
+  flex: 0 0 auto; white-space: nowrap; letter-spacing: -0.01em; }
+
+/* R9 · Aire alrededor de la barra de método: menos hacia las tarjetas (arriba)
+   y más hacia la tabla que le sigue (abajo). El .grid2 aporta 20px de
+   margin-bottom, así que se recorta con margen negativo para dejar ~8px
+   arriba y 18px abajo. */
+#bal-method-row:not(:empty) { margin: -12px 0 18px; }
+
+/* R9 · Detalle del bono ocupando el hueco de la tarjeta de Beneficios
+   (solo cuando no hay beneficios en el mes). Mismo lenguaje que .stat. */
+.bono-slot { cursor: default; }
+.bono-slot:active { transform: none; }
+.bono-slot-line {
+  display: flex; justify-content: space-between; align-items: baseline;
+  font-size: 12.5px; color: var(--text2); padding: 2px 0;
+}
+.bono-slot-line.total {
+  margin-top: 4px; padding-top: 5px;
+  border-top: 1px solid var(--border2); color: var(--text);
+}
+.fx-hint { flex-basis: 100%; font-size: 11.5px; color: var(--text3); line-height: 1.35; margin-top: 2px; }
+.fx-revert {
+  display: block; margin-top: 6px; padding: 0; background: none; border: none;
+  color: var(--accent); font-family: inherit; font-size: 12px; font-weight: 600;
+  cursor: pointer; -webkit-appearance: none; appearance: none;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   R9 · HISTORIAL — Vista Calendario y toggle Calendario/Filtros
+   ══════════════════════════════════════════════════════════════════ */
+
+/* Segmented control reutilizable con número de opciones variable (2 y 4).
+   NO toca .seg-control (fijo a 3 opciones) del formulario de registro. */
+.calseg{ position:relative; display:flex; background:var(--surface2); border-radius:12px;
+  padding:3px; isolation:isolate; margin-bottom:14px; }
+.calseg-thumb{ position:absolute; top:3px; bottom:3px; left:3px; background:var(--surface);
+  border-radius:9px; box-shadow:0 2px 6px rgba(0,0,0,0.14), 0 1px 2px rgba(0,0,0,0.10);
+  transition:transform 0.32s cubic-bezier(0.32,0.72,0,1), background 0.25s ease; z-index:-1; }
+.calseg-2 .calseg-thumb{ width:calc((100% - 6px)/2); }
+.calseg-4 .calseg-thumb{ width:calc((100% - 6px)/4); }
+.calseg-2[data-active="filters"]   .calseg-thumb{ transform:translateX(100%); }
+.calseg-2[data-active="annual"]    .calseg-thumb{ transform:translateX(100%); }
+.calseg-4[data-active="egreso"]    .calseg-thumb{ transform:translateX(100%); }
+.calseg-4[data-active="ingreso"]   .calseg-thumb{ transform:translateX(200%); }
+.calseg-4[data-active="beneficio"] .calseg-thumb{ transform:translateX(300%); }
+.calseg-option{ flex:1; padding:9px 4px; border:none; background:transparent; cursor:pointer;
+  font-family:inherit; font-size:13.5px; font-weight:600; letter-spacing:-0.01em; color:var(--text3);
+  transition:color 0.25s ease; z-index:1; white-space:nowrap; -webkit-tap-highlight-color:transparent; }
+.calseg-option.active{ color:var(--text); }
+/* Tema del thumb del selector de tipo según el tipo activo (igual que .seg-control) */
+.calseg-4[data-active="egreso"]    .calseg-thumb{ background:var(--danger-light); }
+.calseg-4[data-active="egreso"]    .calseg-option.active{ color:var(--danger); }
+.calseg-4[data-active="ingreso"]   .calseg-thumb{ background:var(--green-light); }
+.calseg-4[data-active="ingreso"]   .calseg-option.active{ color:var(--green); }
+.calseg-4[data-active="beneficio"] .calseg-thumb{ background:#af52de22; }
+.calseg-4[data-active="beneficio"] .calseg-option.active{ color:#af52de; }
+@media (max-width: 400px){ .calseg-option{ font-size:12px; padding:9px 2px; } }
+
+/* Alternancia de vistas */
+#page-historial.cal-mode #hist-filters-view{ display:none; }
+#page-historial.filters-mode #hist-calendar-view{ display:none; }
+
+/* Bloque contenedor del calendario (mismo lenguaje que las tarjetas) */
+.cal-block{ margin:0 16px 14px; background:var(--surface); border-radius:var(--radius);
+  box-shadow:var(--shadow); padding:12px 8px 10px; }
+
+/* Navegación del mes */
+.cal-nav{ position:relative; display:flex; align-items:center; justify-content:space-between;
+  padding:0 4px; margin-bottom:10px; }
+.cal-arrow{ width:34px; height:34px; border:none; background:none; color:var(--text2);
+  border-radius:10px; font-size:19px; line-height:1; cursor:pointer; display:flex; align-items:center;
+  justify-content:center; transition:background .15s, color .15s; flex-shrink:0; }
+.cal-arrow:hover{ color:var(--text); background:var(--surface2); }
+.cal-arrow:active{ background:var(--surface3); }
+/* R9 · punto 6: cuando ya no hay más mes/año con datos en esa dirección, la
+   flecha se ve tenue y deja de responder — sin cambiar cómo navegan las demás. */
+.cal-arrow:disabled{ opacity:.32; pointer-events:none; }
+.cal-arrow:disabled:hover{ background:none; }
+.cal-arrow.sm{ width:30px; height:30px; font-size:15px; }
+.cal-arrow-d{ display:none; } /* flechas laterales: solo escritorio */
+.cal-title{ flex:1; display:flex; align-items:center; justify-content:center; gap:5px;
+  background:none; border:none; cursor:pointer; font-family:inherit; font-size:17px; font-weight:700;
+  color:var(--text); letter-spacing:-0.02em; padding:6px; }
+.cal-title-caret{ font-size:9px; color:var(--text3); transition:transform .25s cubic-bezier(0.22,0.61,0.36,1); }
+.cal-title.open .cal-title-caret{ transform:rotate(180deg); }
+
+/* Selector mes/año (no parece dropdown; se comporta como uno al abrir) */
+.cal-my-pop{ position:absolute; top:44px; left:50%; z-index:30;
+  width:min(320px, calc(100vw - 64px));
+  background:var(--surface); border-radius:var(--radius); box-shadow:var(--shadow-md); padding:14px;
+  opacity:0; pointer-events:none; transform:translateX(-50%) translateY(-8px);
+  transition:opacity .2s ease, transform .25s cubic-bezier(0.22,0.61,0.36,1); }
+.cal-my-pop.open{ opacity:1; pointer-events:auto; transform:translateX(-50%) translateY(0); }
+.cal-my-yearrow{ display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
+
+/* Grilla del calendario — móvil: rejilla 7x6 compacta, sin recuadro por celda */
+.cal-body{ display:flex; align-items:stretch; }
+.cal-grid{ flex:1; min-width:0; }
+.cal-dow-row{ display:grid; grid-template-columns:repeat(7,1fr); margin-bottom:2px; }
+.cal-dow{ text-align:center; font-size:10.5px; font-weight:700; color:var(--text3); text-transform:uppercase; }
+.cal-cells{ display:grid; grid-template-columns:repeat(7,1fr); gap:1px; }
+.cal-cell{ display:flex; flex-direction:column; align-items:center; justify-content:flex-start;
+  gap:0; padding:3px 0 4px; background:none; border-radius:8px; min-width:0; overflow:hidden; }
+.cal-cell.empty{ background:none; }
+.cal-cell.no-amt .cal-num{ opacity:.35; }
+.cal-cell.cal-clickable{ cursor:pointer; transition:background .15s, transform .1s; }
+.cal-cell.cal-clickable:hover{ background:var(--surface2); }
+.cal-cell.cal-clickable:active{ transform:scale(0.93); }
+.cal-num{ font-size:13px; font-weight:600; color:var(--text); line-height:1.15; flex-shrink:0;
+  width:21px; height:21px; display:flex; align-items:center; justify-content:center; border-radius:50%; }
+.cal-cell.today .cal-num{ color:#fff; background:var(--accent); }
+/* Día seleccionado: círculo en color distinto al de hoy */
+.cal-cell.cal-sel .cal-num{ color:var(--bg); background:var(--text); }
+.cal-amt{ font-size:9px; font-weight:700; line-height:1.1; margin-top:1px; white-space:nowrap;
+  letter-spacing:-0.03em; max-width:100%; }
+
+/* Toggle de tipo: mismo margen lateral que el listado, y opciones sin datos inertes */
+#cal-type-seg{ margin:0 16px 14px; }
+.calseg-option[disabled]{ opacity:.32; cursor:default; pointer-events:none; }
+
+/* ── Escritorio: tira horizontal de un solo renglón con flechas a los extremos ── */
+@media (min-width: 700px){
+  .cal-block{ padding:14px 10px 12px; }
+  .cal-arrow-m{ display:none; }        /* las flechas bajan a los extremos de la tira */
+  .cal-arrow-d{ display:flex; }
+  .cal-nav{ justify-content:center; margin-bottom:8px; }
+  .cal-title{ flex:0 0 auto; }
+  .cal-body{ align-items:center; gap:2px; }
+  .cal-dow-row{ display:none; }        /* sin encabezado de días de la semana */
+  .cal-cells{ display:flex; gap:1px; }
+  .cal-cells .cal-cell.empty{ display:none; }  /* sin huecos de alineación semanal */
+  .cal-cell{ flex:1 1 0; min-width:0; padding:4px 0 5px; }
+  .cal-num{ font-size:12.5px; width:20px; height:20px; }
+  .cal-amt{ font-size:9px; margin-top:2px; }
+}
+@media (min-width: 1000px){
+  .cal-num{ font-size:13.5px; width:22px; height:22px; }
+  .cal-amt{ font-size:10px; }
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   R9 · BALANCE — Treemap y control de la tabla (Fase 2)
+   ══════════════════════════════════════════════════════════════════ */
+
+/* Indicador de activación en la tabla (●/○/◐) */
+.tm-toggle-dot{ font-size:12px; color:var(--text3); width:13px; text-align:center;
+  flex-shrink:0; margin-left:-4px; line-height:1; }
+.tm-toggle-dot.sub{ font-size:11px; }
+.cat-expand-row.tm-off .cat-expand-hdr{ opacity:.42; }
+.subcat-line.tm-off{ opacity:.42; }
+.subcat-line{ cursor:pointer; }
+
+/* Contenedor del treemap (debajo de la tabla, dentro de la tarjeta de detalle) */
+#bal-treemap-wrap{ padding:0 16px; margin:-8px 0 24px; }
+.tm-canvas{ position:relative; width:100%; height:300px; border-radius:var(--radius-sm);
+  overflow:hidden; background:var(--surface2); }
+@media (min-width:560px){ .tm-canvas{ height:360px; } }
+
+.tm-cell{ position:absolute; border-radius:9px; overflow:hidden; }
+.tm-cell.tm-clickable{ cursor:pointer; }
+.tm-cell.tm-clickable:hover{ filter:brightness(1.06); }
+.tm-inner{ width:100%; height:100%; display:flex; flex-direction:column; align-items:center;
+  justify-content:center; gap:5px; padding:6px; box-sizing:border-box; }
+/* R9 · punto 1: rectángulo más ancho que alto — emoji a la izquierda, subcategoría
+   y monto a la derecha en dos líneas. flex-direction:row + align-items:center ya
+   centra el conjunto y alinea el emoji verticalmente contra las dos líneas. */
+.tm-inner.tm-wide{ flex-direction:row; }
+.tm-inner.tm-wide .tm-text{ display:flex; flex-direction:column; align-items:flex-start; justify-content:center; }
+/* Punto 1 (corrección): en vertical el -4px acerca sub/monto a propósito, pero
+   en el layout apaisado quedaban demasiado pegados — aquí se separan un poco
+   sin tocar el caso vertical (selector más específico gana sobre el general). */
+.tm-inner.tm-wide .tm-text .tm-sub + .tm-amt{ margin-top:1px; }
+.tm-emoji{ font-size:14px; line-height:1; white-space:nowrap; }
+.tm-emoji-big{ font-size:19px; }
+.tm-sub{ font-size:10px; font-weight:500; line-height:1.15; white-space:nowrap; opacity:.9; }
+/* El monto va junto a su subcategoría; el aire de 5px separa el emoji del texto. */
+.tm-sub + .tm-amt{ margin-top:-4px; }
+.tm-amt{ font-size:11.5px; font-weight:700; line-height:1.15; white-space:nowrap; letter-spacing:-0.02em; }
+.tm-empty{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+  color:var(--text3); font-size:13px; }
+
+/* Tooltip (subcategoría y monto con estilos tipográficos distintos) */
+.tm-tooltip{ position:absolute; z-index:20; background:var(--surface); border-radius:var(--radius-sm);
+  box-shadow:var(--shadow-md); padding:10px 13px; min-width:118px; max-width:210px; cursor:pointer; }
+.tm-tt-top{ display:flex; align-items:center; gap:6px; font-size:11.5px; color:var(--text2); margin-bottom:5px; }
+.tm-tt-cat{ font-weight:600; }
+.tm-tt-sub{ font-size:13px; font-weight:500; color:var(--text); margin-bottom:3px; }
+.tm-tt-amt{ font-size:17px; font-weight:800; color:var(--text); letter-spacing:-0.02em; }
