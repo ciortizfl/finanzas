@@ -269,9 +269,10 @@ function renderBalanceTreemap(){
         const ab=_tmAbbrev(l.amt);
         if(ab){ inner.innerHTML=`<div class="tm-emoji">${l.emoji}</div><div class="tm-amt">${ab}</div>`; tier=3; }
         if(!ab || !_tmFits(inner)){
-          // Nivel 4: solo emoji
+          // Nivel 4: solo emoji — 2px menos de padding le da más oportunidad de caber
+          cell.classList.add('tm-tight');
           inner.innerHTML=`<div class="tm-emoji tm-emoji-big">${l.emoji}</div>`; tier=4;
-          if(!_tmFits(inner)){ inner.innerHTML=''; tier=5; } // Nivel 5: solo color
+          if(!_tmFits(inner)){ cell.classList.remove('tm-tight'); inner.innerHTML=''; tier=5; } // Nivel 5: solo color
         }
       }
       }
