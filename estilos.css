@@ -1245,12 +1245,17 @@ nav.shrunk .nav-lbl{ opacity: 0; }
   transition: background 0.15s, color 0.15s; z-index: 1;
 }
 .date-strip-nav:active { background: var(--surface3); color: var(--accent); }
-/* Corrección: en móvil la barra se estira 10px de cada lado (fuera del
-   padding normal de la tarjeta) para que un poco de los recuadros de fecha
-   de los extremos asome — pista visual de que hay más para hacer scroll.
-   En escritorio no se toca nada. */
+/* Corrección: en móvil, exactamente 5 recuadros completos visibles (la
+   actual al centro), SIN mostrar recuadros parciales en los extremos —
+   ancho fijo = 5 celdas de 46px + 4 espacios de 5px = 250px. El centrado de
+   la fecha actual lo sigue haciendo el JS existente (sin tocar), que mide el
+   ancho real del contenedor — al quedar fijo en 250px, el resultado es
+   siempre 2 antes + la actual + 2 después. En escritorio no se toca nada.
+   .date-strip-scroll{flex:1} más abajo sigue rigiendo el caso web. */
 @media (max-width: 699px) {
-  #date-field-wrap, #e-date-field-wrap { margin-left: -10px; margin-right: -10px; }
+  #date-field-wrap .date-strip-scroll, #e-date-field-wrap .date-strip-scroll {
+    flex: 0 0 250px; width: 250px;
+  }
 }
 .date-strip-scroll {
   flex: 1;
