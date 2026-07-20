@@ -569,15 +569,24 @@ function renderStrip(stripId, centerDate){
     strip.appendChild(btn);
   }
 
-  // Centrar el botón seleccionado (solo móvil; en web el strip ya llena el ancho)
+  // Posicionar el botón seleccionado (solo móvil; en web el strip ya llena el ancho)
   if(selectedBtn && mobile){
     requestAnimationFrame(()=>{
-      const btnLeft   = selectedBtn.offsetLeft;
-      const btnWidth  = selectedBtn.offsetWidth;
-      const scrollW   = scroll.offsetWidth;
-      scroll.scrollLeft = btnLeft - scrollW/2 + btnWidth/2;
+      scroll.scrollLeft = _stripScrollLeft(selectedBtn, scroll);
     });
   }
+}
+
+// Posición de scroll para el día seleccionado dentro de la tira (solo móvil).
+// Con N celdas visibles ocupa el índice floor(N/2): con 5 cae en el centro
+// exacto (2 antes, 2 después) y con 6 cae en el bloque inmediatamente a la
+// derecha del centro (3 antes, 2 después) — con conteo par no existe un
+// "centro" real, así que se elige ese bloque a propósito.
+function _stripScrollLeft(selectedBtn, scroll){
+  const step = selectedBtn.offsetWidth +
+    (parseFloat(getComputedStyle(selectedBtn.parentElement).gap) || 0);
+  const visible = Math.max(1, Math.round(scroll.clientWidth / step));
+  return selectedBtn.offsetLeft - Math.floor(visible/2) * step;
 }
 
 function selectStripDate(stripId, iso){
@@ -602,10 +611,7 @@ function selectStripDate(stripId, iso){
   const selectedBtn = strip.querySelector('.date-day-btn.selected');
   const scroll = document.getElementById(stripId + '-scroll');
   if(selectedBtn && scroll){
-    const btnLeft  = selectedBtn.offsetLeft;
-    const btnWidth = selectedBtn.offsetWidth;
-    const scrollW  = scroll.offsetWidth;
-    scroll.scrollTo({ left: btnLeft - scrollW/2 + btnWidth/2, behavior: 'smooth' });
+    scroll.scrollTo({ left: _stripScrollLeft(selectedBtn, scroll), behavior: 'smooth' });
   }
 }
 

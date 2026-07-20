@@ -1268,10 +1268,17 @@ nav.shrunk .nav-lbl{ opacity: 0; }
    (no se tocó). En escritorio no se toca nada (clases .web-mode/.web-full
    aparte, fuera de este @media). */
 @media (max-width: 699px) {
-  #date-field-wrap .date-day-btn, #e-date-field-wrap .date-day-btn { width: 40px; }
+  /* 6 celdas de 38px + 5 espacios de 5px = 253px. El ícono y las flechas
+     encogen un poco para que el renglón completo (~348px) quepa con margen.
+     La POSICIÓN del día actual la calcula _stripScrollLeft() en
+     07_datepicker_fechas.js a partir de cuántas celdas caben: con 6 queda en
+     el bloque justo a la derecha del centro → 3 previos, actual, 2 futuros. */
+  #date-field-wrap .date-day-btn, #e-date-field-wrap .date-day-btn { width: 38px; }
+  #date-field-wrap .date-cal-btn, #e-date-field-wrap .date-cal-btn { width: 42px; }
+  #date-field-wrap .date-strip-nav, #e-date-field-wrap .date-strip-nav { width: 24px; }
   #date-field-wrap .date-strip-inner, #e-date-field-wrap .date-strip-inner { padding: 0; }
   #date-field-wrap .date-strip-scroll, #e-date-field-wrap .date-strip-scroll {
-    flex: 0 0 220px; width: 220px;
+    flex: 0 0 253px; width: 253px;
   }
   /* El grupo [‹ barra ›] tiene ancho fijo, así que todo el espacio sobrante se
      iba al final (la barra quedaba recargada a la izquierda). Con estos auto
@@ -1281,6 +1288,15 @@ nav.shrunk .nav-lbl{ opacity: 0; }
   #e-date-field-wrap .date-strip-divider + .date-strip-nav { margin-left: auto; }
   #date-field-wrap .date-strip-scroll + .date-strip-nav,
   #e-date-field-wrap .date-strip-scroll + .date-strip-nav { margin-right: auto; }
+}
+/* Pantallas muy angostas (iPhone SE y similares): 6 celdas no caben, se
+   vuelve a 5 — y como _stripScrollLeft() deduce la posición del número de
+   celdas visibles, el día actual regresa solo al centro exacto. */
+@media (max-width: 379px) {
+  #date-field-wrap .date-day-btn, #e-date-field-wrap .date-day-btn { width: 40px; }
+  #date-field-wrap .date-strip-scroll, #e-date-field-wrap .date-strip-scroll {
+    flex: 0 0 220px; width: 220px;
+  }
 }
 .date-strip-scroll {
   flex: 1;
