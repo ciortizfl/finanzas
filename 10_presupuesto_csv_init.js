@@ -351,6 +351,23 @@ function _navAnchorWidth(){
   if(wasShrunk) cap.classList.add('shrunk');
 }
 
+// R9 · punto 2 — fija el ANCHO de cada botón del nav (medido sin .shrunk),
+// para que el ícono quede centrado en una caja que nunca cambia de ancho. Sin
+// esto, aunque el padding horizontal no cambiara en CSS, cualquier diferencia
+// de medición entre estados podía volver a introducir una deriva mínima.
+function _navBtnWidths(){
+  const cap=document.getElementById('navCapsule');
+  if(!cap) return;
+  const wasShrunk=cap.classList.contains('shrunk');
+  if(wasShrunk) cap.classList.remove('shrunk');
+  cap.querySelectorAll('.nav-btn').forEach(btn=>{
+    btn.style.width='';                         // remedir desde cero (por si cambió el idioma/label)
+    const w=btn.getBoundingClientRect().width;
+    btn.style.width=Math.ceil(w)+'px';
+  });
+  if(wasShrunk) cap.classList.add('shrunk');
+}
+
 // R9 · El encabezado sticky CAMBIA DE ALTURA al encogerse, y eso a su vez
 // cambia la altura del documento — con un umbral único (ej. 26px) se producía
 // un bucle: encoge → el documento se acorta → el scroll cae bajo el umbral →
@@ -391,6 +408,6 @@ function updateHeaderShrink(){
     updateHeaderShrink();
   }, {passive:true});
   // Al arrancar, mide el ancla y dispara el estado inicial (arriba del todo).
-  requestAnimationFrame(()=>{ _navAnchorWidth(); updateHeaderShrink(); });
-  window.addEventListener('resize', ()=>{ requestAnimationFrame(_navAnchorWidth); });
+  requestAnimationFrame(()=>{ _navBtnWidths(); _navAnchorWidth(); updateHeaderShrink(); });
+  window.addEventListener('resize', ()=>{ requestAnimationFrame(()=>{ _navBtnWidths(); _navAnchorWidth(); }); });
 })();

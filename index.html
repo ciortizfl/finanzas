@@ -280,9 +280,12 @@
   <div class="page-header">
     <h1>Balance</h1>
     <p>Resumen mensual</p>
-    <div style="display:flex;gap:6px;margin-top:10px;">
-      <button id="bal-view-monthly" onclick="setBalPeriod('monthly',this)" style="padding:6px 16px;border-radius:100px;border:none;background:var(--accent);color:white;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;">Mensual</button>
-      <button id="bal-view-annual" onclick="setBalPeriod('annual',this)" style="padding:6px 16px;border-radius:100px;border:none;background:var(--surface2);color:var(--text2);font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;">Anual</button>
+    <div style="display:flex;gap:6px;margin-top:10px;align-items:center;">
+      <div class="calseg calseg-2" id="bal-period-seg" data-active="monthly" style="flex:1;margin-bottom:0;">
+        <div class="calseg-thumb"></div>
+        <button class="calseg-option active" id="bal-view-monthly" data-t="monthly" onclick="setBalPeriod('monthly',this)">Mensual</button>
+        <button class="calseg-option" id="bal-view-annual" data-t="annual" onclick="setBalPeriod('annual',this)">Anual</button>
+      </div>
     <button class="reload-btn" onclick="forceReload(event)" title="Recargar datos">↻</button>
     </div>
   </div>
@@ -484,9 +487,24 @@
   <div id="hist-search-anchor-original"></div>
   <!-- Month/year selectors (hidden in search mode) -->
   <div id="hist-date-row" class="month-sel-row">
-    <select id="hist-month-sel" onchange="renderHistorial(true)"></select>
-    <select id="hist-year-sel" onchange="renderHistorial(true)"></select>
+    <select id="hist-month-sel" onchange="renderHistorial(true)" style="display:none"></select>
+    <select id="hist-year-sel" onchange="renderHistorial(true)" style="display:none"></select>
     <button type="button" id="hist-range-toggle" onclick="toggleDateRange()" title="Filtrar por rango de fechas" style="flex:0 0 auto;width:38px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface);color:var(--text3);font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;">📅</button>
+    <div class="cal-nav" id="hist-nav">
+      <button type="button" class="cal-arrow hist-arrow-prev" id="hist-arrow-prev" onclick="histGoMonth(-1)" aria-label="Mes anterior">‹</button>
+      <button type="button" class="cal-title" id="hist-title" onclick="toggleHistMonthYear()">
+        <span id="hist-title-text">Julio 2026</span><span class="cal-title-caret">▾</span>
+      </button>
+      <button type="button" class="cal-arrow hist-arrow-next" id="hist-arrow-next" onclick="histGoMonth(1)" aria-label="Mes siguiente">›</button>
+      <div class="cal-my-pop" id="hist-my-pop">
+        <div class="cal-my-yearrow">
+          <button type="button" class="cal-arrow sm" onclick="histMYYear(-1)">‹</button>
+          <span class="dp-year-label" id="hist-my-year">2026</span>
+          <button type="button" class="cal-arrow sm" onclick="histMYYear(1)">›</button>
+        </div>
+        <div class="dp-months-grid" id="hist-my-months"></div>
+      </div>
+    </div>
     <button type="button" id="hist-bell-toggle" onclick="toggleBellFilter()" title="Registros con recordatorio manual" style="flex:0 0 auto;width:38px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface);color:var(--text3);font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;">🔔</button>
   </div>
   <!-- Fila del modo campanita: leyenda a la izquierda, regresar (↩︎, mismo botón
@@ -519,11 +537,13 @@
   <!-- Ancla donde reaparece el buscador tras aplicar un rango -->
   <div id="hist-search-anchor-range"></div>
   <div class="filter-bar" id="hist-filter-bar">
-    <button class="f-chip active" id="fchip-todos" onclick="setFilter('todos',this)">Todos</button>
-    <button class="f-chip" id="fchip-egreso" onclick="setFilter('egreso',this)">Egresos</button>
-    <button class="f-chip" id="fchip-ingreso" onclick="setFilter('ingreso',this)">Ingresos</button>
-    <button class="f-chip" onclick="setFilter('ahorro',this)" style="display:none">Ahorro activo</button>
-    <button class="f-chip" id="fchip-beneficio" onclick="setFilter('beneficio',this)">Beneficios</button>
+    <div class="calseg calseg-4" id="hist-type-seg" data-active="todos">
+      <div class="calseg-thumb"></div>
+      <button class="calseg-option active" id="fchip-todos" data-t="todos" onclick="setFilter('todos',this)">Todos</button>
+      <button class="calseg-option" id="fchip-egreso" data-t="egreso" onclick="setFilter('egreso',this)">Egresos</button>
+      <button class="calseg-option" id="fchip-ingreso" data-t="ingreso" onclick="setFilter('ingreso',this)">Ingresos</button>
+      <button class="calseg-option" id="fchip-beneficio" data-t="beneficio" onclick="setFilter('beneficio',this)">Beneficios</button>
+    </div>
     <button id="method-filter-toggle-btn" onclick="toggleMethodFilters()" style="display:flex;align-items:center;gap:4px;padding:6px 12px;border-radius:100px;border:1.5px solid var(--border2);background:var(--surface2);font-family:inherit;font-size:12px;font-weight:600;color:var(--text2);cursor:pointer;white-space:nowrap;">
       <span id="method-filter-indicator" style="width:7px;height:7px;border-radius:50%;background:var(--border2);flex-shrink:0;transition:background 0.2s;"></span>
       Método <span id="method-filter-arrow" style="font-size:10px;transition:transform 0.2s;display:inline-block;">▸</span>

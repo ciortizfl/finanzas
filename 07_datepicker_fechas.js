@@ -309,9 +309,7 @@ function resetHistFiltersToTodos(){
   histSelCats=[];
   histSelSubcats=[];
   histMethodFilter=null;
-  document.querySelectorAll('.filter-bar .f-chip').forEach(c=>c.classList.remove('active'));
-  const todosChip=document.getElementById('fchip-todos');
-  if(todosChip) todosChip.classList.add('active');
+  if(typeof _histSyncFilterSeg==='function') _histSyncFilterSeg();
   const subPanel=document.getElementById('sub-filter-panel');
   if(subPanel) subPanel.classList.remove('vis');
   // Cerrar el panel de método de pago y restablecer su indicador

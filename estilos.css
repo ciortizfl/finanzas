@@ -75,7 +75,21 @@ html, body {
    3) la etiqueta colapsa por ALTO (grid-template-rows), nunca por ancho —
       así el ícono no viaja de más al contraerse/expandirse.
    4) padding/ícono/etiqueta comparten LA MISMA curva con rebote — sin eso
-      se ve "primero crece, luego se mueve", el bug que Carlos reportó. */
+      se ve "primero crece, luego se mueve", el bug que Carlos reportó.
+   5) R9 · punto 2 (19-jul, ajuste de fondo): lo anterior reducía la deriva
+      horizontal pero no la eliminaba — cada botón seguía cambiando de ANCHO
+      (por su padding horizontal y el tamaño del ícono), y ese cambio se
+      acumulaba de botón en botón dentro del flex row, corriendo cada ícono
+      unos px hacia la izquierda al comprimir (y de vuelta al expandir).
+      Encima, nav.shrunk aplicaba transform:scale() a TODA la cápsula, lo que
+      además desplazaba los botones de los extremos hacia el centro. Ahora:
+      cada .nav-btn tiene un ANCHO FIJO por JS (_navBtnWidths, en
+      10_presupuesto_csv_init.js, medido sin .shrunk) y su padding HORIZONTAL
+      nunca cambia; el padding horizontal de la propia cápsula tampoco cambia.
+      Solo cambian: el padding VERTICAL (cápsula y botón), el tamaño del
+      ícono y el alto de la etiqueta — nada de eso mueve nada en el eje X,
+      porque ícono y etiqueta quedan centrados dentro de una caja de ancho
+      constante. Ya no hay transform:scale() al comprimir/expandir. */
 .nav-outer{
   position: fixed; left: 50%; bottom: max(18px, calc(6px + env(safe-area-inset-bottom)));
   transform: translateX(-50%); z-index: 100;
@@ -90,32 +104,35 @@ nav{
   border: 0.5px solid var(--border2); border-radius: 100px;
   box-shadow: 0 6px 24px rgba(0,0,0,0.14), 0 1px 3px rgba(0,0,0,0.08);
   padding: 7px 8px;
-  transition: padding 0.34s cubic-bezier(0.34,1.4,0.64,1), transform 0.34s cubic-bezier(0.34,1.4,0.64,1);
+  transition: padding 0.34s cubic-bezier(0.34,1.4,0.64,1);
 }
 @media (prefers-color-scheme: dark) {
   nav{ background: rgba(38,38,41,0.72);
     box-shadow: 0 6px 26px rgba(0,0,0,0.6), 0 0 0 0.5px rgba(255,255,255,0.07); }
 }
-nav.shrunk{ padding: 4px 6px; transform: scale(0.92); }
-/* Rebote al cambiar de sección */
+/* Solo el padding VERTICAL encoge (8px horizontal se mantiene siempre). */
+nav.shrunk{ padding: 4px 8px; }
+/* Rebote al cambiar de sección — una sola variante: ya no hay transform:scale
+   persistente en .shrunk del que "rebotar", así que el mismo keyframe sirve
+   para ambos estados (arranca y termina en scale:1 de cualquier forma). */
 nav.nav-bounce{ animation: navBounce 0.5s cubic-bezier(0.34,1.4,0.64,1); }
 @keyframes navBounce{
   0%{ transform: scale(1); } 35%{ transform: scale(1.08); }
   70%{ transform: scale(0.975); } 100%{ transform: scale(1); }
 }
-nav.shrunk.nav-bounce{ animation: navBounceShrunk 0.5s cubic-bezier(0.34,1.4,0.64,1); }
-@keyframes navBounceShrunk{
-  0%{ transform: scale(0.92); } 35%{ transform: scale(0.99); }
-  70%{ transform: scale(0.9); } 100%{ transform: scale(0.92); }
-}
 .nav-btn {
   display: flex; flex-direction: column; align-items: center; gap: 2px;
+  flex-shrink: 0;
   background: none; border: none; cursor: pointer; color: var(--text3);
   font-family: inherit; font-size: 10px; font-weight: 500;
   letter-spacing: -0.01em; padding: 7px 14px; border-radius: 100px;
   transition: color 0.2s, padding 0.34s cubic-bezier(0.34,1.4,0.64,1);
 }
-nav.shrunk .nav-btn{ padding: 5px 11px; }
+/* Su ancho lo fija _navBtnWidths() por JS (medido sin .shrunk) — por eso el
+   padding horizontal de aquí abajo se mantiene IGUAL que arriba (14px): solo
+   cambia el vertical, y aun si no hubiera JS el layout ya no depende de esto
+   para mantenerse centrado. */
+nav.shrunk .nav-btn{ padding: 5px 14px; }
 .nav-btn.active { color: var(--accent); }
 .nav-btn svg { width: 24px; height: 24px; stroke-width: 1.5;
   transition: width 0.34s cubic-bezier(0.34,1.4,0.64,1), height 0.34s cubic-bezier(0.34,1.4,0.64,1); }
@@ -812,6 +829,10 @@ nav.shrunk .nav-lbl{ opacity: 0; }
 /* AHORROS *//* FILTER BAR */
 .filter-bar { padding: 0 16px 12px; display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
 .filter-bar::-webkit-scrollbar { display: none; }
+/* R9 · punto 5: la píldora de tipo (Todos/Egresos/Ingresos/Beneficios) vive
+   dentro de .filter-bar junto al botón de Método — toma el espacio disponible
+   y no hereda el margin-bottom que .calseg usa cuando va sola en su renglón. */
+#hist-filter-bar .calseg{ flex:1; min-width:0; margin-bottom:0; }
 .f-chip {
   padding: 7px 16px; border-radius: 100px; white-space: nowrap;
   border: none; background: var(--surface2);
@@ -1016,8 +1037,13 @@ nav.shrunk .nav-lbl{ opacity: 0; }
 .sf-chip.active.r { background: var(--danger); color: white; }
 /* MONTH SELECTORS */
 .month-sel-row {
-  padding: 0 16px; margin-bottom: 16px; display: flex; gap: 8px;
+  padding: 0 16px; margin-bottom: 16px; display: flex; gap: 8px; align-items: center;
 }
+/* R9 · punto 5: el selector de mes/año de Filtros reutiliza .cal-nav (mismo
+   patrón que Balance/Calendario) pero vive DENTRO de la fila junto a Rango y
+   Recordatorios — necesita crecer para llenar el espacio entre esos dos
+   botones, y no el margen de 16px que .cal-nav usa cuando va solo. */
+#hist-date-row .cal-nav{ flex:1; min-width:0; margin:0; }
 .month-sel-row select {
   padding: 8px 32px 8px 16px;
   border: 1px solid var(--border2);
@@ -1617,6 +1643,7 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
 .calseg-2 .calseg-thumb{ width:calc((100% - 6px)/2); }
 .calseg-4 .calseg-thumb{ width:calc((100% - 6px)/4); }
 .calseg-2[data-active="filters"]   .calseg-thumb{ transform:translateX(100%); }
+.calseg-2[data-active="annual"]    .calseg-thumb{ transform:translateX(100%); }
 .calseg-4[data-active="egreso"]    .calseg-thumb{ transform:translateX(100%); }
 .calseg-4[data-active="ingreso"]   .calseg-thumb{ transform:translateX(200%); }
 .calseg-4[data-active="beneficio"] .calseg-thumb{ transform:translateX(300%); }
@@ -1743,6 +1770,10 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
    centra el conjunto y alinea el emoji verticalmente contra las dos líneas. */
 .tm-inner.tm-wide{ flex-direction:row; }
 .tm-inner.tm-wide .tm-text{ display:flex; flex-direction:column; align-items:flex-start; justify-content:center; }
+/* Punto 1 (corrección): en vertical el -4px acerca sub/monto a propósito, pero
+   en el layout apaisado quedaban demasiado pegados — aquí se separan un poco
+   sin tocar el caso vertical (selector más específico gana sobre el general). */
+.tm-inner.tm-wide .tm-text .tm-sub + .tm-amt{ margin-top:1px; }
 .tm-emoji{ font-size:14px; line-height:1; white-space:nowrap; }
 .tm-emoji-big{ font-size:19px; }
 .tm-sub{ font-size:10px; font-weight:500; line-height:1.15; white-space:nowrap; opacity:.9; }

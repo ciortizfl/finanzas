@@ -429,12 +429,13 @@ function setBalPeriod(period){
   balPeriod=period;
   document.getElementById('bal-monthly-view').style.display=period==='monthly'?'block':'none';
   document.getElementById('bal-annual-view').style.display=period==='annual'?'block':'none';
-  const btnM=document.getElementById('bal-view-monthly');
-  const btnA=document.getElementById('bal-view-annual');
-  btnM.style.background=period==='monthly'?'var(--accent)':'var(--surface2)';
-  btnM.style.color=period==='monthly'?'white':'var(--text2)';
-  btnA.style.background=period==='annual'?'var(--accent)':'var(--surface2)';
-  btnA.style.color=period==='annual'?'white':'var(--text2)';
+  const seg=document.getElementById('bal-period-seg');
+  if(seg){
+    seg.dataset.active=period;
+    seg.querySelectorAll('.calseg-option').forEach(b=>{
+      b.classList.toggle('active', b.dataset.t===period);
+    });
+  }
   // R9 · El subtítulo del encabezado refleja la vista activa.
   const sub=document.querySelector('#page-balance .page-header p');
   if(sub) sub.textContent = period==='annual' ? 'Resumen anual' : 'Resumen mensual';

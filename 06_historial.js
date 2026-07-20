@@ -131,8 +131,7 @@ function setBellMode(on){
   const ma=document.getElementById('method-filter-arrow'); if(ma) ma.style.transform='';
   // Estado limpio en ambas direcciones; al salir, además, se limpia la búsqueda
   histFilter='todos'; histSelCats=[]; histSelSubcats=[]; histMethodFilter=null;
-  document.querySelectorAll('.filter-bar .f-chip').forEach(ch=>ch.classList.remove('active'));
-  document.getElementById('fchip-todos')?.classList.add('active');
+  _histSyncFilterSeg();
   if(!on){
     const s=document.getElementById('hist-search'); if(s) s.value='';
   }
@@ -327,9 +326,7 @@ function renderSearchPresets(){
       } else {
         s.value=name;                      // activar: escribe por ti y arranca en Todos
         histFilter='todos'; histSelCats=[]; histSelSubcats=[];
-        document.querySelectorAll('.filter-bar .f-chip').forEach(c=>c.classList.remove('active'));
-        const todosChip=document.getElementById('fchip-todos');
-        if(todosChip) todosChip.classList.add('active');
+        _histSyncFilterSeg();
         const subPanel=document.getElementById('sub-filter-panel');
         if(subPanel) subPanel.classList.remove('vis');
       }
@@ -424,9 +421,7 @@ function entriesInCurrentDateScope(type){
 function onHistSearchInput(){
   if(histRangeMode && histRangeApplied){
     histFilter='todos'; histSelCats=[]; histSelSubcats=[];
-    document.querySelectorAll('.filter-bar .f-chip').forEach(c=>c.classList.remove('active'));
-    const todosChip=document.getElementById('fchip-todos');
-    if(todosChip) todosChip.classList.add('active');
+    _histSyncFilterSeg();
     const subPanel=document.getElementById('sub-filter-panel');
     if(subPanel) subPanel.classList.remove('vis');
   }
@@ -437,8 +432,7 @@ function onHistSearchInput(){
 function setFilter(f,el){
   histFilter=f;
   histSelCats=[]; histSelSubcats=[];
-  document.querySelectorAll('.f-chip').forEach(c=>c.classList.remove('active'));
-  el.classList.add('active');
+  _histSyncFilterSeg();
 
   const rangeActive = histRangeMode && histRangeApplied;
   const searchEl=document.getElementById('hist-search');
@@ -457,6 +451,128 @@ function setFilter(f,el){
   updateResetButton();
   renderHistorial();
 }
+
+// R9 · punto 5: la píldora de tipo (Todos/Egresos/Ingresos/Beneficios) tiene un
+// solo indicador (mismo patrón que _calSyncTypeSeg). Reemplaza la manipulación
+// dispersa de clases .f-chip/.active que vivía repetida en varios puntos.
+function _histSyncFilterSeg(){
+  const seg=document.getElementById('hist-type-seg');
+  if(!seg) return;
+  seg.dataset.active=histFilter;
+  seg.querySelectorAll('.calseg-option').forEach(b=>{
+    b.classList.toggle('active', b.dataset.t===histFilter);
+  });
+}
+
+// R9 · punto 5: la píldora de mes/año de Filtros (mismo patrón que
+// Calendario/Balance). Los <select> ocultos siguen siendo la fuente de
+// verdad — todo lo que ya los leía (mSel.value/ySel.value en
+// _renderHistorialCore, updateTypeChips, etc.) sigue funcionando igual.
+function histGoMonth(delta){
+  const mSel=document.getElementById('hist-month-sel');
+  const ySel=document.getElementById('hist-year-sel');
+  if(!mSel||!ySel) return;
+  let m=parseInt(mSel.value), y=parseInt(ySel.value);
+  m+=delta;
+  if(m<0){ m=11; y--; } else if(m>11){ m=0; y++; }
+  mSel.value=String(m);
+  if(!Array.from(ySel.options).some(o=>parseInt(o.value)===y)){
+    const o=document.createElement('option'); o.value=String(y); o.textContent=String(y); ySel.appendChild(o);
+  }
+  ySel.value=String(y);
+  renderHistorial(true);
+}
+
+function _histSyncTitle(){
+  const mSel=document.getElementById('hist-month-sel');
+  const ySel=document.getElementById('hist-year-sel');
+  const t=document.getElementById('hist-title-text');
+  if(t && mSel && ySel && mSel.value!=='' && ySel.value!=='') t.textContent=`${MONTHS_ES[parseInt(mSel.value)]} ${ySel.value}`;
+}
+
+// ¿Hay algún mes CON datos en esa dirección? Misma lógica de solo lectura que
+// _balHasMonthDir/_calHasMonthDir (ver 05_balance_vistas.js/06b_calendario.js).
+function _histHasMonthDir(delta){
+  const mSel=document.getElementById('hist-month-sel');
+  const ySel=document.getElementById('hist-year-sel');
+  if(!mSel||!ySel) return false;
+  let m=parseInt(mSel.value), y=parseInt(ySel.value);
+  for(let i=0;i<24;i++){
+    m+=delta;
+    if(m<0){ m=11; y--; } else if(m>11){ m=0; y++; }
+    if(typeof balMonthHasData==='function' && balMonthHasData(y,m)) return true;
+  }
+  return false;
+}
+function _histSyncArrows(){
+  const prev=document.getElementById('hist-arrow-prev');
+  const next=document.getElementById('hist-arrow-next');
+  if(prev) prev.disabled=!_histHasMonthDir(-1);
+  if(next) next.disabled=!_histHasMonthDir(1);
+}
+
+let _histMYOpen=false, _histMYyear=null;
+function toggleHistMonthYear(){
+  const pop=document.getElementById('hist-my-pop');
+  if(!pop) return;
+  _histMYOpen=!_histMYOpen;
+  const lbl=document.getElementById('hist-title');
+  if(lbl) lbl.classList.toggle('open', _histMYOpen);
+  if(_histMYOpen){
+    const ySel=document.getElementById('hist-year-sel');
+    _histMYyear = ySel&&ySel.value!=='' ? parseInt(ySel.value) : new Date().getFullYear();
+    _histRenderMonthYear();
+    pop.classList.add('open');
+  } else {
+    pop.classList.remove('open');
+  }
+}
+function histMYYear(delta){ _histMYyear=(_histMYyear===null?new Date().getFullYear():_histMYyear)+delta; _histRenderMonthYear(); }
+
+function _histRenderMonthYear(){
+  const mSel=document.getElementById('hist-month-sel');
+  const ySel=document.getElementById('hist-year-sel');
+  const curMonth=mSel&&mSel.value!==''?parseInt(mSel.value):new Date().getMonth();
+  const curYear=ySel&&ySel.value!==''?parseInt(ySel.value):new Date().getFullYear();
+  if(_histMYyear===null) _histMYyear=curYear;
+  const yl=document.getElementById('hist-my-year'); if(yl) yl.textContent=_histMYyear;
+  const g=document.getElementById('hist-my-months'); if(!g) return;
+  g.innerHTML='';
+  const short=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  short.forEach((m,i)=>{
+    const b=document.createElement('button'); b.type='button';
+    const hasData=(typeof balMonthHasData==='function') ? balMonthHasData(_histMYyear,i) : true;
+    b.className='dp-month-cell'+(i===curMonth && _histMYyear===curYear?' current':'');
+    b.textContent=m;
+    b.disabled=!hasData;
+    if(!hasData) b.classList.add('no-data');
+    b.onclick=()=>{
+      if(!hasData) return;
+      if(mSel) mSel.value=String(i);
+      if(ySel){
+        if(!Array.from(ySel.options).some(o=>parseInt(o.value)===_histMYyear)){
+          const o=document.createElement('option'); o.value=String(_histMYyear); o.textContent=String(_histMYyear); ySel.appendChild(o);
+        }
+        ySel.value=String(_histMYyear);
+      }
+      _histMYOpen=false;
+      const pop=document.getElementById('hist-my-pop'); if(pop) pop.classList.remove('open');
+      const lbl=document.getElementById('hist-title'); if(lbl) lbl.classList.remove('open');
+      renderHistorial(true);
+    };
+    g.appendChild(b);
+  });
+}
+// Cerrar el selector al tocar fuera (mismo patrón que Balance/Calendario)
+document.addEventListener('click',(e)=>{
+  if(!_histMYOpen) return;
+  const pop=document.getElementById('hist-my-pop');
+  const title=document.getElementById('hist-title');
+  if(pop && (pop.contains(e.target) || (title&&title.contains(e.target)))) return;
+  _histMYOpen=false;
+  if(pop) pop.classList.remove('open');
+  if(title) title.classList.remove('open');
+}, true);
 
 // Muestra el botón "Limpiar filtros" solo cuando hay algún filtro activo
 function updateResetButton(){
@@ -765,11 +881,9 @@ function updateTypeChips(selMonth, selYear, isSearchMode){
     const chip=document.getElementById(id);
     if(!chip) return;
     // Los chips siempre reflejan qué tipos existen en el universo actual
-    // (mes, rango o resultados de búsqueda).
-    const on = enabled;
-    chip.disabled = !on;
-    chip.style.opacity = on ? '1' : '0.38';
-    chip.style.pointerEvents = on ? '' : 'none';
+    // (mes, rango o resultados de búsqueda). La opacidad tenue la resuelve
+    // .calseg-option[disabled] en CSS.
+    chip.disabled = !enabled;
   };
 
   setChip('fchip-todos', anyRecords);
@@ -787,9 +901,7 @@ function updateTypeChips(selMonth, selYear, isSearchMode){
     if(!stillHasData){
       histFilter='todos';
       histSelCats=[]; histSelSubcats=[];
-      document.querySelectorAll('.filter-bar .f-chip').forEach(c=>c.classList.remove('active'));
-      const todosChip=document.getElementById('fchip-todos');
-      if(todosChip) todosChip.classList.add('active');
+      _histSyncFilterSeg();
       const panel=document.getElementById('sub-filter-panel');
       if(panel) panel.classList.remove('vis');
     }
@@ -850,6 +962,7 @@ function _renderHistorialCore(animate){
   const ySel=document.getElementById('hist-year-sel');
   const selMonth=mSel?parseInt(mSel.value):new Date().getMonth();
   const selYear=ySel?parseInt(ySel.value):new Date().getFullYear();
+  try{ _histSyncTitle(); _histSyncArrows(); }catch(e){}
 
   // ¿Estamos en modo rango aplicado? Entonces búsqueda + rango son el filtro BASE,
   // y los chips de tipo/categoría refinan encima (comportamiento combinado).
@@ -1190,10 +1303,9 @@ function txEl(e, showDelete){
         if(_t.pct!=null){
           metaParts.push(`Propina del ${_t.pct}% ${_est}`);
         } else {
-          // Monto fijo: el propio importe del hijo es la propina (e.amount);
-          // _t.amt solo existe en notas legacy donde no hay hijo separado.
-          const _montoProp = e.amount!=null ? e.amount : _t.amt;
-          metaParts.push(_montoProp!=null ? `Propina de ${_fmt(_montoProp)} ${_est}` : `Propina ${_est}`);
+          // Corrección: monto fijo ya NO muestra el monto en el tagline —
+          // solo "Propina incluida"/"Propina adicional".
+          metaParts.push(`Propina ${_est}`);
         }
       } else {
         metaParts.push('Propina');   // legacy sin meta interpretable
