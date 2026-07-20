@@ -74,6 +74,21 @@ function _calApplyViewClass(){
   page.classList.toggle('filters-mode', histViewMode==='filters');
   const segCal=document.getElementById('hist-view-seg');
   if(segCal) segCal.dataset.active=histViewMode;
+  // BUG CORREGIDO (punto 10): _calAnimateIn/_calAnimateOut (las usa switchHistView
+  // para la transición) dejan un style.display INLINE en #hist-calendar-view /
+  // #hist-filters-view que esta función no tocaba. Si el usuario se iba de
+  // Historial (goNav a Registro/Balance) mientras el calendario estaba oculto por
+  // ese inline (p. ej. habiendo pasado por Filtros) y volvía, initCalendar()
+  // reaplicaba la clase .cal-mode correctamente, pero el inline display:none
+  // seguía ganándole a la regla CSS — el calendario quedaba invisible aunque el
+  // estado ya decía "calendario" (arreglable solo cambiando manualmente a Filtros
+  // y de vuelta, porque switchHistView('calendar') sí limpia el inline vía
+  // _calAnimateIn). Se limpia aquí para que la clase CSS sea la única fuente de
+  // verdad fuera de una transición animada en curso.
+  const cal=document.getElementById('hist-calendar-view');
+  const flt=document.getElementById('hist-filters-view');
+  if(cal) cal.style.display='';
+  if(flt) flt.style.display='';
 }
 
 // Refleja calMonth/calYear/calType en el estado que lee renderHistorial():
@@ -183,6 +198,25 @@ function calMonthHasData(y, m){
   });
 }
 
+// R9 · Punto 6 — ¿hay algún mes CON datos en esa dirección? Búsqueda de solo
+// lectura (no navega), mismo alcance de 24 meses que su equivalente en Balance.
+function _calHasMonthDir(delta){
+  let m=calMonth, y=calYear;
+  for(let i=0;i<24;i++){
+    m+=delta;
+    if(m<0){ m=11; y--; } else if(m>11){ m=0; y++; }
+    if(calMonthHasData(y,m)) return true;
+  }
+  return false;
+}
+// No cambia el funcionamiento de calGoMonth: solo refleja visualmente (y, al
+// quedar `disabled`, deja de responder al toque) cuándo ya no hay a dónde ir.
+function _calSyncArrows(){
+  const hasPrev=_calHasMonthDir(-1), hasNext=_calHasMonthDir(1);
+  document.querySelectorAll('.cal-arrow-prev').forEach(b=>{ b.disabled=!hasPrev; });
+  document.querySelectorAll('.cal-arrow-next').forEach(b=>{ b.disabled=!hasNext; });
+}
+
 function _calRenderMonthYear(){
   if(_calMYyear===null) _calMYyear=calYear;
   const yl=document.getElementById('cal-my-year'); if(yl) yl.textContent=_calMYyear;
@@ -245,6 +279,7 @@ function _calSyncTypeSeg(){
 function renderCalendar(){
   const titleEl=document.getElementById('cal-title-text');
   if(titleEl) titleEl.textContent=`${MONTHS_ES[calMonth]} ${calYear}`;
+  _calSyncArrows();
 
   const grid=document.getElementById('cal-grid');
   if(!grid) return;

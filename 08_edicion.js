@@ -241,10 +241,16 @@ function openEdit(id) {
   const hasEditDesgloses = editDesgloses.length>0;
 
   // --- Método de pago ---
+  // BUG CORREGIDO: comparaba contra el textContent del chip, pero desde que
+  // "Bono de despensa" ganó los spans .mth-full/.mth-short (ambos viven en el
+  // DOM a la vez, la media query solo oculta uno visualmente), su textContent
+  // real es la concatenación de los dos ("Bono de despensaBono") y nunca
+  // coincidía con el mapa — ese chip jamás quedaba preseleccionado al editar.
+  // Ahora se compara contra data-method (mismo patrón que Registro), que es
+  // estable sin importar cómo se muestre el texto.
   document.getElementById('e-method-field').style.display = e.type==='beneficio'?'none':'block';
   document.querySelectorAll('#e-chips .chip').forEach(c=>{
-    const map={'Tarjeta de crédito':'Crédito','Efectivo':'Efectivo','Bono de despensa':'Bono despensa','SPEI':'SPEI','Débito':'Débito'};
-    c.classList.toggle('active', c.textContent.trim()===(map[e.method]||e.method||'Crédito'));
+    c.classList.toggle('active', c.dataset.method===(e.method||'Tarjeta de crédito'));
   });
 
   // --- Categoría ---

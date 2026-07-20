@@ -270,6 +270,21 @@ function _submitEntry(){
   const _dErr = (typeof firstIncompleteDesglose==='function') ? firstIncompleteDesglose(desgloses, curType) : null;
   if(_dErr) return toast(_dErr);
 
+  // R9 · punto 4: snapshot de TODO lo capturado, tomado ANTES de tocar nada.
+  // Si el guardado no sincroniza, esto es lo que "Reintentar" usa para reabrir
+  // el formulario exactamente como estaba (no depende del registro ya guardado,
+  // que vive con montos ya restados). Solo cubre el flujo NO diferido.
+  const _retrySnap = (curType==='egreso' && diferirHasData()) ? null : {
+    type:curType, amount:document.getElementById('amount').value, desc,
+    currency:cur, date, note, category:curCat, subcategory:subcat, method:selMethod,
+    desgloses: JSON.parse(JSON.stringify(desgloses)),
+    beneficios: JSON.parse(JSON.stringify(beneficios)),
+    propinaOn, propinaType, propinaIncluida,
+    propinaPct: document.getElementById('propina-pct')?.value||'',
+    propinaMonto: document.getElementById('propina-monto')?.value||'',
+    propinaMethod: (typeof getPropinaMethod==='function') ? getPropinaMethod() : null
+  };
+
   // ── DIFERIR: si está activo, crear N registros mensuales vinculados ──
   if(curType==='egreso' && diferirHasData()){
     return submitDeferredEntry({amount, desc, cur, date, note, subcat});
@@ -418,10 +433,24 @@ function _submitEntry(){
   desgloseEntries.forEach(de=>saves.push(saveEntryToSheets(de)));
   // R2: el "✓ guardado" solo sale si la nube CONFIRMÓ la escritura. Si falló,
   // el registro sigue a salvo en el teléfono, pero se dice la verdad.
+  // R9 · punto 4: si ESTE guardado es en realidad un reintento (reemplaza a un
+  // registro fantasma anterior), limpiarlo del teléfono solo cuando la nube SÍ
+  // confirmó — así nunca se pierde el único respaldo que existía.
+  const _cleanupAfterThis = _pendingRetryCleanup;
+  _pendingRetryCleanup = null;
+  const _childIdsForRetry = [
+    ...benEntries.map(be=>be.id),
+    ...(propinaEntry?[propinaEntry.id]:[]),
+    ...desgloseEntries.map(de=>de.id)
+  ];
   Promise.all(saves).then(results=>{
     hideSyncing();
-    if(_allOk(results)) toast('✓ Registro guardado', {gotoId:entry.id});
-    else toastSyncFailed('Guardado', entry.id);
+    if(_allOk(results)){
+      toast('✓ Registro guardado', {gotoId:entry.id});
+      if(_cleanupAfterThis) removeUnsyncedGhost(_cleanupAfterThis.oldId, _cleanupAfterThis.oldChildIds);
+    } else {
+      toastSyncFailed('Guardado', entry.id, _retrySnap ? ()=>retryUnsyncedEntry(entry.id, _retrySnap, _childIdsForRetry) : null);
+    }
   });
 
   // Si el usuario activó 🔔 Recordar, crear la regla del recordatorio manual
@@ -532,6 +561,8 @@ function showSyncing(msg) {
   // (ej. "✓ Registro guardado"), showSyncing no lo tocaba y quedaba pegado
   // encima del spinner, incluso en mensajes secuenciales.
   if(linkEl){ linkEl.style.display='none'; linkEl.onclick=null; }
+  const retryEl=document.getElementById('toast-retry');
+  if(retryEl){ retryEl.style.display='none'; retryEl.onclick=null; }
   // Cancelar cualquier auto-ocultado programado por toast(): el spinner debe
   // quedarse hasta que la operación termine.
   if(typeof _toastTimer!=='undefined') clearTimeout(_toastTimer);
@@ -627,8 +658,101 @@ function _allOk(results){
 // pendientes, así que la recarga no los borra.)
 // R7 · aunque la nube haya fallado, el registro SÍ existe en el teléfono: el
 // enlace es válido y sigue llevando a él.
-function toastSyncFailed(accion, gotoId){
-  toast(`⚠️ ${accion} en el teléfono, pero no se sincronizó`, gotoId!=null?{gotoId}:undefined);
+// R9 · punto 4: dura más en pantalla y, si hay retryFn, ofrece "Reintentar".
+function toastSyncFailed(accion, gotoId, retryFn){
+  const opts={ ms:8000 };
+  if(gotoId!=null) opts.gotoId=gotoId;
+  if(typeof retryFn==='function') opts.onRetry=retryFn;
+  toast(`⚠️ ${accion} en el teléfono, pero no se sincronizó`, opts);
+}
+
+// ── R9 · punto 4: reintentar un registro que se guardó localmente pero no
+// sincronizó con Sheets ─────────────────────────────────────────────────────
+// "Reintentar" NUNCA reenvía solo: reabre el formulario de Registro relleno con
+// exactamente lo que se había capturado, y es el usuario quien vuelve a tocar
+// Guardar. Si ese reintento SÍ sincroniza, se borra el registro fantasma (y
+// sus hijos) que había quedado guardado solo en el teléfono, para no dejar
+// duplicados en el historial. Si el reintento también falla, el fantasma
+// original se conserva intacto (nunca se borra sin haber confirmado el nuevo).
+let _pendingRetryCleanup = null; // {oldId, oldChildIds} a limpiar tras el próximo guardado exitoso
+
+function retryUnsyncedEntry(oldId, snap, oldChildIds){
+  if(!snap) return;
+  _pendingRetryCleanup = { oldId, oldChildIds: oldChildIds||[] };
+
+  const navBtn=document.querySelector('.nav-btn[data-nav="registro"]');
+  const page=document.getElementById('page-registro');
+  if(navBtn && page && !page.classList.contains('active')) goNav('registro', navBtn);
+
+  try{ resetForm(); }catch(e){}
+
+  setType(snap.type);
+  curCat = snap.category||'';
+  curSubcat = snap.subcategory||'';
+  try{ renderCatUI(); }catch(e){}
+
+  const amtEl=document.getElementById('amount'); if(amtEl) amtEl.value=formatAmountString(String(snap.amount||''));
+  const descEl=document.getElementById('desc'); if(descEl) descEl.value=snap.desc||'';
+  const curEl=document.getElementById('currency'); if(curEl) curEl.value=snap.currency||'MXN';
+  const dateEl=document.getElementById('tx-date'); if(dateEl) dateEl.value=snap.date||'';
+  try{ initStrip('tx-date-strip', snap.date); }catch(e){}
+  try{ onCurChange(); }catch(e){}
+
+  if(snap.note){
+    const noteEl=document.getElementById('note');
+    if(noteEl) noteEl.value=snap.note;
+    try{
+      _noteVisible=true;
+      const noteWrap=document.getElementById('note-field-wrap');
+      if(noteWrap) noteWrap.style.display='block';
+      _setNoteOpen('note-field-wrap', true);
+    }catch(e){}
+  }
+
+  if(snap.method && snap.type!=='beneficio'){
+    const chip=document.querySelector(`#method-field [data-method="${snap.method}"]`);
+    if(chip) setMethod(snap.method, chip);
+  }
+
+  if(snap.desgloses && snap.desgloses.length){
+    desgloses = snap.desgloses.map(d=>({...d, id:genId()}));
+    toggleDesgloseSection(true);
+    renderDesgloses();
+  }
+
+  if(snap.beneficios && snap.beneficios.length){
+    beneficios = snap.beneficios.map(b=>({...b, id:genId()}));
+    inlineToggleBen();
+  }
+
+  if(snap.propinaOn){
+    inlineTogglePropina();
+    setPropinaType(snap.propinaType||'pct');
+    setPropinaIncluida(snap.propinaIncluida!==false);
+    const pctEl=document.getElementById('propina-pct'); if(pctEl) pctEl.value=snap.propinaPct||'';
+    const montoEl=document.getElementById('propina-monto'); if(montoEl) montoEl.value=snap.propinaMonto||'';
+    if(snap.propinaMethod){
+      const _pmMap={'Tarjeta de crédito':'Crédito','Efectivo':'Efectivo','Bono de despensa':'Bono','SPEI':'SPEI','Débito':'Débito'};
+      const pmChip=Array.from(document.querySelectorAll('#propina-method-chips .chip'))
+        .find(c=>c.textContent.trim()===(_pmMap[snap.propinaMethod]||snap.propinaMethod));
+      if(pmChip) setPropinaMethod(snap.propinaMethod, pmChip);
+    }
+    calcPropinaPreview();
+  }
+
+  try{ refreshSubmitDisabled(); }catch(e){}
+  try{ document.getElementById('register-form-card')?.scrollIntoView({behavior:'smooth', block:'start'}); }catch(e){}
+}
+
+// Borra del teléfono el registro (y sus hijos) que quedó sin sincronizar,
+// SOLO después de confirmar que su reintento sí llegó a Sheets.
+function removeUnsyncedGhost(oldId, oldChildIds){
+  const ids=new Set([oldId, ...(oldChildIds||[])].map(String));
+  if(!ids.size) return;
+  data = data.filter(e=>!ids.has(String(e.id)));
+  save();
+  try{ renderBalance(); }catch(e){}
+  try{ renderHistorial(); }catch(e){}
 }
 
 // ── LOAD FROM SHEETS ──

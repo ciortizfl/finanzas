@@ -191,11 +191,18 @@ function _tmFits(el){
   const gap=parseFloat(cs.gap)||0;
   const kids=[...el.children];
   if(!kids.length) return true;
-  let needH=gap*(kids.length-1), needW=0;
-  kids.forEach(k=>{
-    needH+=k.offsetHeight;
-    needW=Math.max(needW, k.scrollWidth);
-  });
+  // R9 · punto 1: en el layout apaisado (.tm-wide) los hijos se acomodan en
+  // FILA (emoji | texto), así que el eje que se SUMA es el ancho y el que se
+  // toma como máximo es el alto — al revés que en la pila vertical de siempre.
+  const isRow = cs.flexDirection==='row' || cs.flexDirection==='row-reverse';
+  let needH=0, needW=0;
+  if(isRow){
+    needW=gap*(kids.length-1);
+    kids.forEach(k=>{ needW+=k.scrollWidth; needH=Math.max(needH, k.offsetHeight); });
+  } else {
+    needH=gap*(kids.length-1);
+    kids.forEach(k=>{ needH+=k.offsetHeight; needW=Math.max(needW, k.scrollWidth); });
+  }
   return needH<=availH+0.5 && needW<=availW+0.5;
 }
 
@@ -238,6 +245,22 @@ function renderBalanceTreemap(){
       `<div class="tm-amt">${_tmFmt0(l.amt)}</div>`;
     let tier=1;
     if(!_tmFits(inner)){
+      // Nivel 1-apaisado (solo si el rectángulo es más ancho que alto): antes de
+      // perder la subcategoría, probar emoji a la izquierda + subcategoría y
+      // monto en dos líneas a la derecha. El conjunto queda centrado por el
+      // propio .tm-inner (justify-content/align-items:center); el emoji se
+      // centra verticalmente respecto a esas dos líneas por ser flex row.
+      let wideFits=false;
+      if(r.w > r.h){
+        inner.classList.add('tm-wide');
+        inner.innerHTML=`<div class="tm-emoji">${l.emoji}</div><div class="tm-text">`+
+          (showSubLine?`<div class="tm-sub">${l.sub}</div>`:`<div class="tm-sub">${l.cat}</div>`)+
+          `<div class="tm-amt">${_tmFmt0(l.amt)}</div></div>`;
+        wideFits=_tmFits(inner);
+        if(wideFits) tier='1w';
+        else inner.classList.remove('tm-wide');
+      }
+      if(!wideFits){
       // Nivel 2: emoji + monto
       inner.innerHTML=`<div class="tm-emoji">${l.emoji}</div><div class="tm-amt">${_tmFmt0(l.amt)}</div>`;
       tier=2;
@@ -251,9 +274,10 @@ function renderBalanceTreemap(){
           if(!_tmFits(inner)){ inner.innerHTML=''; tier=5; } // Nivel 5: solo color
         }
       }
+      }
     }
     // Clickeable (con tooltip) cuando NO alcanza a mostrar emoji+subcat+monto juntos
-    if(tier>1){
+    if(tier!==1 && tier!=='1w'){
       cell.classList.add('tm-clickable');
       cell.onclick=()=>_tmToggleTip(cell, l);
     }

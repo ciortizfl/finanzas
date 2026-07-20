@@ -1186,14 +1186,14 @@ function txEl(e, showDelete){
     if(_m.rel==='propina'){
       if(_m.tip){
         const _t=_m.tip;
+        const _est=_t.inc?'incluida':'adicional';
         if(_t.pct!=null){
-          const _est=_t.inc?'incluida':'adicional';
-          const _prep=_t.inc?'en':'a';
-          metaParts.push(_t.base!=null ? `${_t.pct}% ${_est} ${_prep} ${_fmt(_t.base)}` : `${_t.pct}% ${_est}`);
+          metaParts.push(`Propina del ${_t.pct}% ${_est}`);
         } else {
-          const _est=_t.inc?'Incluida':'Adicional';
-          const _prep=_t.inc?'en':'a';
-          metaParts.push(_t.base!=null ? `${_est} ${_prep} ${_fmt(_t.base)}` : _est);
+          // Monto fijo: el propio importe del hijo es la propina (e.amount);
+          // _t.amt solo existe en notas legacy donde no hay hijo separado.
+          const _montoProp = e.amount!=null ? e.amount : _t.amt;
+          metaParts.push(_montoProp!=null ? `Propina de ${_fmt(_montoProp)} ${_est}` : `Propina ${_est}`);
         }
       } else {
         metaParts.push('Propina');   // legacy sin meta interpretable
@@ -1244,7 +1244,10 @@ function txEl(e, showDelete){
       });
       metaParts.push(`${childDesg.length} desglose${childDesg.length>1?'s':''} (${nombres.join(' · ')})`);
     }
-    if(childProp) metaParts.push('Con propina');
+    if(childProp){
+      const _cpTip = metaOf(childProp).tip;
+      metaParts.push(_cpTip ? `Con propina ${_cpTip.inc?'incluida':'adicional'}` : 'Con propina');
+    }
     // R7.2: 1 beneficio → "Beneficio: X"; varios → "N beneficios (Cat1 · Cat2)"
     if(childBens.length===1) metaParts.push(`Beneficio: ${childBens[0].category}`);
     else if(childBens.length>1) metaParts.push(`${childBens.length} beneficios (${childBens.map(b=>b.category).join(' · ')})`);

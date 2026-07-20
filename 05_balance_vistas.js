@@ -471,6 +471,36 @@ function _balSyncTitle(){
   if(t) t.textContent=`${MONTHS_ES[viewMonth]} ${viewYear}`;
   const at=document.getElementById('bal-annual-title-text');
   if(at) at.textContent=String(viewYear);
+  _balSyncArrows();
+}
+
+// R9 · Punto 6 — ¿hay algún mes/año CON datos en esa dirección? Mismo criterio
+// de búsqueda que balGoMonth/balGoYear, pero de solo lectura (no navega).
+function _balHasMonthDir(delta){
+  let m=viewMonth, y=viewYear;
+  for(let i=0;i<24;i++){
+    m+=delta;
+    if(m<0){ m=11; y--; } else if(m>11){ m=0; y++; }
+    if(balMonthHasData(y,m)) return true;
+  }
+  return false;
+}
+function _balHasYearDir(delta){
+  const years=yearsInData();
+  if(!years.length) return false;
+  const asc=years.slice().sort((a,b)=>a-b);
+  const idx=asc.indexOf(viewYear);
+  return asc[idx+delta]!==undefined;
+}
+// No cambia el funcionamiento (balGoMonth/balGoYear ya se detienen solos):
+// únicamente refleja visualmente cuándo una flecha no tiene a dónde avanzar.
+function _balSyncArrows(){
+  const mp=document.getElementById('bal-arrow-m-prev'), mn=document.getElementById('bal-arrow-m-next');
+  if(mp) mp.disabled=!_balHasMonthDir(-1);
+  if(mn) mn.disabled=!_balHasMonthDir(1);
+  const yp=document.getElementById('bal-arrow-y-prev'), yn=document.getElementById('bal-arrow-y-next');
+  if(yp) yp.disabled=!_balHasYearDir(-1);
+  if(yn) yn.disabled=!_balHasYearDir(1);
 }
 
 // Navegación mensual con flechas. Salta a meses CON datos: si el mes destino

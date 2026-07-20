@@ -19,6 +19,8 @@
   </div>
   <!-- R7 · punto 5: enlace al registro recién guardado (solo si el toast lo trae) -->
   <button type="button" class="toast-link" id="toast-link" style="display:none;">Ver</button>
+  <!-- R9 · punto 4: reintentar un guardado que no sincronizó (solo si el toast lo trae) -->
+  <button type="button" class="toast-link" id="toast-retry" style="display:none;">Reintentar</button>
 </div>
 <button class="reload-btn scrolltop-btn" id="scrolltop-btn" onclick="scrollToTopNow()" title="Ir arriba">↑</button>
 
@@ -293,11 +295,11 @@
     <select id="bal-month-sel" onchange="onBalMonthChange()" style="display:none"></select>
     <select id="bal-year-sel" onchange="onBalMonthChange()" style="display:none"></select>
     <div class="cal-nav bal-nav">
-      <button type="button" class="cal-arrow" onclick="balGoMonth(-1)" aria-label="Mes anterior">‹</button>
+      <button type="button" class="cal-arrow" id="bal-arrow-m-prev" onclick="balGoMonth(-1)" aria-label="Mes anterior">‹</button>
       <button type="button" class="cal-title" id="bal-title" onclick="toggleBalMonthYear()">
         <span id="bal-title-text">Julio 2026</span><span class="cal-title-caret">▾</span>
       </button>
-      <button type="button" class="cal-arrow" onclick="balGoMonth(1)" aria-label="Mes siguiente">›</button>
+      <button type="button" class="cal-arrow" id="bal-arrow-m-next" onclick="balGoMonth(1)" aria-label="Mes siguiente">›</button>
       <div class="cal-my-pop" id="bal-my-pop">
         <div class="cal-my-yearrow">
           <button type="button" class="cal-arrow sm" onclick="balMYYear(-1)">‹</button>
@@ -346,11 +348,11 @@
          El <select> queda oculto como fuente de verdad (renderAnnual lo lee). -->
     <select id="bal-annual-year-sel" onchange="renderAnnual()" style="display:none"></select>
     <div class="cal-nav bal-nav">
-      <button type="button" class="cal-arrow" onclick="balGoYear(-1)" aria-label="Año anterior">‹</button>
+      <button type="button" class="cal-arrow" id="bal-arrow-y-prev" onclick="balGoYear(-1)" aria-label="Año anterior">‹</button>
       <button type="button" class="cal-title" id="bal-annual-title" style="cursor:default">
         <span id="bal-annual-title-text">2026</span>
       </button>
-      <button type="button" class="cal-arrow" onclick="balGoYear(1)" aria-label="Año siguiente">›</button>
+      <button type="button" class="cal-arrow" id="bal-arrow-y-next" onclick="balGoYear(1)" aria-label="Año siguiente">›</button>
     </div>
     <!-- Resumen anual hasta la fecha (compacto) -->
     <div class="bal-hero annual-hero-compact" id="annual-hero" style="cursor:default;margin-top:4px;">
@@ -436,11 +438,11 @@
   <div id="hist-calendar-view">
     <div class="cal-block">
       <div class="cal-nav">
-        <button type="button" class="cal-arrow cal-arrow-m" onclick="calGoMonth(-1)" aria-label="Mes anterior">‹</button>
+        <button type="button" class="cal-arrow cal-arrow-m cal-arrow-prev" onclick="calGoMonth(-1)" aria-label="Mes anterior">‹</button>
         <button type="button" class="cal-title" id="cal-title" onclick="toggleCalMonthYear()">
           <span id="cal-title-text">Julio 2026</span><span class="cal-title-caret">▾</span>
         </button>
-        <button type="button" class="cal-arrow cal-arrow-m" onclick="calGoMonth(1)" aria-label="Mes siguiente">›</button>
+        <button type="button" class="cal-arrow cal-arrow-m cal-arrow-next" onclick="calGoMonth(1)" aria-label="Mes siguiente">›</button>
         <!-- Selector mes/año (no parece dropdown; se comporta como uno al abrir) -->
         <div class="cal-my-pop" id="cal-my-pop">
           <div class="cal-my-yearrow">
@@ -452,9 +454,9 @@
         </div>
       </div>
       <div class="cal-body">
-        <button type="button" class="cal-arrow cal-arrow-d" onclick="calGoMonth(-1)" aria-label="Mes anterior">‹</button>
+        <button type="button" class="cal-arrow cal-arrow-d cal-arrow-prev" onclick="calGoMonth(-1)" aria-label="Mes anterior">‹</button>
         <div class="cal-grid" id="cal-grid"></div>
-        <button type="button" class="cal-arrow cal-arrow-d" onclick="calGoMonth(1)" aria-label="Mes siguiente">›</button>
+        <button type="button" class="cal-arrow cal-arrow-d cal-arrow-next" onclick="calGoMonth(1)" aria-label="Mes siguiente">›</button>
       </div>
     </div>
     <!-- Selector de tipo (Todos/Egresos/Ingresos/Beneficios) -->
@@ -697,11 +699,11 @@
         <div class="field" id="e-method-field">
           <label id="e-method-label">Método de pago</label>
           <div class="chips" id="e-chips">
-            <button class="chip" onclick="setEditMethod('Tarjeta de crédito',this)">Crédito</button>
-            <button class="chip" onclick="setEditMethod('Efectivo',this)">Efectivo</button>
-            <button class="chip" onclick="setEditMethod('Bono de despensa',this)"><span class="mth-full">Bono de despensa</span><span class="mth-short">Bono</span></button>
-            <button class="chip" onclick="setEditMethod('SPEI',this)">SPEI</button>
-            <button class="chip" onclick="setEditMethod('Débito',this)">Débito</button>
+            <button class="chip" data-method="Tarjeta de crédito" onclick="setEditMethod('Tarjeta de crédito',this)">Crédito</button>
+            <button class="chip" data-method="Efectivo" onclick="setEditMethod('Efectivo',this)">Efectivo</button>
+            <button class="chip" data-method="Bono de despensa" onclick="setEditMethod('Bono de despensa',this)"><span class="mth-full">Bono de despensa</span><span class="mth-short">Bono</span></button>
+            <button class="chip" data-method="SPEI" onclick="setEditMethod('SPEI',this)">SPEI</button>
+            <button class="chip" data-method="Débito" onclick="setEditMethod('Débito',this)">Débito</button>
           </div>
         </div>
 

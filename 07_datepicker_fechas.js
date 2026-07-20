@@ -398,6 +398,9 @@ let _toastTimer=null;
 // Al tocar "Ver", goToEntry() abre el Historial, limpia los filtros, salta al mes
 // del registro, hace scroll hasta él y lo resalta. El segundo argumento es
 // opcional: todas las llamadas viejas siguen funcionando igual.
+// R9 · punto 4 — opts.onRetry muestra un segundo botón "Reintentar" (p. ej. para
+// reabrir el formulario con los datos de un guardado que no sincronizó) y
+// opts.ms permite alargar la duración del toast en ese caso.
 const TOAST_MS = 3000;
 function toast(msg, opts){
   const t=document.getElementById('toast');
@@ -406,7 +409,9 @@ function toast(msg, opts){
   const titleEl=document.getElementById('toast-title');
   const subEl=document.getElementById('toast-sub');
   const linkEl=document.getElementById('toast-link');
+  const retryEl=document.getElementById('toast-retry');
   const gotoId=(opts && opts.gotoId!=null) ? opts.gotoId : null;
+  const ms=(opts && opts.ms>0) ? opts.ms : TOAST_MS;
   if(linkEl){
     if(gotoId!=null){
       linkEl.style.display='';
@@ -420,9 +425,22 @@ function toast(msg, opts){
       linkEl.onclick=null;
     }
   }
+  if(retryEl){
+    if(opts && typeof opts.onRetry==='function'){
+      retryEl.style.display='';
+      retryEl.onclick=()=>{
+        clearTimeout(_toastTimer);
+        t.classList.remove('show');
+        try{ opts.onRetry(); }catch(e){}
+      };
+    } else {
+      retryEl.style.display='none';
+      retryEl.onclick=null;
+    }
+  }
   if(!icoEl||!titleEl||!subEl){ // respaldo por si el HTML no tiene la estructura
     t.textContent=msg; t.classList.add('show');
-    clearTimeout(_toastTimer); _toastTimer=setTimeout(()=>t.classList.remove('show'),TOAST_MS);
+    clearTimeout(_toastTimer); _toastTimer=setTimeout(()=>t.classList.remove('show'),ms);
     return;
   }
 
@@ -460,7 +478,7 @@ function toast(msg, opts){
   clearTimeout(_toastTimer);
   t.classList.remove('show'); void t.offsetWidth;
   t.classList.add('show');
-  _toastTimer=setTimeout(()=>t.classList.remove('show'), TOAST_MS);
+  _toastTimer=setTimeout(()=>t.classList.remove('show'), ms);
 }
 
 

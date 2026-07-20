@@ -561,6 +561,25 @@ async function saveEdit(){
     setMerchantEmoji(desc, subcat || editCat, editEmojiOverride);
   }
 
+  // R9 · Si el usuario RENOMBRÓ el registro, arrastramos su recordatorio al
+  // nombre nuevo (los recordatorios se identifican por type+desc, así que sin
+  // esto quedarían huérfanos apuntando al nombre viejo).
+  // BUG CORREGIDO: esto vivía más abajo, DESPUÉS de la bifurcación a
+  // saveEditDeferred/saveEditRemoveDefer/saveEditConvertToDefer (que retornan
+  // temprano) — así que para cualquier registro que YA fuera diferido, este
+  // bloque nunca se ejecutaba y el recordatorio quedaba huérfano con el
+  // nombre viejo. Se mueve aquí, antes de esa bifurcación, para cubrir los
+  // cuatro caminos de guardado por igual.
+  try{
+    if(typeof renameReminderOnDescChange==='function' && editOrigDesc){
+      const _remRenamed = renameReminderOnDescChange(editOrigType||editType, editOrigDesc, desc);
+      if(_remRenamed){
+        try{ saveRemindersToSheets(); }catch(_e){}
+        try{ updateReminderCard(); }catch(_e){}
+      }
+    }
+  }catch(_e){}
+
   // ── GASTO DIFERIDO: manejar conversiones ──
   const wasDeferred = !!editDeferGroup;
   const nowDeferred = editType==='egreso' && editDiferirHasData();
@@ -727,16 +746,6 @@ async function saveEdit(){
     });
   }
 
-  // R9 · Si el usuario RENOMBRÓ el registro, arrastramos su recordatorio al
-  // nombre nuevo (los recordatorios se identifican por type+desc, así que sin
-  // esto quedarían huérfanos apuntando al nombre viejo).
-  let _remRenamed=false;
-  try{
-    if(typeof renameReminderOnDescChange==='function' && editOrigDesc){
-      _remRenamed = renameReminderOnDescChange(editOrigType||editType, editOrigDesc, desc);
-    }
-  }catch(_e){}
-
   // Recordatorio programado desde el modal (paridad con el formulario):
   // solo si se cumplieron ambas condiciones (frecuencia + vigencia).
   try{
@@ -745,11 +754,6 @@ async function saveEdit(){
       try{ updateReminderCard(); }catch(_e){}
     }
   }catch(_e){}
-  // Persistir el renombre del recordatorio (si no lo hizo ya el bloque de arriba)
-  if(_remRenamed){
-    try{ saveRemindersToSheets(); }catch(_e){}
-    try{ updateReminderCard(); }catch(_e){}
-  }
 
   save();
   showSyncing('⟳ Actualizando...');
