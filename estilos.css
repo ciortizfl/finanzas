@@ -1246,15 +1246,25 @@ nav.shrunk .nav-lbl{ opacity: 0; }
 }
 .date-strip-nav:active { background: var(--surface3); color: var(--accent); }
 /* Corrección: en móvil, exactamente 5 recuadros completos visibles (la
-   actual al centro), SIN mostrar recuadros parciales en los extremos —
-   ancho fijo = 5 celdas de 46px + 4 espacios de 5px = 250px. El centrado de
-   la fecha actual lo sigue haciendo el JS existente (sin tocar), que mide el
-   ancho real del contenedor — al quedar fijo en 250px, el resultado es
-   siempre 2 antes + la actual + 2 después. En escritorio no se toca nada.
-   .date-strip-scroll{flex:1} más abajo sigue rigiendo el caso web. */
+   actual al centro), SIN mostrar recuadros parciales en los extremos.
+   PRIMER INTENTO FALLIDO: con las celdas a su ancho normal (46px), el
+   renglón completo (ícono 44px + separador + 2 flechas de 28px + 250px del
+   strip = 355px) no cabía en pantallas angostas (iPhone SE/Android ~360px,
+   ~328-343px disponibles tras el padding de la tarjeta) — el renglón se
+   desbordaba y eso era exactamente el "recuadro parcial" que Carlos seguía
+   viendo. Ahora, SOLO en móvil, las celdas encogen a 40px (día/número siguen
+   cabiendo bien) y el contenedor de scroll queda fijo en 220px = 5 celdas de
+   40px + 4 espacios de 5px; se quita el padding interno de .date-strip-inner
+   para que el cálculo sea exacto sin un par de px de margen de error. Esto
+   deja el renglón completo en ~325px, con margen incluso en pantallas de
+   360px. El centrado de la fecha actual lo sigue haciendo el JS existente
+   (no se tocó). En escritorio no se toca nada (clases .web-mode/.web-full
+   aparte, fuera de este @media). */
 @media (max-width: 699px) {
+  #date-field-wrap .date-day-btn, #e-date-field-wrap .date-day-btn { width: 40px; }
+  #date-field-wrap .date-strip-inner, #e-date-field-wrap .date-strip-inner { padding: 0; }
   #date-field-wrap .date-strip-scroll, #e-date-field-wrap .date-strip-scroll {
-    flex: 0 0 250px; width: 250px;
+    flex: 0 0 220px; width: 220px;
   }
 }
 .date-strip-scroll {
