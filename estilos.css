@@ -420,13 +420,16 @@ nav.shrunk .nav-lbl{ opacity: 0; }
    calendario) y muestra el nombre completo en escritorio / abreviado en
    móvil, vía la misma frontera de 700px que usa el resto de la app. */
 .amount-labels-row { display: flex; gap: 8px; margin-bottom: 7px; }
-.amount-labels-row .lbl-monto { flex: 1; font-size: 12px; font-weight: 600; letter-spacing: -0.01em; color: var(--text2); margin-bottom: 0; }
-.amount-labels-row .lbl-metodo { flex: 0 0 auto; min-width: 96px; text-align: right;
+.amount-labels-row .lbl-moneda { flex: 0 0 96px; text-align: left;
+  font-size: 12px; font-weight: 600; letter-spacing: -0.01em; color: var(--text2); margin-bottom: 0; }
+.amount-labels-row .lbl-monto { flex: 1; text-align: left;
+  font-size: 12px; font-weight: 600; letter-spacing: -0.01em; color: var(--text2); margin-bottom: 0; }
+.amount-labels-row .lbl-metodo { flex: 0 0 auto; min-width: 96px; text-align: left;
   font-size: 12px; font-weight: 600; letter-spacing: -0.01em; color: var(--text2); margin-bottom: 0; }
 .method-picker-wrap { position: relative; flex: 0 0 auto; min-width: 96px; }
 .method-btn { width: 100%; border: none; background: var(--surface2); font-family: inherit; cursor: pointer;
   padding: 12px 14px; border-radius: var(--radius-sm); font-size: 14px; font-weight: 500; color: var(--text3);
-  text-align: right; transition: color .15s; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  text-align: left; transition: color .15s; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .method-btn.chosen { color: var(--accent); font-weight: 700; }
 .method-bubble { position: absolute; top: calc(100% + 8px); right: 0; z-index: 20;
   background: var(--surface); border-radius: var(--radius-sm); box-shadow: var(--shadow-md);
@@ -846,10 +849,6 @@ nav.shrunk .nav-lbl{ opacity: 0; }
 /* AHORROS *//* FILTER BAR */
 .filter-bar { padding: 0 16px 12px; display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
 .filter-bar::-webkit-scrollbar { display: none; }
-/* R9 · punto 5: la píldora de tipo (Todos/Egresos/Ingresos/Beneficios) vive
-   dentro de .filter-bar junto al botón de Método — toma el espacio disponible
-   y no hereda el margin-bottom que .calseg usa cuando va sola en su renglón. */
-#hist-filter-bar .calseg{ flex:1; min-width:0; margin-bottom:0; }
 .f-chip {
   padding: 7px 16px; border-radius: 100px; white-space: nowrap;
   border: none; background: var(--surface2);
@@ -1209,26 +1208,32 @@ nav.shrunk .nav-lbl{ opacity: 0; }
 .stat.active-filter { border-color: transparent; }
 
 /* ── DATE STRIP PICKER ── */
-.date-field-label {
-  display: flex; align-items: center; gap: 6px; margin-bottom: 8px;
-}
-.date-field-label label { margin-bottom: 0; }
-/* Botón del calendario junto a "Fecha" (registro y edición): mismo recuadro
-   que el botón 📅 del filtro por rango en el historial. */
+/* R9 · corrección: el ícono de calendario ahora vive DENTRO del mismo
+   renglón que la barra de fechas (a su izquierda), no en un renglón propio
+   arriba — el texto "Fecha" queda encima solo del ícono, como Moneda/Monto/
+   Método. El ícono creció un poco y se separa de la barra con una línea
+   delgada; esto reduce el ancho disponible de la barra de forma natural. El
+   comportamiento de la barra (hoy preseleccionado al centro, scroll, flechas)
+   no se tocó. */
+.date-labels-row { display: flex; margin-bottom: 7px; }
+.date-labels-row .lbl-fecha { flex: 0 0 44px; text-align: left;
+  font-size: 12px; font-weight: 600; letter-spacing: -0.01em; color: var(--text2); }
 .date-cal-btn {
   flex: 0 0 auto;
-  width: 34px; height: 30px;
+  width: 44px; height: 40px;
   display: flex; align-items: center; justify-content: center;
-  background: var(--surface);
-  border: 1px solid var(--border2);
-  border-radius: var(--radius-sm);
+  background: none; border: none;
   cursor: pointer;
-  font-size: 15px; padding: 0; line-height: 1;
+  font-size: 20px; padding: 0; line-height: 1;
   color: var(--text3);
-  transition: border-color 0.15s, color 0.15s;
+  transition: color 0.15s;
 }
-.date-cal-btn:hover { border-color: var(--accent); }
-.date-cal-btn:active { color: var(--accent); border-color: var(--accent); }
+.date-cal-btn:hover { color: var(--accent); }
+.date-cal-btn:active { color: var(--accent); }
+.date-strip-divider {
+  width: 1px; align-self: stretch; margin: 8px 2px;
+  background: var(--border2); flex-shrink: 0;
+}
 .date-strip-wrap {
   display: flex; align-items: center; gap: 0;
 }
@@ -1652,10 +1657,10 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
 
 /* Segmented control reutilizable con número de opciones variable (2 y 4).
    NO toca .seg-control (fijo a 3 opciones) del formulario de registro. */
-.calseg{ position:relative; display:flex; background:var(--surface2); border-radius:12px;
+.calseg{ position:relative; display:flex; background:var(--surface2); border-radius:100px;
   padding:3px; isolation:isolate; margin-bottom:14px; }
 .calseg-thumb{ position:absolute; top:3px; bottom:3px; left:3px; background:var(--surface);
-  border-radius:9px; box-shadow:0 2px 6px rgba(0,0,0,0.14), 0 1px 2px rgba(0,0,0,0.10);
+  border-radius:100px; box-shadow:0 2px 6px rgba(0,0,0,0.14), 0 1px 2px rgba(0,0,0,0.10);
   transition:transform 0.32s cubic-bezier(0.32,0.72,0,1), background 0.25s ease; z-index:-1; }
 .calseg-2 .calseg-thumb{ width:calc((100% - 6px)/2); }
 .calseg-4 .calseg-thumb{ width:calc((100% - 6px)/4); }

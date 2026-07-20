@@ -131,7 +131,8 @@ function setBellMode(on){
   const ma=document.getElementById('method-filter-arrow'); if(ma) ma.style.transform='';
   // Estado limpio en ambas direcciones; al salir, además, se limpia la búsqueda
   histFilter='todos'; histSelCats=[]; histSelSubcats=[]; histMethodFilter=null;
-  _histSyncFilterSeg();
+  document.querySelectorAll('.filter-bar .f-chip').forEach(ch=>ch.classList.remove('active'));
+  document.getElementById('fchip-todos')?.classList.add('active');
   if(!on){
     const s=document.getElementById('hist-search'); if(s) s.value='';
   }
@@ -326,7 +327,9 @@ function renderSearchPresets(){
       } else {
         s.value=name;                      // activar: escribe por ti y arranca en Todos
         histFilter='todos'; histSelCats=[]; histSelSubcats=[];
-        _histSyncFilterSeg();
+        document.querySelectorAll('.filter-bar .f-chip').forEach(c=>c.classList.remove('active'));
+        const todosChip=document.getElementById('fchip-todos');
+        if(todosChip) todosChip.classList.add('active');
         const subPanel=document.getElementById('sub-filter-panel');
         if(subPanel) subPanel.classList.remove('vis');
       }
@@ -421,7 +424,9 @@ function entriesInCurrentDateScope(type){
 function onHistSearchInput(){
   if(histRangeMode && histRangeApplied){
     histFilter='todos'; histSelCats=[]; histSelSubcats=[];
-    _histSyncFilterSeg();
+    document.querySelectorAll('.filter-bar .f-chip').forEach(c=>c.classList.remove('active'));
+    const todosChip=document.getElementById('fchip-todos');
+    if(todosChip) todosChip.classList.add('active');
     const subPanel=document.getElementById('sub-filter-panel');
     if(subPanel) subPanel.classList.remove('vis');
   }
@@ -432,7 +437,8 @@ function onHistSearchInput(){
 function setFilter(f,el){
   histFilter=f;
   histSelCats=[]; histSelSubcats=[];
-  _histSyncFilterSeg();
+  document.querySelectorAll('.f-chip').forEach(c=>c.classList.remove('active'));
+  el.classList.add('active');
 
   const rangeActive = histRangeMode && histRangeApplied;
   const searchEl=document.getElementById('hist-search');
@@ -450,18 +456,6 @@ function setFilter(f,el){
   buildSubFilterPanel();
   updateResetButton();
   renderHistorial();
-}
-
-// R9 · punto 5: la píldora de tipo (Todos/Egresos/Ingresos/Beneficios) tiene un
-// solo indicador (mismo patrón que _calSyncTypeSeg). Reemplaza la manipulación
-// dispersa de clases .f-chip/.active que vivía repetida en varios puntos.
-function _histSyncFilterSeg(){
-  const seg=document.getElementById('hist-type-seg');
-  if(!seg) return;
-  seg.dataset.active=histFilter;
-  seg.querySelectorAll('.calseg-option').forEach(b=>{
-    b.classList.toggle('active', b.dataset.t===histFilter);
-  });
 }
 
 // R9 · punto 5: la píldora de mes/año de Filtros (mismo patrón que
@@ -881,9 +875,11 @@ function updateTypeChips(selMonth, selYear, isSearchMode){
     const chip=document.getElementById(id);
     if(!chip) return;
     // Los chips siempre reflejan qué tipos existen en el universo actual
-    // (mes, rango o resultados de búsqueda). La opacidad tenue la resuelve
-    // .calseg-option[disabled] en CSS.
-    chip.disabled = !enabled;
+    // (mes, rango o resultados de búsqueda).
+    const on = enabled;
+    chip.disabled = !on;
+    chip.style.opacity = on ? '1' : '0.38';
+    chip.style.pointerEvents = on ? '' : 'none';
   };
 
   setChip('fchip-todos', anyRecords);
@@ -901,7 +897,9 @@ function updateTypeChips(selMonth, selYear, isSearchMode){
     if(!stillHasData){
       histFilter='todos';
       histSelCats=[]; histSelSubcats=[];
-      _histSyncFilterSeg();
+      document.querySelectorAll('.filter-bar .f-chip').forEach(c=>c.classList.remove('active'));
+      const todosChip=document.getElementById('fchip-todos');
+      if(todosChip) todosChip.classList.add('active');
       const panel=document.getElementById('sub-filter-panel');
       if(panel) panel.classList.remove('vis');
     }

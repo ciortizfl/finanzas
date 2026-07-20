@@ -17,7 +17,7 @@ let editDiferirCustom = false;
 let editType = 'egreso';
 let editCat = '';
 let editSubcat = '';
-let editMethod = 'Tarjeta de crédito';
+let editMethod = '';
 // R7.2: editBenOn desapareció — el estado vive en el arreglo `editBeneficios` (03_desgloses).
 
 let _eNoteVisible=false;
@@ -138,7 +138,7 @@ function openEdit(id) {
   }catch(_e){}
   editCat  = e.category;
   editSubcat = e.subcategory||'';
-  editMethod = e.method||'Tarjeta de crédito';
+  editMethod = e.method||'';
   // Mostrar el estado del recordatorio de este comercio (si tiene regla)
   try{
     if(typeof resetEditRemState==='function') resetEditRemState();

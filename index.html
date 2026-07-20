@@ -81,6 +81,7 @@
 
       <div class="field">
         <div class="amount-labels-row">
+          <label class="lbl-moneda">Moneda</label>
           <label class="lbl-monto">Monto</label>
           <label class="lbl-metodo" id="method-lbl">Método</label>
         </div>
@@ -197,20 +198,19 @@
       </div>
 
       <div class="field" style="margin-bottom:0">
-          <div class="date-field-label">
-            <button type="button" class="date-cal-btn" onclick="openRegDatePicker()" title="Elegir fecha">📅</button>
-            <span style="color:var(--text3);font-size:12px;margin:0 2px;">|</span>
-            <label style="margin-bottom:0">Fecha</label>
-            <input type="hidden" id="tx-date">
+          <div class="date-labels-row">
+            <label class="lbl-fecha">Fecha</label>
           </div>
-
           <div class="date-strip-wrap">
+            <button type="button" class="date-cal-btn" onclick="openRegDatePicker()" title="Elegir fecha">📅</button>
+            <span class="date-strip-divider"></span>
             <button type="button" class="date-strip-nav" onclick="shiftStrip('tx-date-strip',-1)">‹</button>
             <div class="date-strip-scroll" id="tx-date-strip-scroll">
               <div class="date-strip-inner" id="tx-date-strip"></div>
             </div>
             <button type="button" class="date-strip-nav" onclick="shiftStrip('tx-date-strip',1)">›</button>
           </div>
+          <input type="hidden" id="tx-date">
         </div>
 
       <div class="field" id="cat-field">
@@ -284,7 +284,7 @@
     <h1>Balance</h1>
     <p>Resumen mensual</p>
     <div style="display:flex;gap:6px;margin-top:10px;align-items:center;">
-      <div class="calseg calseg-2" id="bal-period-seg" data-active="monthly" style="flex:1;margin-bottom:0;">
+      <div class="calseg calseg-2" id="bal-period-seg" data-active="monthly" style="margin-bottom:0;">
         <div class="calseg-thumb"></div>
         <button class="calseg-option active" id="bal-view-monthly" data-t="monthly" onclick="setBalPeriod('monthly',this)">Mensual</button>
         <button class="calseg-option" id="bal-view-annual" data-t="annual" onclick="setBalPeriod('annual',this)">Anual</button>
@@ -492,7 +492,7 @@
   <div id="hist-date-row" class="month-sel-row">
     <select id="hist-month-sel" onchange="renderHistorial(true)" style="display:none"></select>
     <select id="hist-year-sel" onchange="renderHistorial(true)" style="display:none"></select>
-    <button type="button" id="hist-range-toggle" onclick="toggleDateRange()" title="Filtrar por rango de fechas" style="flex:0 0 auto;width:38px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface);color:var(--text3);font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;">📅</button>
+    <button type="button" id="hist-range-toggle" onclick="toggleDateRange()" title="Filtrar por rango de fechas" style="flex:0 0 auto;width:40px;height:40px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface);color:var(--text3);font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;padding:0;">📅</button>
     <div class="cal-nav" id="hist-nav">
       <button type="button" class="cal-arrow hist-arrow-prev" id="hist-arrow-prev" onclick="histGoMonth(-1)" aria-label="Mes anterior">‹</button>
       <button type="button" class="cal-title" id="hist-title" onclick="toggleHistMonthYear()">
@@ -508,7 +508,7 @@
         <div class="dp-months-grid" id="hist-my-months"></div>
       </div>
     </div>
-    <button type="button" id="hist-bell-toggle" onclick="toggleBellFilter()" title="Registros con recordatorio manual" style="flex:0 0 auto;width:38px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface);color:var(--text3);font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;">🔔</button>
+    <button type="button" id="hist-bell-toggle" onclick="toggleBellFilter()" title="Registros con recordatorio manual" style="flex:0 0 auto;width:40px;height:40px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface);color:var(--text3);font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;padding:0;">🔔</button>
   </div>
   <!-- Fila del modo campanita: leyenda a la izquierda, regresar (↩︎, mismo botón
        que en rango de fechas) a la derecha -->
@@ -540,13 +540,11 @@
   <!-- Ancla donde reaparece el buscador tras aplicar un rango -->
   <div id="hist-search-anchor-range"></div>
   <div class="filter-bar" id="hist-filter-bar">
-    <div class="calseg calseg-4" id="hist-type-seg" data-active="todos">
-      <div class="calseg-thumb"></div>
-      <button class="calseg-option active" id="fchip-todos" data-t="todos" onclick="setFilter('todos',this)">Todos</button>
-      <button class="calseg-option" id="fchip-egreso" data-t="egreso" onclick="setFilter('egreso',this)">Egresos</button>
-      <button class="calseg-option" id="fchip-ingreso" data-t="ingreso" onclick="setFilter('ingreso',this)">Ingresos</button>
-      <button class="calseg-option" id="fchip-beneficio" data-t="beneficio" onclick="setFilter('beneficio',this)">Beneficios</button>
-    </div>
+    <button class="f-chip active" id="fchip-todos" onclick="setFilter('todos',this)">Todos</button>
+    <button class="f-chip" id="fchip-egreso" onclick="setFilter('egreso',this)">Egresos</button>
+    <button class="f-chip" id="fchip-ingreso" onclick="setFilter('ingreso',this)">Ingresos</button>
+    <button class="f-chip" onclick="setFilter('ahorro',this)" style="display:none">Ahorro activo</button>
+    <button class="f-chip" id="fchip-beneficio" onclick="setFilter('beneficio',this)">Beneficios</button>
     <button id="method-filter-toggle-btn" onclick="toggleMethodFilters()" style="display:flex;align-items:center;gap:4px;padding:6px 12px;border-radius:100px;border:1.5px solid var(--border2);background:var(--surface2);font-family:inherit;font-size:12px;font-weight:600;color:var(--text2);cursor:pointer;white-space:nowrap;">
       <span id="method-filter-indicator" style="width:7px;height:7px;border-radius:50%;background:var(--border2);flex-shrink:0;transition:background 0.2s;"></span>
       Método <span id="method-filter-arrow" style="font-size:10px;transition:transform 0.2s;display:inline-block;">▸</span>
@@ -631,6 +629,7 @@
 
         <div class="field">
           <div class="amount-labels-row">
+            <label class="lbl-moneda">Moneda</label>
             <label class="lbl-monto">Monto</label>
             <label class="lbl-metodo" id="e-method-lbl">Método</label>
           </div>
@@ -733,20 +732,19 @@
 
         <!-- Fecha -->
         <div class="field" style="margin-bottom:0">
-          <div class="date-field-label">
-            <button type="button" class="date-cal-btn" onclick="openEditDatePicker()" title="Elegir fecha">📅</button>
-            <span style="color:var(--text3);font-size:12px;margin:0 2px;">|</span>
-            <label style="margin-bottom:0">Fecha</label>
-            <input type="hidden" id="e-date">
+          <div class="date-labels-row">
+            <label class="lbl-fecha">Fecha</label>
           </div>
-
           <div class="date-strip-wrap">
+            <button type="button" class="date-cal-btn" onclick="openEditDatePicker()" title="Elegir fecha">📅</button>
+            <span class="date-strip-divider"></span>
             <button type="button" class="date-strip-nav" onclick="shiftStrip('e-date-strip',-1)">‹</button>
             <div class="date-strip-scroll" id="e-date-strip-scroll">
               <div class="date-strip-inner" id="e-date-strip"></div>
             </div>
             <button type="button" class="date-strip-nav" onclick="shiftStrip('e-date-strip',1)">›</button>
           </div>
+          <input type="hidden" id="e-date">
         </div>
 
         <!-- Categoría -->

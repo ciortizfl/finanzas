@@ -494,7 +494,7 @@ function resetForm(){
   const _today = localToday();
   document.getElementById('tx-date').value = _today;
   initStrip('tx-date-strip', _today);
-  selMethod='Tarjeta de crédito';
+  selMethod='';
   if(typeof _paintMethodBtn==='function') _paintMethodBtn();
   const mBub=document.getElementById('method-bubble'); if(mBub) mBub.classList.remove('open');
   // Reset inline toggles

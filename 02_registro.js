@@ -431,12 +431,9 @@ function setType(t) {
     resetPropina();
   }
   buildCatBlocks();
-  // Reset method — Crédito por defecto para egreso, vacío para los demás
-  if(t==='egreso'){
-    selMethod='Tarjeta de crédito';
-  } else {
-    selMethod='';
-  }
+  // R9 · corrección: sin default — arranca en "Elige" salvo que la
+  // predicción por descripción lo llene (mismo criterio que categoría/nota).
+  selMethod='';
   _paintMethodBtn();
   const mBub=document.getElementById('method-bubble'); if(mBub) mBub.classList.remove('open');
   // Reset note (R7.2: el campo vive bajo Descripción y arranca oculto)
@@ -1125,8 +1122,8 @@ function predictCategory(){
       }
       _curPredicted=false;
     }
-    if(_methodPredicted || (vacio && selMethod!=='Tarjeta de crédito')){
-      selMethod='Tarjeta de crédito';
+    if(_methodPredicted || (vacio && selMethod!=='')){
+      selMethod='';
       _paintMethodBtn();
       _methodPredicted=false;
     }

@@ -226,7 +226,7 @@ if(_migrated) localStorage.setItem(SK, JSON.stringify(data));
 // ────────────────────────────────────────────────────────────────────────
 let curType = 'ingreso';
 let curCat = '';
-let selMethod = 'Tarjeta de crédito';
+let selMethod = '';
 // R9 · punto 9: mapa único completo/abreviado para el selector de Método
 // (Registro y Edición). Móvil usa el abreviado para que quepa como valor
 // elegido sin desbordar; escritorio usa el nombre completo. Misma frontera
