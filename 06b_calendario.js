@@ -73,7 +73,16 @@ function _calApplyViewClass(){
   page.classList.toggle('cal-mode', histViewMode==='calendar');
   page.classList.toggle('filters-mode', histViewMode==='filters');
   const segCal=document.getElementById('hist-view-seg');
-  if(segCal) segCal.dataset.active=histViewMode;
+  if(segCal){
+    segCal.dataset.active=histViewMode;
+    // BUG CORREGIDO: solo se actualizaba dataset.active del contenedor, pero
+    // el color del texto depende de la clase .active EN CADA BOTÓN — nunca se
+    // tocaba, así que "Filtros" se veía tenue siempre (y "Calendario" seguía
+    // con color de activo aunque no lo estuviera).
+    segCal.querySelectorAll('.calseg-option').forEach(b=>{
+      b.classList.toggle('active', b.dataset.t===histViewMode);
+    });
+  }
   // BUG CORREGIDO (punto 10): _calAnimateIn/_calAnimateOut (las usa switchHistView
   // para la transición) dejan un style.display INLINE en #hist-calendar-view /
   // #hist-filters-view que esta función no tocaba. Si el usuario se iba de
