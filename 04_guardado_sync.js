@@ -495,9 +495,8 @@ function resetForm(){
   document.getElementById('tx-date').value = _today;
   initStrip('tx-date-strip', _today);
   selMethod='Tarjeta de crédito';
-  document.querySelectorAll('#method-field .chip').forEach(c=>c.classList.remove('active'));
-  const creditoBtn=document.getElementById('method-credito');
-  if(creditoBtn) creditoBtn.classList.add('active');
+  if(typeof _paintMethodBtn==='function') _paintMethodBtn();
+  const mBub=document.getElementById('method-bubble'); if(mBub) mBub.classList.remove('open');
   // Reset inline toggles
   propinaOn=false;
   _propinaVisible=false; _benVisible=false;
@@ -710,8 +709,7 @@ function retryUnsyncedEntry(oldId, snap, oldChildIds){
   }
 
   if(snap.method && snap.type!=='beneficio'){
-    const chip=document.querySelector(`#method-field [data-method="${snap.method}"]`);
-    if(chip) setMethod(snap.method, chip);
+    setMethod(snap.method);
   }
 
   if(snap.desgloses && snap.desgloses.length){

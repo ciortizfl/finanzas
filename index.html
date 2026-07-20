@@ -80,7 +80,10 @@
       </div>
 
       <div class="field">
-        <label>Monto</label>
+        <div class="amount-labels-row">
+          <label class="lbl-monto">Monto</label>
+          <label class="lbl-metodo" id="method-lbl">Método</label>
+        </div>
         <div class="amount-row">
           <select class="cur-sel" id="currency" onchange="onCurChange()">
             <option value="MXN">🇲🇽 MXN</option>
@@ -89,11 +92,22 @@
             <option value="EUR">🇪🇺 EUR</option>
           </select>
           <input type="text" id="amount" placeholder="0.00" inputmode="decimal" oninput="handleAmountInput(this);calcPropinaPreview();refreshBeneficioCalcs();updateDesgloseRemaining();renderDiferirPreview();updateFxMxnPreview()">
+          <div class="method-picker-wrap" id="method-picker-wrap">
+            <button type="button" class="method-btn" id="method-btn" onclick="toggleMethodBubble()">Elige</button>
+            <div class="method-bubble" id="method-bubble">
+              <button type="button" data-method="Tarjeta de crédito" onclick="chooseMethod(this)">Tarjeta de crédito</button>
+              <button type="button" data-method="Efectivo" onclick="chooseMethod(this)">Efectivo</button>
+              <button type="button" data-method="Bono de despensa" onclick="chooseMethod(this)">Bono de despensa</button>
+              <button type="button" data-method="SPEI" onclick="chooseMethod(this)">SPEI</button>
+              <button type="button" data-method="Débito" onclick="chooseMethod(this)">Débito</button>
+            </div>
+          </div>
         </div>
         <!-- TC manual: solo visible en moneda extranjera. Vacío = automático.
              R7 · fuera la etiqueta, fuera el "Vacío = usar el automático" y fuera
              el badge superior "TC: 1 CAD = …". El TC vive ahora DENTRO del campo
-             como placeholder, y el "MXN" afuera (todo convierte a pesos). -->
+             como placeholder, y el "MXN" afuera (todo convierte a pesos). Sin
+             cambios de R9 punto 9: esta fila no se tocó. -->
         <div class="fx-row" id="fx-row" style="display:none;">
           <input type="text" id="fx-manual" inputmode="decimal" placeholder="" oninput="onFxManualInput()">
           <span class="fx-unit" id="fx-unit">MXN</span>
@@ -179,17 +193,6 @@
                solo la palabra "Meses" centrada. El segundo renglón desapareció. -->
           <div style="display:flex;gap:7px;align-items:stretch;margin-bottom:6px;" id="diferir-presets"></div>
           <div id="diferir-preview" style="background:var(--surface);border-radius:10px;padding:12px 14px;border:1px solid var(--border2);display:none;"></div>
-        </div>
-      </div>
-
-      <div class="field" id="method-field">
-        <label id="method-field-label">Método de pago</label>
-        <div class="chips">
-          <button class="chip active" id="method-credito" data-method="Tarjeta de crédito" onclick="setMethod('Tarjeta de crédito',this)">Crédito</button>
-          <button class="chip" data-method="Efectivo" onclick="setMethod('Efectivo',this)">Efectivo</button>
-          <button class="chip" data-method="Bono de despensa" onclick="setMethod('Bono de despensa',this)"><span class="mth-full">Bono de despensa</span><span class="mth-short">Bono</span></button>
-          <button class="chip" data-method="SPEI" onclick="setMethod('SPEI',this)">SPEI</button>
-          <button class="chip" data-method="Débito" onclick="setMethod('Débito',this)">Débito</button>
         </div>
       </div>
 
@@ -627,7 +630,10 @@
         </div>
 
         <div class="field">
-          <label>Monto</label>
+          <div class="amount-labels-row">
+            <label class="lbl-monto">Monto</label>
+            <label class="lbl-metodo" id="e-method-lbl">Método</label>
+          </div>
           <div class="amount-row">
             <select class="cur-sel" id="e-currency" onchange="onECurChange()">
               <option value="MXN">🇲🇽 MXN</option>
@@ -636,6 +642,16 @@
               <option value="EUR">🇪🇺 EUR</option>
             </select>
             <input type="text" id="e-amount" placeholder="0.00" inputmode="decimal" oninput="handleAmountInput(this);refreshEditBeneficioCalcs();updateEditDesgloseRemaining();calcEditPropinaPreview();renderEditDiferirPreview()">
+            <div class="method-picker-wrap" id="e-method-picker-wrap">
+              <button type="button" class="method-btn" id="e-method-btn" onclick="toggleEditMethodBubble()">Elige</button>
+              <div class="method-bubble" id="e-method-bubble">
+                <button type="button" data-method="Tarjeta de crédito" onclick="chooseEditMethod(this)">Tarjeta de crédito</button>
+                <button type="button" data-method="Efectivo" onclick="chooseEditMethod(this)">Efectivo</button>
+                <button type="button" data-method="Bono de despensa" onclick="chooseEditMethod(this)">Bono de despensa</button>
+                <button type="button" data-method="SPEI" onclick="chooseEditMethod(this)">SPEI</button>
+                <button type="button" data-method="Débito" onclick="chooseEditMethod(this)">Débito</button>
+              </div>
+            </div>
           </div>
           <div class="fx-row" id="e-fx-row" style="display:none;">
             <input type="text" id="e-fx-manual" inputmode="decimal" placeholder="" oninput="onEFxManualInput()">
@@ -712,18 +728,6 @@
             <div style="font-size:12px;color:var(--text3);margin-bottom:12px;line-height:1.4;">El monto total se divide en partes iguales, una por mes, empezando este mes.</div>
             <div style="display:flex;gap:7px;align-items:stretch;margin-bottom:6px;" id="e-diferir-presets"></div>
             <div id="e-diferir-preview" style="background:var(--surface);border-radius:10px;padding:12px 14px;border:1px solid var(--border2);display:none;"></div>
-          </div>
-        </div>
-
-        <!-- Método de pago -->
-        <div class="field" id="e-method-field">
-          <label id="e-method-label">Método de pago</label>
-          <div class="chips" id="e-chips">
-            <button class="chip" data-method="Tarjeta de crédito" onclick="setEditMethod('Tarjeta de crédito',this)">Crédito</button>
-            <button class="chip" data-method="Efectivo" onclick="setEditMethod('Efectivo',this)">Efectivo</button>
-            <button class="chip" data-method="Bono de despensa" onclick="setEditMethod('Bono de despensa',this)"><span class="mth-full">Bono de despensa</span><span class="mth-short">Bono</span></button>
-            <button class="chip" data-method="SPEI" onclick="setEditMethod('SPEI',this)">SPEI</button>
-            <button class="chip" data-method="Débito" onclick="setEditMethod('Débito',this)">Débito</button>
           </div>
         </div>
 

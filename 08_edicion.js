@@ -117,7 +117,6 @@ function openEdit(id) {
   editDeferGroup = e.deferGroup || null; // grupo diferido (si aplica)
   editEmojiOverride = null; // sin override hasta que el usuario elija uno
   editType = e.type;
-  updateEditMethodLabel();
   _ePropinaVisible=false; _eBenVisible=false;
   // TC manual: leer la etiqueta de sistema TCauto (si el registro se guardó con TC manual)
   try{
@@ -241,17 +240,14 @@ function openEdit(id) {
   const hasEditDesgloses = editDesgloses.length>0;
 
   // --- Método de pago ---
-  // BUG CORREGIDO: comparaba contra el textContent del chip, pero desde que
-  // "Bono de despensa" ganó los spans .mth-full/.mth-short (ambos viven en el
-  // DOM a la vez, la media query solo oculta uno visualmente), su textContent
-  // real es la concatenación de los dos ("Bono de despensaBono") y nunca
-  // coincidía con el mapa — ese chip jamás quedaba preseleccionado al editar.
-  // Ahora se compara contra data-method (mismo patrón que Registro), que es
-  // estable sin importar cómo se muestre el texto.
-  document.getElementById('e-method-field').style.display = e.type==='beneficio'?'none':'block';
-  document.querySelectorAll('#e-chips .chip').forEach(c=>{
-    c.classList.toggle('active', c.dataset.method===(e.method||'Tarjeta de crédito'));
-  });
+  // R9 · punto 9: el picker vive integrado al renglón de Monto (ya no son
+  // chips sueltos) — editMethod (asignado arriba) se pinta con
+  // _paintEditMethodBtn().
+  const eMWrap=document.getElementById('e-method-picker-wrap');
+  const eMLbl=document.getElementById('e-method-lbl');
+  if(eMWrap) eMWrap.style.display = e.type==='beneficio' ? 'none' : '';
+  if(eMLbl) eMLbl.style.display = e.type==='beneficio' ? 'none' : '';
+  _paintEditMethodBtn();
 
   // --- Categoría ---
   buildEditCatBlocks(e.type, e.category, e.subcategory||'');
@@ -425,13 +421,15 @@ function selectEditSubcat(sub){
 
 function setEditType(t,btn){
   editType=t; editCat=''; editSubcat='';
-  updateEditMethodLabel();
   document.querySelectorAll('[data-et]').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
   document.getElementById('e-ahorro-sub-toggle').style.display='none';
   document.getElementById('e-ahorro-type-lbl').textContent = t==='beneficio'?'Beneficio':'Ahorro';
   document.getElementById('e-inline-toggles').style.display=t==='egreso'?'block':'none';
-  document.getElementById('e-method-field').style.display=t==='beneficio'?'none':'block';
+  const eMWrap1=document.getElementById('e-method-picker-wrap');
+  const eMLbl1=document.getElementById('e-method-lbl');
+  if(eMWrap1) eMWrap1.style.display = t==='beneficio' ? 'none' : '';
+  if(eMLbl1) eMLbl1.style.display = t==='beneficio' ? 'none' : '';
   if(t!=='egreso'){ if(typeof resetEditBeneficios==='function') resetEditBeneficios(); editDesgloses=[]; renderEditDesgloses(); }
   updateEditDesgloseVisibility();
   renderEditCatUI();
@@ -450,16 +448,49 @@ function setEditAhorroSubType(sub){
   pasivo.style.background = sub==='beneficio'?'var(--blue)':'var(--surface2)';
   pasivo.style.color      = sub==='beneficio'?'white':'var(--text3)';
   document.getElementById('e-inline-toggles').style.display='none';
-  document.getElementById('e-method-field').style.display=sub==='beneficio'?'none':'block';
+  const eMWrap2=document.getElementById('e-method-picker-wrap');
+  const eMLbl2=document.getElementById('e-method-lbl');
+  if(eMWrap2) eMWrap2.style.display = sub==='beneficio' ? 'none' : '';
+  if(eMLbl2) eMLbl2.style.display = sub==='beneficio' ? 'none' : '';
   if(typeof resetEditBeneficios==='function') resetEditBeneficios();
   buildEditCatBlocks(sub,'','');
 }
 
-function setEditMethod(m,el){
-  editMethod=m;
-  document.querySelectorAll('#e-chips .chip').forEach(c=>c.classList.remove('active'));
-  el.classList.add('active');
+// R9 · punto 9: pinta el botón de Método de Edición según editMethod y el
+// ancho de pantalla (mismo criterio que Registro, ver _paintMethodBtn).
+function _paintEditMethodBtn(){
+  const btn=document.getElementById('e-method-btn');
+  if(!btn) return;
+  if(!editMethod){ btn.textContent='Elige'; btn.classList.remove('chosen'); return; }
+  const lbl=METHOD_LABELS[editMethod];
+  btn.textContent = lbl ? (_methodIsWide()?lbl.full:lbl.short) : editMethod;
+  btn.classList.add('chosen');
+  document.querySelectorAll('#e-method-bubble button').forEach(b=>{
+    b.classList.toggle('sel', b.getAttribute('data-method')===editMethod);
+  });
 }
+function toggleEditMethodBubble(){
+  const bub=document.getElementById('e-method-bubble');
+  if(bub) bub.classList.toggle('open');
+}
+function chooseEditMethod(el){
+  setEditMethod(el.getAttribute('data-method'));
+  const bub=document.getElementById('e-method-bubble');
+  if(bub) bub.classList.remove('open');
+}
+function setEditMethod(m){
+  editMethod=m;
+  _paintEditMethodBtn();
+}
+// Cerrar la burbuja al tocar fuera (mismo patrón que Registro)
+document.addEventListener('click',(e)=>{
+  const wrap=document.getElementById('e-method-picker-wrap');
+  const bub=document.getElementById('e-method-bubble');
+  if(!bub || !bub.classList.contains('open')) return;
+  if(wrap && wrap.contains(e.target)) return;
+  bub.classList.remove('open');
+}, true);
+window.addEventListener('resize', ()=>{ try{ _paintEditMethodBtn(); }catch(e){} });
 
 function toggleEBen(){
   const abrir = !_eBenVisible;
@@ -879,13 +910,6 @@ function loadEditPropina(parentId){
   setEditPropinaType(editPropinaType);
   setEditPropinaIncluida(editPropinaIncluida);
   calcEditPropinaPreview();
-}
-
-
-// Título del campo de método en el modal de edición según el tipo
-function updateEditMethodLabel(){
-  const l=document.getElementById('e-method-label');
-  if(l) l.textContent = (editType==='ingreso') ? 'Método de recepción' : 'Método de pago';
 }
 
 

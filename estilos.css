@@ -412,6 +412,32 @@ nav.shrunk .nav-lbl{ opacity: 0; }
 /* R7 · el badge "TC: 1 CAD = $12.60 MXN" que vivía arriba del campo murió:
    ese contenido ahora es el placeholder del propio campo de TC (ver .fx-row). */
 
+/* R9 · punto 9 (Opción B aprobada): Método vive integrado al renglón de Monto,
+   recargado a la derecha. Su etiqueta comparte renglón con la de Monto. El
+   placeholder ("Elige") es texto plano, sin apariencia de <select> — al
+   tocarlo abre una burbuja con las 5 opciones. Elegido, el texto pasa a
+   acento+semibold (mismo lenguaje visual que un chip.active o el título del
+   calendario) y muestra el nombre completo en escritorio / abreviado en
+   móvil, vía la misma frontera de 700px que usa el resto de la app. */
+.amount-labels-row { display: flex; gap: 8px; margin-bottom: 7px; }
+.amount-labels-row .lbl-monto { flex: 1; font-size: 12px; font-weight: 600; letter-spacing: -0.01em; color: var(--text2); margin-bottom: 0; }
+.amount-labels-row .lbl-metodo { flex: 0 0 auto; min-width: 96px; text-align: right;
+  font-size: 12px; font-weight: 600; letter-spacing: -0.01em; color: var(--text2); margin-bottom: 0; }
+.method-picker-wrap { position: relative; flex: 0 0 auto; min-width: 96px; }
+.method-btn { width: 100%; border: none; background: var(--surface2); font-family: inherit; cursor: pointer;
+  padding: 12px 14px; border-radius: var(--radius-sm); font-size: 14px; font-weight: 500; color: var(--text3);
+  text-align: right; transition: color .15s; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.method-btn.chosen { color: var(--accent); font-weight: 700; }
+.method-bubble { position: absolute; top: calc(100% + 8px); right: 0; z-index: 20;
+  background: var(--surface); border-radius: var(--radius-sm); box-shadow: var(--shadow-md);
+  padding: 6px; min-width: 172px; opacity: 0; transform: translateY(-6px) scale(0.97);
+  pointer-events: none; transition: opacity .18s ease, transform .18s cubic-bezier(0.34,1.4,0.64,1); }
+.method-bubble.open { opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; }
+.method-bubble button { display: block; width: 100%; text-align: left; border: none; background: none;
+  font-family: inherit; font-size: 14px; color: var(--text); padding: 9px 10px; border-radius: 8px; cursor: pointer; }
+.method-bubble button:hover { background: var(--surface2); }
+.method-bubble button.sel { color: var(--accent); font-weight: 700; }
+
 /* CAT BLOCKS */
 .cat-grid-ui { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 8px; }
 .cat-block {
@@ -449,15 +475,6 @@ nav.shrunk .nav-lbl{ opacity: 0; }
   color: var(--text2); cursor: pointer; transition: all 0.18s cubic-bezier(0.34,1.56,0.64,1);
 }
 .chip:active { transform: scale(0.95); }
-/* R9 · "Bono de despensa" es el chip más ancho del renglón de método y el que
-   hacía desbordar la fila en el modal de edición (76px vs 66-59px del resto).
-   Móvil = solo "Bono"; escritorio = texto completo. */
-.mth-short{ display:inline; }
-.mth-full{ display:none; }
-@media (min-width: 700px){
-  .mth-short{ display:none; }
-  .mth-full{ display:inline; }
-}
 .chip.active { background: var(--accent); color: white; font-weight: 600; }
 
 /* Botones de MÉTODO DE PAGO (registro, edición, y los de la propina en ambos).

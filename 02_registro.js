@@ -431,15 +431,14 @@ function setType(t) {
     resetPropina();
   }
   buildCatBlocks();
-  // Reset method — Crédito active by default for egreso, none for others
-  document.querySelectorAll('#method-field .chip').forEach(c=>c.classList.remove('active'));
+  // Reset method — Crédito por defecto para egreso, vacío para los demás
   if(t==='egreso'){
     selMethod='Tarjeta de crédito';
-    const creditoBtn=document.getElementById('method-credito');
-    if(creditoBtn) creditoBtn.classList.add('active');
   } else {
     selMethod='';
   }
+  _paintMethodBtn();
+  const mBub=document.getElementById('method-bubble'); if(mBub) mBub.classList.remove('open');
   // Reset note (R7.2: el campo vive bajo Descripción y arranca oculto)
   const noteEl=document.getElementById('note');
   if(noteEl){ noteEl.value=''; }   // R6.6: ya no existe dataset.autoRate
@@ -449,7 +448,10 @@ function setType(t) {
   _setNoteOpen('note-field-wrap', false);
   // Al cambiar de tipo, limpiar desgloses (solo aplican a egreso)
   desgloses=[]; renderDesgloses();
-  document.getElementById('method-field').style.display=t==='beneficio'?'none':'block';
+  const mWrap=document.getElementById('method-picker-wrap');
+  const mLbl=document.getElementById('method-lbl');
+  if(mWrap) mWrap.style.display = t==='beneficio' ? 'none' : '';
+  if(mLbl) mLbl.style.display = t==='beneficio' ? 'none' : '';
   // Efecto de despliegue en el formulario al cambiar de tipo
   revealAnimate(document.getElementById('register-form-card'));
   try{ refreshSubmitDisabled(); }catch(e){}      // R9
@@ -622,9 +624,6 @@ function updateFinalizeVisibility(animDelay){
     noteSection.style.display='none';
     submitBtn.style.display='none';
   }
-  // Título del método según el tipo (ingreso = recepción)
-  const mlbl=document.getElementById('method-field-label');
-  if(mlbl) mlbl.textContent = (curType==='ingreso') ? 'Método de recepción' : 'Método de pago';
   updateNoteMode();
   try{ updateRemToggleVisibility(); }catch(e){}
 }
@@ -1128,9 +1127,7 @@ function predictCategory(){
     }
     if(_methodPredicted || (vacio && selMethod!=='Tarjeta de crédito')){
       selMethod='Tarjeta de crédito';
-      document.querySelectorAll('#method-field .chip').forEach(ch=>{
-        ch.classList.toggle('active', ch.getAttribute('data-method')===selMethod);
-      });
+      _paintMethodBtn();
       _methodPredicted=false;
     }
     if(_notePredicted){
@@ -1199,14 +1196,7 @@ function predictCategory(){
     if(bestMethod && bestMethod !== selMethod){
       selMethod = bestMethod;
       _methodPredicted = true;
-      // Actualizar el chip visual del método
-      document.querySelectorAll('#method-field .chip').forEach(c=>{
-        if(!c) return;
-        c.classList.remove('active');
-        // El texto del chip puede diferir del valor (ej. "Crédito" vs "Tarjeta de crédito")
-        const chipMethod = c.getAttribute('data-method');
-        if(chipMethod === bestMethod) c.classList.add('active');
-      });
+      _paintMethodBtn();
     }
   }
 
@@ -1379,12 +1369,43 @@ function hideAnimate(el, done){
   }catch(e){ fin(); }
 }
 
-function setMethod(m,el){
+// R9 · punto 9: pinta el botón de Método según selMethod y el ancho de
+// pantalla (completo en escritorio, abreviado en móvil vía METHOD_LABELS).
+function _paintMethodBtn(){
+  const btn=document.getElementById('method-btn');
+  if(!btn) return;
+  if(!selMethod){ btn.textContent='Elige'; btn.classList.remove('chosen'); return; }
+  const lbl=METHOD_LABELS[selMethod];
+  btn.textContent = lbl ? (_methodIsWide()?lbl.full:lbl.short) : selMethod;
+  btn.classList.add('chosen');
+  document.querySelectorAll('#method-bubble button').forEach(b=>{
+    b.classList.toggle('sel', b.getAttribute('data-method')===selMethod);
+  });
+}
+function toggleMethodBubble(){
+  const bub=document.getElementById('method-bubble');
+  if(bub) bub.classList.toggle('open');
+}
+function chooseMethod(el){
+  setMethod(el.getAttribute('data-method'));
+  const bub=document.getElementById('method-bubble');
+  if(bub) bub.classList.remove('open');
+}
+function setMethod(m){
   _methodPredicted=false; // elección manual del usuario
   selMethod=m;
-  document.querySelectorAll('#method-field .chip').forEach(c=>c&&c.classList.remove('active'));
-  if(el) el.classList.add('active');
+  _paintMethodBtn();
 }
+// Cerrar la burbuja al tocar fuera (mismo patrón que los demás popovers de la app)
+document.addEventListener('click',(e)=>{
+  const wrap=document.getElementById('method-picker-wrap');
+  const bub=document.getElementById('method-bubble');
+  if(!bub || !bub.classList.contains('open')) return;
+  if(wrap && wrap.contains(e.target)) return;
+  bub.classList.remove('open');
+}, true);
+// Repintar completo/abreviado si cambia el ancho con la burbuja cerrada
+window.addEventListener('resize', ()=>{ try{ _paintMethodBtn(); }catch(e){} });
 
 // R7.2: 'Cashback' dejó de ser beneficio (ahora es categoría de INGRESO) y se
 // agregó 'Dinero electrónico', que se comporta igual que cualquier otro.

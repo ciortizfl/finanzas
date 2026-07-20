@@ -227,6 +227,18 @@ if(_migrated) localStorage.setItem(SK, JSON.stringify(data));
 let curType = 'ingreso';
 let curCat = '';
 let selMethod = 'Tarjeta de crédito';
+// R9 · punto 9: mapa único completo/abreviado para el selector de Método
+// (Registro y Edición). Móvil usa el abreviado para que quepa como valor
+// elegido sin desbordar; escritorio usa el nombre completo. Misma frontera
+// que separa escritorio/móvil en CSS (700px).
+const METHOD_LABELS = {
+  'Tarjeta de crédito': { full:'Tarjeta de crédito', short:'Crédito' },
+  'Efectivo':           { full:'Efectivo',           short:'Efectivo' },
+  'Bono de despensa':   { full:'Bono de despensa',   short:'Bono' },
+  'SPEI':               { full:'SPEI',               short:'SPEI' },
+  'Débito':             { full:'Débito',             short:'Débito' }
+};
+function _methodIsWide(){ return window.matchMedia && window.matchMedia('(min-width: 700px)').matches; }
 // R7.2: benOn desapareció — el estado vive en el arreglo `beneficios` (02_registro).
 let histFilter = 'todos';
 let histSelCats = [];
