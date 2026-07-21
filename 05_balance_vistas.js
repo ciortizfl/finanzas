@@ -745,6 +745,22 @@ function renderAnnual(){
 
 let annualDetailView = null; // 'ingreso' | 'egreso' | 'beneficio' | null
 
+// R9 · encoge el monto de una tarjeta .stat en pasos de 1px si no cabe en su
+// ancho asignado, hasta un piso — mismo patrón de "encoger antes de que se
+// vea mal" que ya usa el treemap (_tryShrink). Debe llamarse DESPUÉS de que
+// las tarjetas ya estén insertadas en el DOM (si no, clientWidth mide 0 y
+// nunca detecta el desborde real).
+function _shrinkStatVals(container, min){
+  min = min || 12;
+  container.querySelectorAll('.stat .val').forEach(val=>{
+    let size=parseFloat(getComputedStyle(val).fontSize);
+    while(val.scrollWidth > val.clientWidth + 0.5 && size > min){
+      size -= 1;
+      val.style.fontSize = size+'px';
+    }
+  });
+}
+
 function showAnnualMonthDetail(m,yr){
   annualSelMonth=m;
   annualDetailView=null; // resetear la tabla desglosada al cambiar de mes
@@ -790,13 +806,22 @@ function showAnnualMonthDetail(m,yr){
   items.forEach(it=>{
     const card=document.createElement('div');
     card.className='stat annual-detail-stat';
-    card.style.cssText='cursor:pointer;text-align:center;';
+    // min-width:0 es necesario: sin esto, un monto largo (ej. "$55,194.81")
+    // empuja la tarjeta más allá de su 1fr y las 3 tarjetas se corren a la
+    // derecha en vez de quedar centradas — el grid nunca sabía que podía
+    // pedirle a la tarjeta que se encogiera.
+    card.style.cssText='cursor:pointer;text-align:center;min-width:0;';
     card.dataset.view=it.k;
     card.innerHTML=`<div class="lbl">${it.lbl}</div><div class="val ${it.cls}" style="font-size:${valSize};">${fmt(it.val)}</div>`;
     card.onclick=()=>toggleAnnualDetailView(it.k, m, yr);
     cardsRow.appendChild(card);
   });
   cats.appendChild(cardsRow);
+  // Con min-width:0 la tarjeta ya no se estira, así que ahora si el monto no
+  // cabe DE VERDAD se recorta — encoger su tamaño hasta que quepa (o hasta un
+  // piso) evita que se vea cortado, igual que ya hacemos con los emojis del
+  // treemap.
+  _shrinkStatVals(cardsRow);
 
   // Contenedor donde se desplegará la tabla al tocar un tarjetón
   const detailBox=document.createElement('div');
