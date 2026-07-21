@@ -150,9 +150,11 @@ nav.shrunk .nav-btn{ padding: 5px 14px; }
   position: absolute; top: 7px; bottom: 7px; left: 0; width: 0;
   border-radius: 100px; background: var(--accent-light);
   z-index: 0; pointer-events: none;
-  transition: transform .40s cubic-bezier(0.32,0.72,0,1),
-              width .40s cubic-bezier(0.32,0.72,0,1),
-              top .34s cubic-bezier(0.34,1.4,0.64,1),
+  /* left/width los anima _navMoveThumb() con keyframes (Web Animations API):
+     NO deben tener transición CSS o las dos animaciones compiten y el
+     recorrido se vuelve impredecible. Aquí solo se anima el alto, que es lo
+     que cambia al comprimirse la cápsula. */
+  transition: top .34s cubic-bezier(0.34,1.4,0.64,1),
               bottom .34s cubic-bezier(0.34,1.4,0.64,1);
 }
 nav.shrunk .nav-thumb { top: 4px; bottom: 4px; }
@@ -160,11 +162,16 @@ nav.shrunk .nav-thumb { top: 4px; bottom: 4px; }
 .nav-thumb:not(.ready) { opacity: 0; }
 
 /* El ícono de destino da un pequeño brinco al llegar el foco (opción 5). */
-.nav-btn.icon-pop svg { animation: navIconPop .42s cubic-bezier(0.34,1.4,0.64,1); }
+/* Brinco del ícono al llegar el foco. 1.15 y no más: con la cápsula
+   comprimida hay poco alto y un salto mayor hacía que el ícono se saliera
+   visualmente de la cápsula. transform-origin centrado para que crezca en su
+   sitio y no se recorra hacia un lado. */
+.nav-btn.icon-pop svg { animation: navIconPop .40s cubic-bezier(0.34,1.4,0.64,1);
+  transform-origin: 50% 50%; }
 @keyframes navIconPop {
   0%   { transform: scale(1); }
-  40%  { transform: scale(1.28); }
-  70%  { transform: scale(0.94); }
+  42%  { transform: scale(1.15); }
+  72%  { transform: scale(0.97); }
   100% { transform: scale(1); }
 }
 @media (prefers-reduced-motion: reduce) {

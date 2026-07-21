@@ -351,37 +351,33 @@ function _navAnchorWidth(){
   if(wasShrunk) cap.classList.add('shrunk');
 }
 
-// R9 · Indicador de foco de la cápsula (opción 3 + brinco del ícono de la
-// opción 5, aprobadas en prototipo_nav_foco.html).
+// R9 · Indicador de foco de la cápsula (opción 3 "se estira al viajar" + el
+// brinco del ícono de la opción 5, elegidas por Carlos).
 //
-// _navPlaceThumb(animate) coloca el indicador sobre el botón activo. SIEMPRE
-// mide el botón ya insertado en el layout (offsetLeft/offsetWidth valen 0 si
-// el elemento no está visible) y debe llamarse DESPUÉS de _navBtnWidths(),
-// que es quien fija el ancho definitivo de cada botón.
-function _navPlaceThumb(animate){
+// Se posiciona con left/width (NO con transform): así la geometría usa el
+// MISMO origen que btn.offsetLeft (el borde interior de <nav>), sin mezclar
+// dos sistemas de coordenadas. Medir exige que el elemento ya esté en el
+// layout, así que todo esto corre después de _navBtnWidths().
+function _navPlaceThumb(){
   const cap=document.getElementById('navCapsule');
   const thumb=document.getElementById('navThumb');
   if(!cap||!thumb) return;
   const btn=cap.querySelector('.nav-btn.active');
   if(!btn) return;
-  if(!animate){
-    const prev=thumb.style.transition;
-    thumb.style.transition='none';
-    thumb.style.width=btn.offsetWidth+'px';
-    thumb.style.transform='translateX('+btn.offsetLeft+'px)';
-    void thumb.offsetWidth;              // reflow antes de devolver la transición
-    thumb.style.transition=prev;
-  } else {
-    thumb.style.width=btn.offsetWidth+'px';
-    thumb.style.transform='translateX('+btn.offsetLeft+'px)';
-  }
+  thumb.style.left  = btn.offsetLeft+'px';
+  thumb.style.width = btn.offsetWidth+'px';
   thumb.classList.add('ready');
 }
 
-// Efecto "liga": al cambiar de sección el indicador primero se ESTIRA para
-// abarcar de donde estaba hasta el destino y, a mitad del recorrido, se
-// recoge sobre el botón final. Además el ícono de destino da un brinco.
-let _navThumbTimer=null;
+// Efecto "liga": el indicador se estira para abarcar de donde estaba hasta el
+// destino y se recoge sobre el botón final.
+//
+// Se describe como UNA sola animación de 3 pasos (Web Animations API) en vez
+// de dos transiciones CSS encadenadas por setTimeout: encadenarlas obligaba a
+// interrumpir la primera a media curva, y al interrumpir una transición el
+// navegador arranca la siguiente desde una velocidad arbitraria — por eso el
+// recorrido no se sentía fluido ni terminaba donde debía. Con keyframes el
+// recorrido completo queda definido de antemano y siempre cierra exacto.
 function _navMoveThumb(){
   const cap=document.getElementById('navCapsule');
   const thumb=document.getElementById('navThumb');
@@ -392,19 +388,30 @@ function _navMoveThumb(){
   // Brinco del ícono de destino
   btn.classList.remove('icon-pop'); void btn.offsetWidth; btn.classList.add('icon-pop');
 
-  // Primer pintado (aún sin posición): colocar sin animar
-  if(!thumb.classList.contains('ready')){ _navPlaceThumb(false); return; }
+  const toL=btn.offsetLeft, toW=btn.offsetWidth;
 
-  const from=parseFloat(String(thumb.style.transform).replace(/[^0-9.\-]/g,''))||0;
-  const fromW=parseFloat(thumb.style.width)||btn.offsetWidth;
-  const to=btn.offsetLeft, toW=btn.offsetWidth;
-  if(from===to && fromW===toW) return;   // mismo botón: nada que recorrer
+  // Primer pintado (aún sin posición) o sin soporte de WAAPI: colocar y salir.
+  if(!thumb.classList.contains('ready') || typeof thumb.animate!=='function'){
+    _navPlaceThumb();
+    return;
+  }
 
-  const left=Math.min(from,to), right=Math.max(from+fromW, to+toW);
-  thumb.style.transform='translateX('+left+'px)';
-  thumb.style.width=(right-left)+'px';
-  clearTimeout(_navThumbTimer);
-  _navThumbTimer=setTimeout(function(){ _navPlaceThumb(true); }, 170);
+  const fromL=thumb.offsetLeft, fromW=thumb.offsetWidth;
+  if(fromL===toL && fromW===toW) return;          // mismo botón: nada que recorrer
+
+  // El estado final se fija YA: si la animación se cancela o el navegador la
+  // omite (reduced-motion), el indicador queda en su lugar correcto igual.
+  _navPlaceThumb();
+
+  const spanL=Math.min(fromL,toL);
+  const spanW=Math.max(fromL+fromW, toL+toW)-spanL;
+  try{
+    thumb.animate([
+      { left:fromL+'px', width:fromW+'px' },
+      { left:spanL+'px', width:spanW+'px', offset:0.45 },
+      { left:toL+'px',   width:toW+'px' }
+    ], { duration:430, easing:'cubic-bezier(0.32,0.72,0,1)' });
+  }catch(e){}
 }
 
 // R9 · punto 2 — fija el ANCHO de cada botón del nav (medido sin .shrunk),
@@ -466,6 +473,6 @@ function updateHeaderShrink(){
   // Al arrancar, mide el ancla y dispara el estado inicial (arriba del todo).
   // El indicador se coloca DESPUÉS de _navBtnWidths(): ese es quien fija el
   // ancho definitivo de cada botón, y el indicador se mide contra él.
-  requestAnimationFrame(()=>{ _navBtnWidths(); _navAnchorWidth(); _navPlaceThumb(false); updateHeaderShrink(); });
-  window.addEventListener('resize', ()=>{ requestAnimationFrame(()=>{ _navBtnWidths(); _navAnchorWidth(); _navPlaceThumb(false); }); });
+  requestAnimationFrame(()=>{ _navBtnWidths(); _navAnchorWidth(); _navPlaceThumb(); updateHeaderShrink(); });
+  window.addEventListener('resize', ()=>{ requestAnimationFrame(()=>{ _navBtnWidths(); _navAnchorWidth(); _navPlaceThumb(); }); });
 })();
