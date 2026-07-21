@@ -498,9 +498,13 @@ function updateHeaderShrink(){
     if(!thumb) return;
     const from=optIndex(container, oldVal), to=optIndex(container, newVal);
     if(from<0 || to<0 || from===to) return;          // sin viaje real: no animar
-    // Se estira hacia donde va: si avanza a la derecha, el origen queda a la
-    // izquierda (crece hacia la derecha) y viceversa.
-    thumb.style.transformOrigin = (to>from) ? '0% 50%' : '100% 50%';
+    // El origen va en el borde DELANTERO del viaje, para que el estiramiento
+    // quede REZAGADO (como la cola de una liga) en vez de adelantarse.
+    // Además de leerse más natural, así nunca se sale de la píldora: el
+    // sobrante siempre apunta hacia adentro, hacia el lado del que viene.
+    // (Al revés — origen en el borde trasero — el indicador se estiraba más
+    // allá del destino y se salía del borde.)
+    thumb.style.transformOrigin = (to>from) ? '100% 50%' : '0% 50%';
     thumb.classList.remove('seg-stretch');
     void thumb.offsetWidth;                          // reinicia la animación
     thumb.classList.add('seg-stretch');

@@ -1788,11 +1788,17 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
    funcionando intacta. El origen lo fija el JS según la dirección del viaje,
    para que el indicador se estire HACIA donde va (no simétricamente). */
 .calseg-thumb.seg-stretch, .seg-thumb.seg-stretch{
-  animation: segStretch .34s cubic-bezier(0.32,0.72,0,1);
+  animation: segStretch .42s cubic-bezier(0.32,0.72,0,1);
 }
+/* El pico del estiramiento va al 16% y no a la mitad. El desplazamiento usa
+   una curva muy adelantada (0.32,0.72,0,1): medido, a los 45% del tiempo el
+   indicador YA recorrió el 94% del camino, y estirarse ahí lo sacaba del borde
+   de la píldora. El medio camino REAL ocurre al 16% del tiempo — ahí es donde
+   el estiramiento tiene sentido. La magnitud baja de 1.16 a 1.09 para que se
+   lea como un estirón suave y no como un rebote. */
 @keyframes segStretch{
   0%   { scale: 1 1; }
-  45%  { scale: 1.16 1; }
+  16%  { scale: 1.09 1; }
   100% { scale: 1 1; }
 }
 @media (prefers-reduced-motion: reduce){
