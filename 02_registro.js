@@ -189,6 +189,10 @@ function toggleDesgloseSection(forceOpen){
 }
 
 function onCurChange() {
+  // Capa estética (11_selectores.js): el botón de Moneda sigue al <select>,
+  // que sigue siendo la fuente de verdad. Va al principio porque más abajo
+  // esta función retorna temprano cuando la moneda es MXN.
+  try{ const _c=document.getElementById('currency'); if(_c){ _fselBuild(_c); _fselPaint(_c); } }catch(e){}
   if(typeof _applyingPrediction!=='undefined' && !_applyingPrediction){ _curPredicted=false; }
   // Cambiar de moneda invalida el TC manual escrito para la anterior
   const _fx=document.getElementById('fx-manual');

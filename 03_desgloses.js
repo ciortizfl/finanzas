@@ -178,7 +178,6 @@ function setDesgloseCat(id, cat){
   revealDesgloseFields(id);
   updateAddDesgloseBtnVisibility();
   updateDesgloseRemaining();
-  try{ fitDesgCatSelects(); }catch(e){}   // R8.1: el ancho sigue a la selección
 }
 function setDesgloseSubcat(id, sub){
   const d=desgloses.find(x=>x.id===id);
@@ -237,7 +236,7 @@ function refreshAllDesgloseSubcatDropdowns(){
         // R7.2: vive en la MITAD DERECHA del renglón de Categoría.
         const newSel=document.createElement('select');
         newSel.setAttribute('data-desg-subcat','');
-        newSel.classList.add('desg-subcat');
+        newSel.classList.add('desg-subcat','fsel');
         newSel.setAttribute('onchange', `setDesgloseSubcat(${d.id},this.value)`);
         newSel.style.cssText='min-width:0;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;';
         newSel.innerHTML=subInfo.html;
@@ -245,11 +244,16 @@ function refreshAllDesgloseSubcatDropdowns(){
         if(catRow) catRow.appendChild(newSel);
         else card.appendChild(newSel);
         newSel.value=d.subcategory||'';
-        revealAnimate(newSel);
+        // La capa estética envuelve el <select> recién insertado; la animación
+        // de aparición pasa al envoltorio (el <select> va oculto).
+        try{ _fselSyncAll(catRow||card); }catch(e){}
+        revealAnimate(newSel.closest('.fsel-wrap')||newSel);
       }
     } else if(subSelect){
       subSelect.remove();
     }
+    // Repintar botones/burbujas con las opciones y el valor actuales.
+    try{ _fselSyncAll(card); }catch(e){}
   });
 }
 
@@ -305,30 +309,13 @@ function updateEditDesgloseChipLabel(){
   lbl.textContent = n>=2 ? `${n} desgloses` : 'Desglose';
 }
 
-// ══ R8.1 · Categoría a la medida de su opción SELECCIONADA (solo móvil) ══
-// Un <select> nativo se dimensiona según su opción MÁS LARGA, no la elegida.
-// Aquí se mide el texto de la opción seleccionada (canvas con la misma fuente)
-// y se fija como width inline; la Subcategoría (flex:1) absorbe el resto.
-// En web (≥768px) se limpia el width y ambos vuelven al 50/50 del CSS.
-let _fitCatCanvas=null;
-function fitDesgCatSelects(){
-  const desktop = window.matchMedia && window.matchMedia('(min-width: 768px)').matches;
-  document.querySelectorAll('.desg-catrow .desg-cat').forEach(sel=>{
-    if(desktop){ sel.style.width=''; return; }
-    const opt=sel.options[sel.selectedIndex];
-    const txt=(opt && opt.text) || 'Categoría...';
-    const cs=getComputedStyle(sel);
-    if(!_fitCatCanvas) _fitCatCanvas=document.createElement('canvas');
-    const ctx=_fitCatCanvas.getContext('2d');
-    ctx.font=`${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
-    const textW=ctx.measureText(txt).width;
-    // + padding izq/der (10+10) + flecha nativa y aire (~18)
-    const row=sel.closest('.desg-catrow');
-    const maxW=row ? Math.floor(row.clientWidth*0.62) : 220;
-    sel.style.width=Math.min(Math.ceil(textW+38), maxW)+'px';
-  });
-}
-window.addEventListener('resize', ()=>{ try{ fitDesgCatSelects(); }catch(e){} });
+// ══ R8.1 (RETIRADO) · fitDesgCatSelects ══════════════════════════════════
+// Medía con canvas el texto de la opción elegida para fijarle el ancho al
+// <select> de Categoría, porque un <select> nativo se dimensiona por su opción
+// MÁS LARGA, no por la elegida. Con el botón de la capa estética
+// (11_selectores.js) eso ya no hace falta: un botón sí mide su valor actual.
+// La separación entre Categoría y Subcategoría la da ahora el CSS
+// (.desg-catrow .fsel-wrap[data-fsel="desg-cat"] + gap del renglón).
 
 function renderDesgloses(animateNew){
   const list=document.getElementById('desglose-list');
@@ -363,13 +350,13 @@ function renderDesgloses(animateNew){
         <input data-desg-owndesc class="desg-owndesc" type="text" placeholder="Nombre propio (opcional)" value="${(d.desc||'').replace(/"/g,'&quot;')}" oninput="updateDesglose(${d.id},'desc',this.value)" style="padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
       </div>
       <!-- R8.1 · Renglón 2: Categoría + Subcategoría. En escritorio ambos 50%; en
-           móvil Categoría se ajusta al ancho de SU opción elegida (fitDesgCatSelects)
-           y Subcategoría absorbe todo el resto para mostrarse completa. -->
-      <div data-desg-catrow class="desg-catrow" style="display:flex;gap:8px;margin-bottom:8px;">
-        <select class="desg-cat" onchange="setDesgloseCat(${d.id},this.value)" style="min-width:0;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
+           móvil Categoría se ajusta al ancho de SU opción elegida (el botón de
+           11_selectores.js) y Subcategoría absorbe todo el resto. -->
+      <div data-desg-catrow class="desg-catrow" style="display:flex;gap:10px;margin-bottom:8px;">
+        <select class="desg-cat fsel" onchange="setDesgloseCat(${d.id},this.value)" style="min-width:0;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
           <option value="">Categoría...</option>${catOpts}
         </select>
-        ${showSubcat?`<select data-desg-subcat class="desg-subcat" onchange="setDesgloseSubcat(${d.id},this.value)" style="min-width:0;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">${subOpts}</select>`:''}
+        ${showSubcat?`<select data-desg-subcat class="desg-subcat fsel" onchange="setDesgloseSubcat(${d.id},this.value)" style="min-width:0;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">${subOpts}</select>`:''}
       </div>
       ${showNote?`<input data-desg-note type="text" placeholder="Nota (opcional)" value="${d.note||''}" oninput="updateDesglose(${d.id},'note',this.value)" style="width:100%;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:13px;outline:none;">`:''}
     `;
@@ -383,7 +370,7 @@ function renderDesgloses(animateNew){
   updateAddDesgloseBtnVisibility();
   updateDesgloseRemaining();
   updateDesgloseChipLabel();
-  try{ fitDesgCatSelects(); }catch(e){}
+  try{ _fselSyncAll(list); }catch(e){}
 }
 
 // Muestra el botón "Agregar desglose" solo si el último desglose está completo.
@@ -680,7 +667,6 @@ function setEditDesgloseCat(id, cat){
   revealEditDesgloseFields(id);
   updateEditAddDesgloseBtnVisibility();
   updateEditDesgloseRemaining();
-  try{ fitDesgCatSelects(); }catch(e){}   // R8.1: el ancho sigue a la selección
 }
 function setEditDesgloseSubcat(id, sub){
   const d=editDesgloses.find(x=>x.id===id);
@@ -734,7 +720,7 @@ function refreshAllEditDesgloseSubcatDropdowns(){
         // R7.2: el dropdown nuevo vive en la MITAD DERECHA del renglón de Categoría.
         const newSel=document.createElement('select');
         newSel.setAttribute('data-desg-subcat','');
-        newSel.classList.add('desg-subcat');
+        newSel.classList.add('desg-subcat','fsel');
         newSel.setAttribute('onchange', `setEditDesgloseSubcat(${d.id},this.value)`);
         newSel.style.cssText='min-width:0;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;';
         newSel.innerHTML=subInfo.html;
@@ -742,11 +728,16 @@ function refreshAllEditDesgloseSubcatDropdowns(){
         if(catRow) catRow.appendChild(newSel);
         else card.appendChild(newSel);
         newSel.value=d.subcategory||'';
-        revealAnimate(newSel);
+        // La capa estética envuelve el <select> recién insertado; la animación
+        // de aparición pasa al envoltorio (el <select> va oculto).
+        try{ _fselSyncAll(catRow||card); }catch(e){}
+        revealAnimate(newSel.closest('.fsel-wrap')||newSel);
       }
     } else if(subSelect){
       subSelect.remove();
     }
+    // Repintar botones/burbujas con las opciones y el valor actuales.
+    try{ _fselSyncAll(card); }catch(e){}
   });
 }
 
@@ -777,11 +768,11 @@ function renderEditDesgloses(){
         <input data-desg-owndesc class="desg-owndesc" type="text" placeholder="Nombre propio (opcional)" value="${(d.desc||'').replace(/"/g,'&quot;')}" oninput="updateEditDesglose(${d.id},'desc',this.value)" style="padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
       </div>
       <!-- R8.1 · Renglón 2: Categoría a la medida de su selección (móvil) + Subcategoría con el resto -->
-      <div data-desg-catrow class="desg-catrow" style="display:flex;gap:8px;margin-bottom:8px;">
-        <select class="desg-cat" onchange="setEditDesgloseCat(${d.id},this.value)" style="min-width:0;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
+      <div data-desg-catrow class="desg-catrow" style="display:flex;gap:10px;margin-bottom:8px;">
+        <select class="desg-cat fsel" onchange="setEditDesgloseCat(${d.id},this.value)" style="min-width:0;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
           <option value="">Categoría...</option>${catOpts}
         </select>
-        ${showSubcat?`<select data-desg-subcat class="desg-subcat" onchange="setEditDesgloseSubcat(${d.id},this.value)" style="min-width:0;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">${subOpts}</select>`:''}
+        ${showSubcat?`<select data-desg-subcat class="desg-subcat fsel" onchange="setEditDesgloseSubcat(${d.id},this.value)" style="min-width:0;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">${subOpts}</select>`:''}
       </div>
       ${isComplete?`<input data-desg-note type="text" placeholder="Nota (opcional)" value="${d.note||''}" oninput="updateEditDesglose(${d.id},'note',this.value)" style="width:100%;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:13px;outline:none;">`:''}
     `;
@@ -790,7 +781,7 @@ function renderEditDesgloses(){
   updateEditAddDesgloseBtnVisibility();
   updateEditDesgloseRemaining();
   updateEditDesgloseChipLabel();
-  try{ fitDesgCatSelects(); }catch(e){}
+  try{ _fselSyncAll(list); }catch(e){}
 }
 
 function updateEditAddDesgloseBtnVisibility(){
@@ -1027,7 +1018,7 @@ function renderBeneficios(animateNew){
           <button type="button" onclick="setBeneficioMode(${b.id},'monto')" style="padding:5px 12px;border-radius:100px;border:none;background:${!esPct?'var(--accent)':'transparent'};color:${!esPct?'white':'var(--text3)'};font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;transition:all 0.18s;">$</button>
         </div>
         <input data-ben-amount type="text" inputmode="decimal" value="${inputVal}" ${inputAttrs} style="width:88px;flex:0 0 auto;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
-        <select class="ben-type-select" onchange="setBeneficioCat(${b.id},this.value)" style="flex:1;min-width:0;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
+        <select class="ben-type-select fsel" onchange="setBeneficioCat(${b.id},this.value)" style="flex:1;min-width:0;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
           ${benTypeOptionsHtml(b.category)}
         </select>
         <!-- R8.3 · WEB: barra divisoria + chips de tipo EN EL MISMO renglón que el
@@ -1050,6 +1041,7 @@ function renderBeneficios(animateNew){
   });
   updateAddBeneficioBtnVisibility();
   updateBeneficioRemaining();
+  try{ _fselSyncAll(list); }catch(e){}
 }
 
 // El "= $X" de un bloque porcentual (los fijos no lo necesitan: el monto ES el valor)
@@ -1106,6 +1098,7 @@ function paintBenChips(listId, benId, cat){
   });
   const sel=card.querySelector('.ben-type-select');
   if(sel && sel.value!==cat) sel.value=cat;
+  try{ _fselSyncAll(card); }catch(e){}
 }
 
 function updateBeneficio(id, field, value){
@@ -1307,7 +1300,7 @@ function renderEditBeneficios(animateNew){
           <button type="button" onclick="setEditBeneficioMode(${b.id},'monto')" style="padding:5px 12px;border-radius:100px;border:none;background:${!esPct?'var(--accent)':'transparent'};color:${!esPct?'white':'var(--text3)'};font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;transition:all 0.18s;">$</button>
         </div>
         <input data-ben-amount type="text" inputmode="decimal" value="${inputVal}" ${inputAttrs} style="width:88px;flex:0 0 auto;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
-        <select class="ben-type-select" onchange="setEditBeneficioCat(${b.id},this.value)" style="flex:1;min-width:0;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
+        <select class="ben-type-select fsel" onchange="setEditBeneficioCat(${b.id},this.value)" style="flex:1;min-width:0;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">
           ${benTypeOptionsHtml(b.category)}
         </select>
         <!-- R8.3 · WEB: barra divisoria + chips en el MISMO renglón (espejo del registro) -->
@@ -1327,6 +1320,7 @@ function renderEditBeneficios(animateNew){
   });
   updateEditAddBeneficioBtnVisibility();
   updateEditBeneficioRemaining();
+  try{ _fselSyncAll(list); }catch(e){}
 }
 
 function updateEditBeneficioCalc(id){

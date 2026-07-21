@@ -485,6 +485,80 @@ nav.shrunk .nav-lbl{ opacity: 0; }
 .method-bubble button:hover { background: var(--surface2); }
 .method-bubble button.sel { color: var(--accent); font-weight: 700; }
 
+/* ══════════════════════════════════════════════════════════════════════
+   SELECTORES ESTILO "MÉTODO" (capa estética sobre los <select> nativos)
+   El <select> sigue existiendo y sigue siendo la fuente de verdad: solo se
+   oculta. Encima vive un botón con el valor actual que abre una burbuja con
+   las opciones (ver 11_selectores.js). Mismo lenguaje visual que .method-btn.
+   NO aplica a Presupuesto: esos <select> no llevan la clase `fsel`.
+   ══════════════════════════════════════════════════════════════════════ */
+select.fsel { display: none; }
+.fsel-wrap { position: relative; }
+.fsel-btn {
+  width: 100%; border: none; background: var(--surface2); font-family: inherit;
+  cursor: pointer; padding: 12px 14px; border-radius: var(--radius-sm);
+  font-size: 14px; font-weight: 500; color: var(--text3); text-align: left;
+  transition: color .15s; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.fsel-btn.chosen { color: var(--accent); font-weight: 700; }
+.fsel-bubble {
+  position: absolute; top: calc(100% + 8px); left: 0; z-index: 30;
+  background: var(--surface); border-radius: var(--radius-sm); box-shadow: var(--shadow-md);
+  padding: 6px; min-width: 100%; width: max-content; max-width: min(280px, 74vw);
+  max-height: 264px; overflow-y: auto;
+  opacity: 0; transform: translateY(-6px) scale(0.97);
+  pointer-events: none; transition: opacity .18s ease, transform .18s cubic-bezier(0.34,1.4,0.64,1);
+}
+.fsel-wrap.open .fsel-bubble { opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; }
+.fsel-bubble button {
+  display: block; width: 100%; text-align: left; border: none; background: none;
+  font-family: inherit; font-size: 14px; color: var(--text);
+  padding: 9px 10px; border-radius: 8px; cursor: pointer;
+}
+.fsel-bubble button:hover { background: var(--surface2); }
+.fsel-bubble button.sel { color: var(--accent); font-weight: 700; }
+.fsel-bubble button:disabled { color: var(--text3); opacity: 0.5; cursor: default; }
+.fsel-bubble button:disabled:hover { background: none; }
+
+/* MONEDA · texto suelto: sin fondo, sin caja, sin acento. La bandera ya deja
+   claro cuál está elegida, así que aquí NUNCA se usa color de acento. Sigue
+   siendo tocable para cambiar de moneda. */
+.fsel-wrap[data-fsel="cur-sel"] .fsel-btn,
+.fsel-wrap[data-fsel="cur-sel"] .fsel-btn.chosen {
+  background: none; padding: 0 4px 0 2px; border-radius: 0;
+  font-size: 15px; font-weight: 500; color: var(--text);
+}
+.amount-row .fsel-wrap[data-fsel="cur-sel"] { width: 96px; flex-shrink: 0; }
+
+/* DESGLOSE (categoría / subcategoría) y BENEFICIO (tipo): campo editable, con
+   el mismo fondo que los demás campos de esas tarjetas (--surface sobre la
+   tarjeta --surface2). */
+.fsel-wrap[data-fsel="desg-cat"] .fsel-btn,
+.fsel-wrap[data-fsel="desg-subcat"] .fsel-btn,
+.fsel-wrap[data-fsel="ben-type-select"] .fsel-btn {
+  background: var(--surface); padding: 8px 10px; border-radius: 8px; font-size: 14px;
+}
+/* Burbujas de la mitad derecha del renglón: se anclan a la derecha para no
+   salirse de la tarjeta. */
+.fsel-wrap[data-fsel="desg-subcat"] .fsel-bubble,
+.fsel-wrap[data-fsel="ben-type-select"] .fsel-bubble { left: auto; right: 0; }
+
+/* Categoría se ajusta a su contenido (con tope) y Subcategoría absorbe el
+   resto — lo que antes hacía fitDesgCatSelects midiendo el texto, ahora sale
+   solo porque un botón sí se dimensiona por su valor elegido. */
+.desg-catrow .fsel-wrap[data-fsel="desg-cat"] { flex: 0 1 auto; min-width: 0; max-width: 62%; }
+.desg-catrow .fsel-wrap[data-fsel="desg-subcat"] { flex: 1 1 0; min-width: 0; }
+@media (min-width: 768px) {
+  .desg-catrow .fsel-wrap[data-fsel="desg-cat"],
+  .desg-catrow .fsel-wrap[data-fsel="desg-subcat"] { flex: 1 1 0; max-width: none; }
+}
+.fsel-wrap[data-fsel="ben-type-select"] { flex: 1 1 0; min-width: 0; }
+/* En web el tipo de beneficio se elige con chips (.ben-type-chips): igual que
+   antes se ocultaba el <select>, ahora se oculta su botón. */
+@media (min-width: 768px) {
+  .fsel-wrap[data-fsel="ben-type-select"] { display: none; }
+}
+
 /* CAT BLOCKS */
 .cat-grid-ui { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 8px; }
 .cat-block {
