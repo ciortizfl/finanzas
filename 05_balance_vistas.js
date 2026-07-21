@@ -696,6 +696,22 @@ function renderAnnual(){
 
   chartEl.innerHTML='';
   xaxisEl.innerHTML='';
+
+  // R9 · corrección: la gráfica no tenía ninguna referencia de escala — se
+  // reponen las líneas tenues + etiquetas de monto que ya existían antes de
+  // la reescritura a barras superpuestas. Se dibujan primero (position:
+  // absolute, no participan del flex de los meses) para quedar detrás.
+  [0.25, 0.5, 0.75, 1].forEach(f=>{
+    const line=document.createElement('div');
+    line.className='annual-gridline';
+    line.style.bottom=(f*100)+'%';
+    const lbl=document.createElement('span');
+    lbl.className='annual-gridlbl';
+    lbl.textContent=_calFmtCompact(maxVal*f);
+    line.appendChild(lbl);
+    chartEl.appendChild(line);
+  });
+
   Array.from({length:12}).forEach((_,m)=>{
     const hasRecords = ingData[m]>0 || egrData[m]>0 || benData[m]>0;
     const mo=document.createElement('div');

@@ -786,6 +786,20 @@ nav.shrunk .nav-lbl{ opacity: 0; }
   font-weight: 600; color: var(--text3); white-space: nowrap; overflow: hidden;
 }
 .annual-xl.sel{ color: var(--text); }
+/* R9 · corrección: eje Y — líneas tenues + monto de referencia. position:
+   absolute dentro de .annual-chart (que ya es position:relative), así que no
+   participan del flex de las columnas de mes ni interceptan los toques sobre
+   las barras (pointer-events:none). Van DETRÁS de las barras por orden en el
+   DOM (se insertan antes que los .annual-mo). */
+.annual-gridline{
+  position: absolute; left: 0; right: 0; height: 1px;
+  background: var(--border2); pointer-events: none;
+}
+.annual-gridlbl{
+  position: absolute; left: 0; bottom: 2px; font-size: 8.5px; font-weight: 600;
+  color: var(--text3); background: var(--surface); padding: 0 4px 0 0;
+  line-height: 1;
+}
 
 /* CAT BARS */
 .cat-list { padding: 0 16px; display: flex; flex-direction: column; gap: 0; margin-bottom: 20px; }
