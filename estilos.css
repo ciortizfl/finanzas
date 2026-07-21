@@ -526,7 +526,11 @@ select.fsel { display: none; }
 .fsel-wrap[data-fsel="cur-sel"] .fsel-btn,
 .fsel-wrap[data-fsel="cur-sel"] .fsel-btn.chosen {
   background: none; padding: 0 4px 0 2px; border-radius: 0;
-  font-size: 15px; font-weight: 500; color: var(--text);
+  font-size: 16px; font-weight: 500; color: var(--text);
+  /* El renglón (.amount-row) estira cada celda a la misma altura; sin caja ni
+     padding vertical el texto quedaba pegado arriba. Centrarlo con la altura
+     completa lo alinea con Monto y Método. */
+  display: flex; align-items: center; min-height: 100%;
 }
 .amount-row .fsel-wrap[data-fsel="cur-sel"] { width: 96px; flex-shrink: 0; }
 
@@ -542,6 +546,20 @@ select.fsel { display: none; }
    salirse de la tarjeta. */
 .fsel-wrap[data-fsel="desg-subcat"] .fsel-bubble,
 .fsel-wrap[data-fsel="ben-type-select"] .fsel-bubble { left: auto; right: 0; }
+
+/* DESGLOSE (categoría y subcategoría): la burbuja se despliega HACIA ARRIBA.
+   Este bloque del formulario ya vive muy abajo, así que abrir hacia abajo
+   dejaba la lista fuera de vista. Se ancla por `bottom` y entra deslizándose
+   desde abajo (translateY positivo). */
+.fsel-wrap[data-fsel="desg-cat"] .fsel-bubble,
+.fsel-wrap[data-fsel="desg-subcat"] .fsel-bubble {
+  top: auto; bottom: calc(100% + 8px);
+  transform: translateY(6px) scale(0.97);
+}
+.fsel-wrap[data-fsel="desg-cat"].open .fsel-bubble,
+.fsel-wrap[data-fsel="desg-subcat"].open .fsel-bubble {
+  transform: translateY(0) scale(1);
+}
 
 /* Categoría se ajusta a su contenido (con tope) y Subcategoría absorbe el
    resto — lo que antes hacía fitDesgCatSelects midiendo el texto, ahora sale
