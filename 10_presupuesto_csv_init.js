@@ -476,3 +476,48 @@ function updateHeaderShrink(){
   requestAnimationFrame(()=>{ _navBtnWidths(); _navAnchorWidth(); _navPlaceThumb(); updateHeaderShrink(); });
   window.addEventListener('resize', ()=>{ requestAnimationFrame(()=>{ _navBtnWidths(); _navAnchorWidth(); _navPlaceThumb(); }); });
 })();
+
+// ── R9 · "Se estira al viajar" en los toggles tipo píldora ────────────────
+// Mismo efecto que el indicador de la cápsula de menú, pero adaptado: aquí el
+// indicador lo posiciona el CSS con transform:translateX(N%) según el atributo
+// [data-active], no una medición por JS. Se anima entonces la propiedad `scale`
+// (independiente de `transform`, así que no pisa la traslación) y el origen se
+// ajusta según la dirección del viaje, para que se estire HACIA el destino.
+//
+// El disparador es un MutationObserver sobre [data-active] en vez de llamadas
+// dentro de setType/setBalPeriod/switchHistView/_calSyncTypeSeg: así queda un
+// solo punto de enganche y ninguna ruta futura que cambie el toggle puede
+// quedarse sin el efecto por olvido.
+(function(){
+  function optIndex(container, val){
+    const opts=[...container.querySelectorAll('.calseg-option, .seg-option')];
+    return opts.findIndex(o=>o.dataset.t===val);
+  }
+  function stretch(container, oldVal, newVal){
+    const thumb=container.querySelector('.calseg-thumb, .seg-thumb');
+    if(!thumb) return;
+    const from=optIndex(container, oldVal), to=optIndex(container, newVal);
+    if(from<0 || to<0 || from===to) return;          // sin viaje real: no animar
+    // Se estira hacia donde va: si avanza a la derecha, el origen queda a la
+    // izquierda (crece hacia la derecha) y viceversa.
+    thumb.style.transformOrigin = (to>from) ? '0% 50%' : '100% 50%';
+    thumb.classList.remove('seg-stretch');
+    void thumb.offsetWidth;                          // reinicia la animación
+    thumb.classList.add('seg-stretch');
+  }
+  function attach(){
+    const els=document.querySelectorAll('.calseg, .seg-control');
+    if(!els.length || typeof MutationObserver!=='function') return;
+    const obs=new MutationObserver(muts=>{
+      muts.forEach(m=>{
+        if(m.attributeName!=='data-active') return;
+        const nuevo=m.target.getAttribute('data-active');
+        if(nuevo===m.oldValue) return;               // se reasignó el mismo valor
+        stretch(m.target, m.oldValue, nuevo);
+      });
+    });
+    els.forEach(el=>obs.observe(el,{attributes:true, attributeFilter:['data-active'], attributeOldValue:true}));
+  }
+  if(document.readyState!=='loading') attach();
+  else document.addEventListener('DOMContentLoaded', attach);
+})();
