@@ -1780,30 +1780,6 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
    la cápsula contrasta contra ambos fondos. */
 .calseg{ position:relative; display:flex; background:var(--surface3); border-radius:100px;
   padding:3px; isolation:isolate; margin-bottom:14px; }
-/* R9 · Efecto "se estira al viajar" (el mismo de la cápsula de menú) para los
-   demás toggles tipo píldora. Aquí el indicador NO se mide por JS: su posición
-   la fija el CSS con transform:translateX(N%) según [data-active]. Por eso el
-   estiramiento se hace con la propiedad `scale` INDEPENDIENTE — se compone con
-   `transform` sin reemplazarlo, así que la traslación de siempre sigue
-   funcionando intacta. El origen lo fija el JS según la dirección del viaje,
-   para que el indicador se estire HACIA donde va (no simétricamente). */
-.calseg-thumb.seg-stretch, .seg-thumb.seg-stretch{
-  animation: segStretch .42s cubic-bezier(0.32,0.72,0,1);
-}
-/* El pico del estiramiento va al 16% y no a la mitad. El desplazamiento usa
-   una curva muy adelantada (0.32,0.72,0,1): medido, a los 45% del tiempo el
-   indicador YA recorrió el 94% del camino, y estirarse ahí lo sacaba del borde
-   de la píldora. El medio camino REAL ocurre al 16% del tiempo — ahí es donde
-   el estiramiento tiene sentido. La magnitud baja de 1.16 a 1.09 para que se
-   lea como un estirón suave y no como un rebote. */
-@keyframes segStretch{
-  0%   { scale: 1 1; }
-  16%  { scale: 1.09 1; }
-  100% { scale: 1 1; }
-}
-@media (prefers-reduced-motion: reduce){
-  .calseg-thumb.seg-stretch, .seg-thumb.seg-stretch{ animation: none; }
-}
 .calseg-thumb{ position:absolute; top:3px; bottom:3px; left:3px; background:var(--surface);
   border-radius:100px; box-shadow:0 2px 6px rgba(0,0,0,0.14), 0 1px 2px rgba(0,0,0,0.10);
   transition:transform 0.32s cubic-bezier(0.32,0.72,0,1), background 0.25s ease; z-index:-1; }

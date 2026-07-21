@@ -410,7 +410,7 @@ function _navMoveThumb(){
       { left:fromL+'px', width:fromW+'px' },
       { left:spanL+'px', width:spanW+'px', offset:0.45 },
       { left:toL+'px',   width:toW+'px' }
-    ], { duration:430, easing:'cubic-bezier(0.32,0.72,0,1)' });
+    ], { duration:620, easing:'cubic-bezier(0.32,0.72,0,1)' });
   }catch(e){}
 }
 
@@ -475,53 +475,4 @@ function updateHeaderShrink(){
   // ancho definitivo de cada botón, y el indicador se mide contra él.
   requestAnimationFrame(()=>{ _navBtnWidths(); _navAnchorWidth(); _navPlaceThumb(); updateHeaderShrink(); });
   window.addEventListener('resize', ()=>{ requestAnimationFrame(()=>{ _navBtnWidths(); _navAnchorWidth(); _navPlaceThumb(); }); });
-})();
-
-// ── R9 · "Se estira al viajar" en los toggles tipo píldora ────────────────
-// Mismo efecto que el indicador de la cápsula de menú, pero adaptado: aquí el
-// indicador lo posiciona el CSS con transform:translateX(N%) según el atributo
-// [data-active], no una medición por JS. Se anima entonces la propiedad `scale`
-// (independiente de `transform`, así que no pisa la traslación) y el origen se
-// ajusta según la dirección del viaje, para que se estire HACIA el destino.
-//
-// El disparador es un MutationObserver sobre [data-active] en vez de llamadas
-// dentro de setType/setBalPeriod/switchHistView/_calSyncTypeSeg: así queda un
-// solo punto de enganche y ninguna ruta futura que cambie el toggle puede
-// quedarse sin el efecto por olvido.
-(function(){
-  function optIndex(container, val){
-    const opts=[...container.querySelectorAll('.calseg-option, .seg-option')];
-    return opts.findIndex(o=>o.dataset.t===val);
-  }
-  function stretch(container, oldVal, newVal){
-    const thumb=container.querySelector('.calseg-thumb, .seg-thumb');
-    if(!thumb) return;
-    const from=optIndex(container, oldVal), to=optIndex(container, newVal);
-    if(from<0 || to<0 || from===to) return;          // sin viaje real: no animar
-    // El origen va en el borde DELANTERO del viaje, para que el estiramiento
-    // quede REZAGADO (como la cola de una liga) en vez de adelantarse.
-    // Además de leerse más natural, así nunca se sale de la píldora: el
-    // sobrante siempre apunta hacia adentro, hacia el lado del que viene.
-    // (Al revés — origen en el borde trasero — el indicador se estiraba más
-    // allá del destino y se salía del borde.)
-    thumb.style.transformOrigin = (to>from) ? '100% 50%' : '0% 50%';
-    thumb.classList.remove('seg-stretch');
-    void thumb.offsetWidth;                          // reinicia la animación
-    thumb.classList.add('seg-stretch');
-  }
-  function attach(){
-    const els=document.querySelectorAll('.calseg, .seg-control');
-    if(!els.length || typeof MutationObserver!=='function') return;
-    const obs=new MutationObserver(muts=>{
-      muts.forEach(m=>{
-        if(m.attributeName!=='data-active') return;
-        const nuevo=m.target.getAttribute('data-active');
-        if(nuevo===m.oldValue) return;               // se reasignó el mismo valor
-        stretch(m.target, m.oldValue, nuevo);
-      });
-    });
-    els.forEach(el=>obs.observe(el,{attributes:true, attributeFilter:['data-active'], attributeOldValue:true}));
-  }
-  if(document.readyState!=='loading') attach();
-  else document.addEventListener('DOMContentLoaded', attach);
 })();
