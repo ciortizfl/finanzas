@@ -268,6 +268,8 @@ function goNav(id, btn) {
   try{
     const nav=document.getElementById('navCapsule');
     if(nav){ nav.classList.remove('nav-bounce'); void nav.offsetWidth; nav.classList.add('nav-bounce'); }
+    // El foco viaja al botón nuevo (se estira al recorrer) y su ícono brinca.
+    if(typeof _navMoveThumb==='function') _navMoveThumb();
     if(typeof updateHeaderShrink==='function') updateHeaderShrink();
   }catch(e){}
 

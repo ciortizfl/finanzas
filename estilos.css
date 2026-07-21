@@ -98,6 +98,7 @@ html, body {
 .nav-outer.shrunk{ bottom: max(14px, calc(2px + env(safe-area-inset-bottom))); }
 nav{
   display: flex; gap: 4px; align-items: center; flex-shrink: 0;
+  position: relative;
   background: rgba(255,255,255,0.72);
   backdrop-filter: blur(22px) saturate(180%);
   -webkit-backdrop-filter: blur(22px) saturate(180%);
@@ -126,18 +127,50 @@ nav.nav-bounce{ animation: navBounce 0.5s cubic-bezier(0.34,1.4,0.64,1); }
   background: none; border: none; cursor: pointer; color: var(--text3);
   font-family: inherit; font-size: 10px; font-weight: 500;
   letter-spacing: -0.01em; padding: 7px 14px; border-radius: 100px;
-  transition: color 0.2s, background 0.25s ease, padding 0.34s cubic-bezier(0.34,1.4,0.64,1);
+  position: relative; z-index: 1;
+  transition: color 0.2s, padding 0.34s cubic-bezier(0.34,1.4,0.64,1);
 }
 /* Su ancho lo fija _navBtnWidths() por JS (medido sin .shrunk) — por eso el
    padding horizontal de aquí abajo se mantiene IGUAL que arriba (14px): solo
    cambia el vertical, y aun si no hubiera JS el layout ya no depende de esto
    para mantenerse centrado. */
 nav.shrunk .nav-btn{ padding: 5px 14px; }
-/* Sección activa: además del color, una píldora de fondo detrás del botón.
-   Funciona igual en ambos estados porque el botón conserva su ancho fijo y
-   solo cambia de alto al comprimirse — la píldora simplemente lo acompaña,
-   sin depender de que la etiqueta esté visible. */
-.nav-btn.active { color: var(--accent); background: var(--accent-light); }
+/* Sección activa: el color lo lleva el botón; la píldora de fondo YA NO vive
+   aquí — se movió a .nav-thumb para que VIAJE entre secciones (opción 3 del
+   prototipo: se estira al recorrer, + brinco del ícono de la opción 5). */
+.nav-btn.active { color: var(--accent); }
+
+/* Indicador de foco que viaja. position:absolute dentro de <nav> (que es
+   position:relative), así que no participa del flex ni empuja a los botones.
+   Su posición/ancho los fija _navPlaceThumb() por JS midiendo el botón activo
+   YA insertado en el layout. Al comprimirse la cápsula solo cambia su alto:
+   los botones nunca se mueven horizontalmente, así que no hay que recalcular
+   la posición (aun así se recalcula por seguridad al terminar la transición). */
+.nav-thumb {
+  position: absolute; top: 7px; bottom: 7px; left: 0; width: 0;
+  border-radius: 100px; background: var(--accent-light);
+  z-index: 0; pointer-events: none;
+  transition: transform .40s cubic-bezier(0.32,0.72,0,1),
+              width .40s cubic-bezier(0.32,0.72,0,1),
+              top .34s cubic-bezier(0.34,1.4,0.64,1),
+              bottom .34s cubic-bezier(0.34,1.4,0.64,1);
+}
+nav.shrunk .nav-thumb { top: 4px; bottom: 4px; }
+/* Antes de que el JS lo coloque por primera vez, el indicador no debe verse. */
+.nav-thumb:not(.ready) { opacity: 0; }
+
+/* El ícono de destino da un pequeño brinco al llegar el foco (opción 5). */
+.nav-btn.icon-pop svg { animation: navIconPop .42s cubic-bezier(0.34,1.4,0.64,1); }
+@keyframes navIconPop {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.28); }
+  70%  { transform: scale(0.94); }
+  100% { transform: scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .nav-thumb { transition: none; }
+  .nav-btn.icon-pop svg { animation: none; }
+}
 .nav-btn svg { width: 24px; height: 24px; stroke-width: 1.5;
   transition: width 0.34s cubic-bezier(0.34,1.4,0.64,1), height 0.34s cubic-bezier(0.34,1.4,0.64,1); }
 nav.shrunk .nav-btn svg{ width: 21px; height: 21px; }
