@@ -1219,7 +1219,7 @@ nav.shrunk .nav-lbl{ opacity: 0; }
    delgada; esto reduce el ancho disponible de la barra de forma natural. El
    comportamiento de la barra (hoy preseleccionado al centro, scroll, flechas)
    no se tocó. */
-.date-labels-row { display: flex; margin-bottom: 7px; }
+.date-labels-row { display: flex; margin-bottom: 4px; }
 .date-labels-row .lbl-fecha { flex: 0 0 44px; text-align: left;
   font-size: 12px; font-weight: 600; letter-spacing: -0.01em; color: var(--text2); }
 .date-cal-btn {
@@ -1235,7 +1235,7 @@ nav.shrunk .nav-lbl{ opacity: 0; }
 .date-cal-btn:hover { color: var(--accent); }
 .date-cal-btn:active { color: var(--accent); }
 .date-strip-divider {
-  width: 1px; align-self: stretch; margin: 8px 2px;
+  width: 1px; align-self: stretch; margin: 8px 1px;
   background: var(--border2); flex-shrink: 0;
 }
 .date-strip-wrap {
@@ -1265,17 +1265,27 @@ nav.shrunk .nav-lbl{ opacity: 0; }
    (no se tocó). En escritorio no se toca nada (clases .web-mode/.web-full
    aparte, fuera de este @media). */
 @media (max-width: 699px) {
+  /* El scroll-snap re-encajaba la celda seleccionada AL CENTRO del contenedor,
+     ignorando la posición que calcula _stripScrollLeft() — con 6 celdas (número
+     par) eso deja media celda asomando en cada extremo. Se desactiva en móvil
+     para que mande el cálculo y las 6 celdas queden completas. */
+  #date-field-wrap .date-strip-scroll, #e-date-field-wrap .date-strip-scroll {
+    scroll-snap-type: none;
+  }
+  #date-field-wrap .date-day-btn, #e-date-field-wrap .date-day-btn {
+    scroll-snap-align: none;
+  }
   /* 6 celdas de 38px + 5 espacios de 5px = 253px. El ícono y las flechas
      encogen un poco para que el renglón completo (~348px) quepa con margen.
      La POSICIÓN del día actual la calcula _stripScrollLeft() en
      07_datepicker_fechas.js a partir de cuántas celdas caben: con 6 queda en
      el bloque justo a la derecha del centro → 3 previos, actual, 2 futuros. */
-  #date-field-wrap .date-day-btn, #e-date-field-wrap .date-day-btn { width: 38px; }
-  #date-field-wrap .date-cal-btn, #e-date-field-wrap .date-cal-btn { width: 42px; }
-  #date-field-wrap .date-strip-nav, #e-date-field-wrap .date-strip-nav { width: 24px; }
+  #date-field-wrap .date-day-btn, #e-date-field-wrap .date-day-btn { width: 42px; }
+  #date-field-wrap .date-cal-btn, #e-date-field-wrap .date-cal-btn { width: 34px; }
+  #date-field-wrap .date-strip-nav, #e-date-field-wrap .date-strip-nav { width: 20px; }
   #date-field-wrap .date-strip-inner, #e-date-field-wrap .date-strip-inner { padding: 0; }
   #date-field-wrap .date-strip-scroll, #e-date-field-wrap .date-strip-scroll {
-    flex: 0 0 253px; width: 253px;
+    flex: 0 0 277px; width: 277px;
   }
   /* El grupo [‹ barra ›] tiene ancho fijo, así que todo el espacio sobrante se
      iba al final (la barra quedaba recargada a la izquierda). Con estos auto
@@ -1856,6 +1866,9 @@ input[type=number] { -moz-appearance: textfield; appearance: textfield; }
    TM_EMOJI_* en 05b_treemap.js), el padding ya no necesita quedar al ras —
    vuelve a 4px para que el emoji no toque la orilla del recuadro. */
 .tm-cell.tm-tight .tm-inner{ padding: 4px; }
+/* Último escalón antes de rendirse a "solo color": en celdas muy chicas estos
+   2px son la diferencia entre alcanzar a ver el emoji o no ver nada. */
+.tm-cell.tm-tighter .tm-inner{ padding: 2px; }
 .tm-inner{ width:100%; height:100%; display:flex; flex-direction:column; align-items:center;
   justify-content:center; gap:5px; padding:6px; box-sizing:border-box; }
 /* R9 · punto 1: rectángulo más ancho que alto — emoji a la izquierda, subcategoría

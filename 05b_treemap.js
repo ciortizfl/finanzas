@@ -16,7 +16,7 @@ const _TM_SEP = '\u0000';
 // coinciden con .tm-emoji (14px) y .tm-emoji-big (19px) de estilos.css; los
 // pisos evitan que quede miniatura.
 const TM_EMOJI_TEXT = 14, TM_EMOJI_TEXT_MIN = 11;  // acompañado de subcat/monto
-const TM_EMOJI_SOLO = 19, TM_EMOJI_SOLO_MIN = 15;  // emoji solo en la celda
+const TM_EMOJI_SOLO = 19, TM_EMOJI_SOLO_MIN = 12;  // emoji solo en la celda
 // Conjunto de claves DESACTIVADAS (estado inicial: vacío = todo visible).
 // Claves: 'Categoría' (planas / sin subcats) o 'Categoría\u0000Subcat'.
 let _tmDeactivated = new Set();
@@ -284,7 +284,7 @@ function renderBalanceTreemap(){
       else inner.classList.remove('tm-wide');
     }
 
-    // Nivel 2: emoji + monto
+    // Nivel 2: emoji + monto (apilados)
     if(tier===null){
       got=_tryShrink(s=>{
         inner.classList.remove('tm-wide');
@@ -293,7 +293,20 @@ function renderBalanceTreemap(){
       if(got!==null) tier=2;
     }
 
-    // Nivel 3: emoji + monto abreviado
+    // Nivel 2-apaisado: en recuadros anchos y BAJOS, apilar emoji sobre monto
+    // no cabe por altura, pero lado a lado sí. Antes solo el nivel 1 tenía
+    // variante apaisada, así que estas celdas caían hasta "solo emoji"
+    // teniendo espacio de sobra a los lados.
+    if(tier===null && r.w > r.h){
+      got=_tryShrink(s=>{
+        inner.classList.add('tm-wide');
+        inner.innerHTML=_em(s)+`<div class="tm-text"><div class="tm-amt">${_amtTxt}</div></div>`;
+      }, TM_EMOJI_TEXT, TM_EMOJI_TEXT_MIN);
+      if(got!==null) tier='2w';
+      else inner.classList.remove('tm-wide');
+    }
+
+    // Nivel 3: emoji + monto abreviado (apilados, y luego apaisado)
     if(tier===null){
       const ab=_tmAbbrev(l.amt);
       if(ab){
@@ -302,11 +315,20 @@ function renderBalanceTreemap(){
           inner.innerHTML=_em(s)+`<div class="tm-amt">${ab}</div>`;
         }, TM_EMOJI_TEXT, TM_EMOJI_TEXT_MIN);
         if(got!==null) tier=3;
+        if(tier===null && r.w > r.h){
+          got=_tryShrink(s=>{
+            inner.classList.add('tm-wide');
+            inner.innerHTML=_em(s)+`<div class="tm-text"><div class="tm-amt">${ab}</div></div>`;
+          }, TM_EMOJI_TEXT, TM_EMOJI_TEXT_MIN);
+          if(got!==null) tier='3w';
+          else inner.classList.remove('tm-wide');
+        }
       }
     }
 
-    // Nivel 4: solo emoji. Con el encogimiento haciendo el trabajo, el padding
-    // ya no necesita quedar al ras (sube de 2px a 4px vía .tm-tight).
+    // Nivel 4: solo emoji. El padding baja a 4px (.tm-tight) y, si aun así no
+    // cabe, a 2px (.tm-tighter) antes de rendirse — en celdas muy chicas esos
+    // 2px son la diferencia entre ver el emoji y ver solo color.
     if(tier===null){
       cell.classList.add('tm-tight');
       got=_tryShrink(s=>{
@@ -314,7 +336,14 @@ function renderBalanceTreemap(){
         inner.innerHTML=_em(s, true);
       }, TM_EMOJI_SOLO, TM_EMOJI_SOLO_MIN);
       if(got!==null) tier=4;
-      else { cell.classList.remove('tm-tight'); inner.innerHTML=''; tier=5; } // Nivel 5: solo color
+      else {
+        cell.classList.add('tm-tighter');
+        got=_tryShrink(s=>{
+          inner.innerHTML=_em(s, true);
+        }, TM_EMOJI_SOLO, TM_EMOJI_SOLO_MIN);
+        if(got!==null) tier=4;
+        else { cell.classList.remove('tm-tight','tm-tighter'); inner.innerHTML=''; tier=5; } // Nivel 5: solo color
+      }
     }
 
     // Clickeable (con tooltip) cuando NO alcanza a mostrar emoji+subcat+monto juntos
