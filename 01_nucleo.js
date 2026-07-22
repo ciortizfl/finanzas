@@ -335,7 +335,7 @@ const CATS = {
     'Personal':   ['Salud y médicos','Dentista','Medicamentos','Gimnasio','Ropa y calzado','Cuidado personal','Educación','Finanzas / Impuestos','Compras personales','Otros (Personal)'],
     'Alimentos':  ['Despensa','Restaurantes y cafés','Comida rápida','Snacks','Otros (Alimentos)'],
     'Ocio':       ['Cine','Espectáculos y conciertos','Bares y antros','Videojuegos','Suscripciones','Renta y venta digital','Museos','Media física','Otros (Ocio)'],
-    'Transporte': ['Gasolina','Taxi y apps de transporte','Transporte público','Mantenimiento de auto','Seguro de auto','Estacionamiento','Autopartes','Autolavado','Trámites vehiculares','Otros (Transporte)'],
+    'Transporte': ['Gasolina','Taxi y apps','Transporte público','Mantenimiento de auto','Seguro de auto','Estacionamiento','Autopartes','Autolavado','Trámites vehiculares','Otros (Transporte)'],
     'Viajes':     ['Vuelos','Otros transportes','Hospedaje','Renta de auto','Actividades y tours','Paquetes / agencia','Seguro de viaje','Otros (Viajes)'],
     'Mascotas':   ['Alimento de mascota','Veterinario','Accesorios y juguetes','Estética canina','Medicamentos veterinarios','Guardería','Otros (Mascotas)'],
     'Generosidad':['Regalos','Donativos','Propina','Préstamos','Otros (Generosidad)']
@@ -361,8 +361,8 @@ const ICONS = {
   'Compras personales':'🛍️','Despensa':'🛒','Restaurantes y cafés':'🍴',
   'Comida rápida':'🍔','Snacks':'🍿','Cine':'🎞️',
   'Espectáculos y conciertos':'🎤','Bares y antros':'🕺','Videojuegos':'🎮',
-  'Suscripciones':'📱','Renta y venta digital':'📺','Museos':'🏛️',
-  'Media física':'💿','Gasolina':'⛽','Taxi y apps de transporte':'🚕','Uber / taxi':'🚕',
+  'Suscripciones':'📱','Renta y venta digital':'📼','Museos':'🏛️',
+  'Media física':'📀','Gasolina':'⛽','Taxi y apps':'🚕','Taxi y apps de transporte':'🚕','Uber / taxi':'🚕',
   'Transporte público':'🚌','Mantenimiento de auto':'🛠️','Seguro de auto':'🛡️',
   'Estacionamiento':'🅿️','Autolavado':'🚿','Trámites vehiculares':'📋','Autopartes':'⚙️',
   'Vuelos':'🛫','Otros transportes':'⛴️','Hospedaje':'🏨','Renta de auto':'🚙','Actividades y tours':'🎟️','Paquetes / agencia':'🧭','Seguro de viaje':'🛟',
@@ -441,30 +441,9 @@ async function saveEmojiToSheets(key, emoji){
   return await _sheetsPost({ action: 'saveEmoji', key, emoji }, 'emoji save');
 }
 
-// Emoji default DINÁMICO de una subcategoría: el más usado (personalizado por comercio)
-// en el último año, con peso por cuartos de antigüedad (como la predicción de categorías).
-function dynamicSubcatEmoji(subcat){
-  if(!subcat) return null;
-  const now=Date.now();
-  const DAY=86400000;
-  const votes={}; // emoji -> peso acumulado
-  data.forEach(e=>{
-    if((e.subcategory||'')!==subcat) return;
-    const emo=getMerchantEmoji(e.desc, e.subcategory);
-    if(!emo) return; // solo cuentan los que tienen emoji personalizado
-    const d=parseDate(e.date);
-    if(isNaN(d.getTime())) return;
-    const ageDays=(now-d.getTime())/DAY;
-    if(ageDays>365) return;
-    // Peso por cuartos: 0-91→4, 92-182→3, 183-273→2, 274-365→1
-    let w=1;
-    if(ageDays<=91) w=4; else if(ageDays<=182) w=3; else if(ageDays<=273) w=2; else w=1;
-    votes[emo]=(votes[emo]||0)+w;
-  });
-  let best=null, bestW=0;
-  Object.entries(votes).forEach(([emo,w])=>{ if(w>bestW){ best=emo; bestW=w; } });
-  return best;
-}
+// R10.1: se ELIMINÓ dynamicSubcatEmoji. El emoji default de una subcategoría
+// ya NO cambia según el emoji personalizado más usado. La personalización por
+// registro (getMerchantEmoji, por comercio+subcat) SE CONSERVA intacta.
 
 // Emoji FINAL para mostrar un registro EN EL HISTORIAL.
 // Solo dos capas para NO repintar registros pasados por tendencias de subcategoría:

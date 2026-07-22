@@ -639,7 +639,7 @@ function makeCatButton(name, onClick, isSubcat){
   const b=document.createElement('button');
   b.type='button';
   b.className='cat-block';
-  const icon=(isSubcat ? (dynamicSubcatEmoji(name)||ICONS[name]) : ICONS[name])||'';
+  const icon=(ICONS[name])||'';   // R10.1: emoji estático (ya NO cambia por uso más frecuente)
   b.innerHTML=`<span>${icon}</span><br>${name}`;
   b.onclick=onClick;
   return b;
