@@ -116,6 +116,7 @@ function openEdit(id) {
   editOrigType = e.type;
   editDeferGroup = e.deferGroup || null; // grupo diferido (si aplica)
   editEmojiOverride = null; // sin override hasta que el usuario elija uno
+  editDesgEmojiOverrides = {}; _emojiTarget = 'madre'; // R11 · overrides por desglose
   editType = e.type;
   _ePropinaVisible=false; _eBenVisible=false;
   // TC manual: leer la etiqueta de sistema TCauto (si el registro se guardó con TC manual)

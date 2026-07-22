@@ -656,6 +656,8 @@ function updateEditDesglose(id, field, value){
         updateEditNoteDesgloseIndicators();
       }
     }catch(e){}
+    // R11 · el nombre propio cambió → refrescar emoji default y habilitación.
+    try{ if(typeof refreshDesgEmojiBtn==='function') refreshDesgEmojiBtn(id); }catch(e){}
   }
 }
 function setEditDesgloseCat(id, cat){
@@ -687,18 +689,49 @@ function revealEditDesgloseFields(id){
   const isComplete = !!d.category && (!hasSubs || !!d.subcategory);
   let noteEl=card.querySelector('[data-desg-note]');
   if(isComplete && !noteEl){
+    // R11 · renglón de nota como fila flex: [input nota][botón emoji a la derecha]
+    const row=document.createElement('div');
+    row.className='desg-note-row';
+    row.style.cssText='display:flex;gap:8px;align-items:center;';
     noteEl=document.createElement('input');
     noteEl.setAttribute('data-desg-note','');
     noteEl.type='text';
     noteEl.placeholder='Nota (opcional)';
     noteEl.value=d.note||'';
     noteEl.setAttribute('oninput',`updateEditDesglose(${d.id},'note',this.value)`);
-    noteEl.style.cssText='width:100%;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:13px;outline:none;';
-    card.appendChild(noteEl);
-    revealAnimate(noteEl);
+    noteEl.style.cssText='flex:1;min-width:0;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:13px;outline:none;';
+    row.appendChild(noteEl);
+    row.insertAdjacentHTML('beforeend', desgEmojiBtnHtml(d));
+    card.appendChild(row);
+    revealAnimate(row);
   } else if(!isComplete && noteEl){
-    noteEl.remove();
+    (noteEl.closest('.desg-note-row')||noteEl).remove();
   }
+  // El emoji default depende de la subcategoría: si el renglón ya existe, refrescar.
+  if(isComplete) refreshDesgEmojiBtn(id);
+}
+
+// R11 · HTML del botón de emoji de un desglose (solo edición). Inhabilitado
+// hasta que el desglose tenga NOMBRE PROPIO (sin nombre no hay dónde colgar la
+// personalización; se muestra el default de la subcategoría).
+function desgEmojiBtnHtml(d){
+  const hasName=(d.desc||'').trim().length>0;
+  const emo=currentDesgEmoji(d);
+  const title=hasName?'Personalizar emoji':'Ponle un nombre propio para personalizar el emoji';
+  return `<button type="button" data-desg-emoji-btn onclick="openEmojiPicker(${d.id})" ${hasName?'':'disabled'} title="${title}" style="flex:0 0 auto;width:40px;height:36px;border:none;border-radius:8px;background:var(--surface);font-size:18px;cursor:${hasName?'pointer':'default'};opacity:${hasName?'1':'0.4'};display:flex;align-items:center;justify-content:center;">${emo}</button>`;
+}
+
+// R11 · Refresca el botón de emoji de un desglose (emoji mostrado + habilitado).
+function refreshDesgEmojiBtn(id){
+  const d=(typeof editDesgloses!=='undefined')?editDesgloses.find(x=>String(x.id)===String(id)):null;
+  const btn=document.querySelector(`#e-desglose-list [data-desg-id="${id}"] [data-desg-emoji-btn]`);
+  if(!btn || !d) return;
+  const hasName=(d.desc||'').trim().length>0;
+  btn.textContent=currentDesgEmoji(d);
+  btn.disabled=!hasName;
+  btn.style.cursor=hasName?'pointer':'default';
+  btn.style.opacity=hasName?'1':'0.4';
+  btn.title=hasName?'Personalizar emoji':'Ponle un nombre propio para personalizar el emoji';
 }
 
 // Actualiza los dropdowns de subcategoría de todas las tarjetas de edición
@@ -774,7 +807,10 @@ function renderEditDesgloses(){
         </select>
         ${showSubcat?`<select data-desg-subcat class="desg-subcat fsel" onchange="setEditDesgloseSubcat(${d.id},this.value)" style="min-width:0;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;outline:none;">${subOpts}</select>`:''}
       </div>
-      ${isComplete?`<input data-desg-note type="text" placeholder="Nota (opcional)" value="${d.note||''}" oninput="updateEditDesglose(${d.id},'note',this.value)" style="width:100%;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:13px;outline:none;">`:''}
+      ${isComplete?`<div class="desg-note-row" style="display:flex;gap:8px;align-items:center;">
+        <input data-desg-note type="text" placeholder="Nota (opcional)" value="${d.note||''}" oninput="updateEditDesglose(${d.id},'note',this.value)" style="flex:1;min-width:0;padding:8px 10px;border:none;border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:13px;outline:none;">
+        ${desgEmojiBtnHtml(d)}
+      </div>`:''}
     `;
     list.appendChild(card);
   });

@@ -460,6 +460,29 @@ function emojiForEntry(e){
 // Emoji elegido en la sesión de edición actual (null = usar el default calculado)
 let editEmojiOverride = null;
 
+// R11 · Personalización de emoji POR DESGLOSE (solo en edición).
+// Overrides elegidos en esta sesión: { desgId: emoji }. Se limpian al abrir un
+// registro (openEdit). El objetivo actual del selector: 'madre' o el id de un
+// desglose. Se guardan en el MISMO almacén merchantEmojis (llave nombre|subcat),
+// así la visualización en historial ya funciona sola vía emojiForEntry.
+let editDesgEmojiOverrides = {};
+let _emojiTarget = 'madre';
+
+// Emoji a mostrar para un desglose EN EDICIÓN.
+//  - override de esta sesión (solo si el desglose tiene NOMBRE PROPIO), o
+//  - personalizado por nombre+subcat (solo si hay nombre propio), o
+//  - default estático de la subcategoría/categoría.
+// Sin nombre propio NUNCA se hereda el emoji de la madre: solo el default de la
+// subcategoría del desglose (decisión de diseño acordada).
+function currentDesgEmoji(d){
+  if(!d) return '📌';
+  const own=(d.desc||'').trim();
+  if(own && editDesgEmojiOverrides[d.id]) return editDesgEmojiOverrides[d.id];
+  const sc=d.subcategory||d.category;
+  if(own){ const m=getMerchantEmoji(own, sc); if(m) return m; }
+  return ICONS[d.subcategory] || ICONS[d.category] || '📌';
+}
+
 // Emoji que debe mostrar el botón del modal de edición según el estado actual
 function currentEditEmoji(){
   if(editEmojiOverride) return editEmojiOverride;
@@ -476,11 +499,21 @@ function refreshEditEmojiBtn(){
 }
 
 // Abre el selector de emojis
-function openEmojiPicker(){
+function openEmojiPicker(target){
+  // R11 · target: undefined/'madre' = registro madre; o el id de un desglose.
+  _emojiTarget = (target===undefined || target===null) ? 'madre' : target;
   const body=document.getElementById('emoji-picker-body');
   if(!body) return;
-  const current=currentEditEmoji();
-  const primaryGroup=CAT_EMOJI_GROUP[editCat]||null;
+  let current, catForGroup;
+  if(_emojiTarget==='madre'){
+    current=currentEditEmoji();
+    catForGroup=editCat;
+  } else {
+    const d=(typeof editDesgloses!=='undefined') ? editDesgloses.find(x=>String(x.id)===String(_emojiTarget)) : null;
+    current=d?currentDesgEmoji(d):'📌';
+    catForGroup=d?(d.category||''):'';
+  }
+  const primaryGroup=CAT_EMOJI_GROUP[catForGroup]||null;
   const allGroups=Object.keys(EMOJI_GROUPS);
   // Orden de grupos: primero el relevante a la categoría, luego el resto
   const ordered = primaryGroup && EMOJI_GROUPS[primaryGroup]
@@ -514,10 +547,15 @@ function renderEmojiGroup(name, emojis, current){
   return h;
 }
 
-// Elige un emoji: lo aplica al override, refresca el botón y cierra el selector.
+// Elige un emoji: lo aplica al override del objetivo, refresca su botón y cierra.
 function pickEmoji(emo){
-  editEmojiOverride=emo;
-  refreshEditEmojiBtn();
+  if(_emojiTarget==='madre'){
+    editEmojiOverride=emo;
+    refreshEditEmojiBtn();
+  } else {
+    editDesgEmojiOverrides[_emojiTarget]=emo;
+    try{ if(typeof refreshDesgEmojiBtn==='function') refreshDesgEmojiBtn(_emojiTarget); }catch(e){}
+  }
   closeEmojiPicker();
 }
 

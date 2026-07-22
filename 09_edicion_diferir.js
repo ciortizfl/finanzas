@@ -560,6 +560,20 @@ async function saveEdit(){
   if(editEmojiOverride){
     setMerchantEmoji(desc, subcat || editCat, editEmojiOverride);
   }
+  // R11 · Emojis personalizados POR DESGLOSE. Aquí (antes de la bifurcación de
+  // guardado) para cubrir los cuatro caminos. Solo se persiste si el desglose
+  // tiene NOMBRE PROPIO — sin nombre no hay llave (nombre|subcat) y el emoji se
+  // queda en el default de su subcategoría.
+  try{
+    Object.keys(editDesgEmojiOverrides).forEach(id=>{
+      const emo=editDesgEmojiOverrides[id];
+      const d=editDesgloses.find(x=>String(x.id)===String(id));
+      if(!d || !emo) return;
+      const own=(d.desc||'').trim();
+      if(!own) return;
+      setMerchantEmoji(own, d.subcategory || d.category, emo);
+    });
+  }catch(e){}
 
   // R9 · Si el usuario RENOMBRÓ el registro, arrastramos su recordatorio al
   // nombre nuevo (los recordatorios se identifican por type+desc, así que sin
