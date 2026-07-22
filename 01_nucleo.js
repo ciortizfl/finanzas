@@ -349,7 +349,7 @@ const CATS = {
 const ICONS = {
   'Hogar':'🏠','Casa':'🏠','Personal':'👤','Alimentos':'🍽️','Ocio':'🎬','Transporte':'🚗',
   'Viajes':'🧳',
-  'Mascotas':'🐾','Generosidad':'🤲','Sueldo':'💲','Bono de despensa':'🏪',
+  'Mascotas':'🐾','Generosidad':'🤲','Sueldo':'💲','Bono de despensa':'🛒',
   'Aguinaldo':'🎄','Utilidades':'📊','Fondo de ahorro':'🏦','Reembolsos':'↩️',
   'Rendimientos':'📈','Renta de propiedad':'🏢','Ventas':'🛍️','Regalos':'🎁','Regalos recibidos':'🎁',
   'Inversiones':'💹','Cashback':'💳','Puntos TDC':'💎',
@@ -358,7 +358,7 @@ const ICONS = {
   'Seguridad':'🔒','Muebles y decoración':'🛋️','Servicio de limpieza':'🧹',
   'Equipamiento':'📦','Salud y médicos':'🏥','Dentista':'🦷','Medicamentos':'💊','Gimnasio':'💪','Finanzas / Impuestos':'🧾',
   'Ropa y calzado':'👕','Cuidado personal':'💆‍♂️','Educación':'📚',
-  'Compras personales':'🛍️','Despensa':'🛒','Restaurantes y cafés':'🍴',
+  'Compras personales':'🛍️','Despensa':'🥚','Restaurantes y cafés':'🍴',
   'Comida rápida':'🍔','Snacks':'🍿','Cine':'🎞️',
   'Espectáculos y conciertos':'🎤','Bares y antros':'🕺','Videojuegos':'🎮',
   'Suscripciones':'📱','Renta y venta digital':'📼','Museos':'🏛️',
