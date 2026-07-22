@@ -932,8 +932,8 @@ function removeBeneficio(id){
 // contador de categorías, ya que los tipos de beneficio SON categorías del
 // tipo 'beneficio' — ver más abajo cómo se registran al guardar).
 function sortedBenTypes(){
-  const otros = BEN_TYPES.filter(t=>t==='Otros (beneficios)');
-  const rest = BEN_TYPES.filter(t=>t!=='Otros (beneficios)');
+  const otros = BEN_TYPES.filter(t=>t==='Otros (Beneficios)');
+  const rest = BEN_TYPES.filter(t=>t!=='Otros (Beneficios)');
   rest.sort((a,b)=>{
     const ua = usage[`beneficio:${a}`]||0;
     const ub = usage[`beneficio:${b}`]||0;

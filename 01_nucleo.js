@@ -15,7 +15,10 @@ const _migrations = {
     'Puntos tarjeta': 'Puntos TDC',
     'Puntos': 'Puntos de lealtad',
     // R8: tipo de beneficio renombrado por consistencia con "Otros (x)".
-    'Otros beneficios': 'Otros (beneficios)',
+    // R10: la etiqueta canónica pasó a mayúscula inicial: 'Otros (Beneficios)'.
+    // Se auto-normalizan la variante vieja y la minúscula (registros históricos).
+    'Otros beneficios': 'Otros (Beneficios)',
+    'Otros (beneficios)': 'Otros (Beneficios)',
   },
   // R7.2: la subcategoría se llama "Propina" (singular) en toda la app.
   subcategory: {
@@ -325,15 +328,16 @@ const CATS = {
   ingreso: {
     'Sueldo':['—'],'Bono de despensa':['—'],'Cashback':['—'],
     'Reembolsos':['—'],'Rendimientos':['—'],'Ventas':['—'],
-    'Regalos':['—'],'Otros (Ingresos)':['—']
+    'Regalos recibidos':['—'],'Otros (Ingresos)':['—']
   },
   egreso: {
-    'Casa':       ['Renta','Hipoteca','Mantenimiento','Servicios','Seguridad','Muebles y decoración','Servicio de limpieza','Equipamiento','Otros (Casa)'],
+    'Hogar':      ['Renta','Hipoteca','Mantenimiento','Servicios del hogar','Seguridad','Muebles y decoración','Servicio de limpieza','Equipamiento','Otros (Hogar)'],
     'Personal':   ['Salud y médicos','Dentista','Medicamentos','Gimnasio','Ropa y calzado','Cuidado personal','Educación','Finanzas / Impuestos','Compras personales','Otros (Personal)'],
     'Alimentos':  ['Despensa','Restaurantes y cafés','Comida rápida','Snacks','Otros (Alimentos)'],
     'Ocio':       ['Cine','Espectáculos y conciertos','Bares y antros','Videojuegos','Suscripciones','Renta y venta digital','Museos','Media física','Otros (Ocio)'],
-    'Transporte': ['Gasolina','Uber / taxi','Transporte público','Mantenimiento de auto','Seguro de auto','Estacionamiento','Autopartes','Autolavado','Trámites vehiculares','Vuelos','Otros pasajes','Seguro de viaje','Otros (Transporte)'],
-    'Mascotas':   ['Comida','Veterinario','Accesorios y juguetes','Estética / grooming','Medicamentos','Hospedaje','Otros (Mascotas)'],
+    'Transporte': ['Gasolina','Uber / taxi','Transporte público','Mantenimiento de auto','Seguro de auto','Estacionamiento','Autopartes','Autolavado','Trámites vehiculares','Otros (Transporte)'],
+    'Viajes':     ['Vuelos','Otros transportes','Hospedaje','Renta de auto','Actividades y tours','Paquetes / agencia','Seguro de viaje','Otros (Viajes)'],
+    'Mascotas':   ['Alimento de mascota','Veterinario','Accesorios y juguetes','Estética canina','Medicamentos veterinarios','Guardería','Otros (Mascotas)'],
     'Generosidad':['Regalos','Donativos','Propina','Préstamos','Otros (Generosidad)']
   },
   ahorro: {
@@ -343,42 +347,45 @@ const CATS = {
 };
 
 const ICONS = {
-  'Casa':'🏠','Personal':'👤','Alimentos':'🍽️','Ocio':'🎭','Transporte':'🚗',
-  'Mascotas':'🐾','Generosidad':'🎁','Sueldo':'💼','Bono de despensa':'🛒',
+  'Hogar':'🏠','Casa':'🏠','Personal':'👤','Alimentos':'🍽️','Ocio':'🎭','Transporte':'🚗',
+  'Viajes':'🧳',
+  'Mascotas':'🐾','Generosidad':'🤲','Sueldo':'💼','Bono de despensa':'🏪',
   'Aguinaldo':'🎄','Utilidades':'📊','Fondo de ahorro':'🏦','Reembolsos':'↩️',
-  'Rendimientos':'📈','Renta de propiedad':'🏢','Ventas':'🛍️','Regalos':'🎁',
+  'Rendimientos':'📈','Renta de propiedad':'🏢','Ventas':'🛍️','Regalos':'🎁','Regalos recibidos':'🎁',
   'Inversiones':'💹','Cashback':'💳','Puntos TDC':'💎',
-  'Puntos de lealtad':'⭐','Millas aéreas':'✈️','Descuentos y promociones':'🏷️','Otros (beneficios)':'🎁','Otros beneficios':'🎁','Descuento':'🏷️','Otro beneficio':'🎁',
-  'Renta':'🏠','Hipoteca':'🔑','Mantenimiento':'🔧','Servicios':'⚡',
+  'Puntos de lealtad':'⭐','Millas aéreas':'✈️','Descuentos y promociones':'🏷️','Otros (Beneficios)':'🎁','Otros (beneficios)':'🎁','Otros beneficios':'🎁','Descuento':'🏷️','Otro beneficio':'🎁',
+  'Renta':'🏘️','Hipoteca':'🔑','Mantenimiento':'🔧','Servicios del hogar':'⚡','Servicios':'⚡',
   'Seguridad':'🔒','Muebles y decoración':'🛋️','Servicio de limpieza':'🧹',
-  'Equipamiento':'📦','Salud y médicos':'🏥','Dentista':'🦷','Medicamentos':'💊','Gimnasio':'💪','Finanzas / Impuestos':'💼',
-  'Ropa y calzado':'👕','Cuidado personal':'✂️','Educación':'📚',
-  'Compras personales':'🛒','Despensa':'🛒','Restaurantes y cafés':'🍴',
+  'Equipamiento':'📦','Salud y médicos':'🏥','Dentista':'🦷','Medicamentos':'💊','Gimnasio':'💪','Finanzas / Impuestos':'🧾',
+  'Ropa y calzado':'👕','Cuidado personal':'💇','Educación':'📚',
+  'Compras personales':'🛍️','Despensa':'🛒','Restaurantes y cafés':'🍴',
   'Comida rápida':'🍔','Snacks':'🍿','Cine':'🎬',
   'Espectáculos y conciertos':'🎤','Bares y antros':'🕺','Videojuegos':'🎮',
   'Suscripciones':'📱','Renta y venta digital':'🎞️','Museos':'🏛️',
   'Media física':'💿','Gasolina':'⛽','Uber / taxi':'🚕',
-  'Transporte público':'🚌','Mantenimiento de auto':'🔧','Seguro de auto':'🛡️',
-  'Estacionamiento':'🅿️','Autolavado':'🚿','Trámites vehiculares':'📋','Autopartes':'⚙️','Vuelos':'✈️',
-  'Otros pasajes':'🎫','Seguro de viaje':'🛡️','Comida':'🍖',
-  'Veterinario':'💉','Accesorios y juguetes':'🦴','Estética / grooming':'✂️','Hospedaje':'🏨',
+  'Transporte público':'🚌','Mantenimiento de auto':'🛠️','Seguro de auto':'🛡️',
+  'Estacionamiento':'🅿️','Autolavado':'🚿','Trámites vehiculares':'📋','Autopartes':'⚙️',
+  'Vuelos':'🛫','Otros transportes':'⛴️','Hospedaje':'🏨','Renta de auto':'🚙','Actividades y tours':'🎟️','Paquetes / agencia':'🧭','Seguro de viaje':'🛟',
+  'Otros pasajes':'🎫',
+  'Alimento de mascota':'🍖','Comida':'🍖',
+  'Veterinario':'💉','Accesorios y juguetes':'🦴','Estética canina':'✂️','Estética / grooming':'✂️','Medicamentos veterinarios':'💊','Guardería':'🛏️',
   'Donativos':'❤️','Propina':'💰','Propinas':'💰','Préstamos':'🤝',
   'Dinero electrónico':'📲',
-  'Otros (Casa)':'📌','Otros (Personal)':'📌','Otros (Alimentos)':'📌',
-  'Otros (Ocio)':'📌','Otros (Transporte)':'📌','Otros (Mascotas)':'📌',
+  'Otros (Hogar)':'📌','Otros (Casa)':'📌','Otros (Personal)':'📌','Otros (Alimentos)':'📌',
+  'Otros (Ocio)':'📌','Otros (Transporte)':'📌','Otros (Viajes)':'📌','Otros (Mascotas)':'📌',
   'Otros (Generosidad)':'📌','Otros (Ingresos)':'📌','Otros (Ahorro)':'📌'
 };
 
 // ── CATÁLOGO DE EMOJIS (curado, ~150) organizado por grupos temáticos ──
 const EMOJI_GROUPS = {
   'Comida y bebida': ['🍽️','🍔','🍕','🌮','🌯','🥙','🥗','🍜','🍣','🍱','🍛','🍝','🥘','🍲','🥪','🌭','🍟','🍗','🍖','🥩','🍤','🧀','🥐','🥖','🍞','🥞','🧇','🥓','🥚','🍳','🥣','🍚','🍙','🍘','🍥','🥟','🍩','🍪','🎂','🍰','🧁','🥧','🍫','🍬','🍭','🍮','🍯','🍦','🍨','🍧','☕','🍵','🧃','🥤','🧋','🍺','🍻','🍷','🍸','🍹','🥂','🍾','🥛','🫖','🧉'],
-  'Compras': ['🛒','🛍️','🏷️','💳','🧾','🎁','👕','👗','👖','👟','👞','👜','🎒','👓','🕶️','⌚','💄','💍','🧴','🧷','🪒','🧻','🧼','🧽','🛁','🪥'],
-  'Hogar y servicios': ['🏠','🔑','🛋️','🛏️','🚿','🪑','🧹','🧺','🔧','🔨','🪛','⚡','💡','🔌','🚰','🔥','❄️','🌡️','📦','🪴','🕯️','🧯','🔒','🛡️','📺','🖥️','💻','📱','☎️','🖨️'],
-  'Transporte': ['🚗','🚕','🚙','🚌','🚐','🚚','🏍️','🛵','🚲','🛴','⛽','🅿️','🚿','🛣️','🚦','🚧','🅰️','✈️','🚆','🚄','🚈','🚊','🚢','⛵','🛥️','🚁','🎫'],
+  'Compras': ['🛒','🏪','🛍️','🏷️','💳','🧾','🎁','👕','👗','👖','👟','👞','👜','🎒','👓','🕶️','⌚','💄','💍','🧴','🧷','🪒','🧻','🧼','🧽','🛁','🪥'],
+  'Hogar y servicios': ['🏠','🏘️','🔑','🛋️','🛏️','🚿','🪑','🧹','🧺','🔧','🛠️','🔨','🪛','⚡','💡','🔌','🚰','🔥','❄️','🌡️','📦','🪴','🕯️','🧯','🔒','🛡️','📺','🖥️','💻','📱','☎️','🖨️'],
+  'Transporte': ['🚗','🚕','🚙','🚌','🚐','🚚','🏍️','🛵','🚲','🛴','⛽','🅿️','🚿','🛣️','🚦','🚧','🅰️','✈️','🛫','🚆','🚄','🚈','🚊','🚢','⛵','⛴️','🛥️','🚁','🎫','🛠️'],
   'Salud': ['🏥','💊','💉','🩺','🩹','🦷','🧠','❤️','🫀','👁️','🦴','🧬','🩻','🧪','🌡️','♿','🧘','🏃','💪','🥦'],
   'Ocio y entretenimiento': ['🎭','🎬','🎤','🎸','🎹','🥁','🎧','🎮','🕹️','🎰','🎲','🎳','🎯','🎨','🖼️','📷','🎥','🎞️','🎟️','🎫','🏛️','🎪','🎡','🎢','🎠','🕺','💃','🎉','🎊','📚','📖','🎧'],
   'Deporte y aire libre': ['⚽','🏀','🏈','⚾','🎾','🏐','🏉','🎱','🏓','🏸','🥅','⛳','🏊','🚴','🧗','⛺','🏕️','🎿','🏂','🛹','🏋️','🤸','🧘'],
-  'Viajes': ['✈️','🏨','🏖️','🏝️','🗺️','🧳','🎒','🛂','🛃','🏞️','⛰️','🗽','🗼','🏯','🏰','⛩️','🕌','⛪','🎡','📸'],
+  'Viajes': ['✈️','🛫','🏨','🏖️','🏝️','🗺️','🧭','🧳','🎒','🚙','⛴️','🎟️','🛂','🛃','🏞️','⛰️','🗽','🗼','🏯','🏰','⛩️','🕌','⛪','🎡','📸'],
   'Mascotas': ['🐾','🐶','🐱','🐕','🐈','🦴','🐟','🐠','🐹','🐰','🐦','🦜','🐢','🦎','🐍','🐕‍🦺','💉','✂️'],
   'Trabajo y finanzas': ['💼','💰','💵','💴','💶','💷','💸','🏦','🏧','💳','📊','📈','📉','💹','🧮','🖊️','📝','📋','📁','🗂️','📌','📎','✂️','🖇️','💎','🪙','🧾'],
   'Personal y educación': ['👤','📚','📖','✏️','🖊️','🎓','🏫','🔬','🔭','🧪','🎨','🎼','🧵','🪡','💇','💅','✂️','🧴','👔','🕰️'],
@@ -388,7 +395,9 @@ const EMOJI_GROUPS = {
 // Mapeo de CATEGORÍA → grupo de emojis a mostrar PRIMERO en el selector.
 const CAT_EMOJI_GROUP = {
   'Alimentos':'Comida y bebida',
+  'Hogar':'Hogar y servicios',
   'Casa':'Hogar y servicios',
+  'Viajes':'Viajes',
   'Transporte':'Transporte',
   'Ocio':'Ocio y entretenimiento',
   'Mascotas':'Mascotas',
@@ -541,11 +550,13 @@ function closeEmojiPicker(ev){
 // ── CATEGORY COLORS (consistent across all views) ──
 const CAT_COLORS = {
   // Egresos
+  'Hogar':       '#ff9500',
   'Casa':        '#ff9500',
   'Personal':    '#34c759',
   'Alimentos':   '#007aff',
   'Ocio':        '#af52de',
   'Transporte':  '#ff3b30',
+  'Viajes':      '#5856d6',
   'Mascotas':    '#ff2d55',
   'Generosidad': '#00c7be',
   // Ingresos
@@ -559,6 +570,7 @@ const CAT_COLORS = {
   'Renta de propiedad':'#af52de',
   'Ventas':           '#ff3b30',
   'Regalos':          '#ff2d55',
+  'Regalos recibidos':'#ff2d55',
   // Ahorros / Beneficios (nombres unificados con BEN_TYPES)
   // R7.2: 'Cashback' es ahora categoría de INGRESO; conserva su color.
   'Inversiones':              '#007aff',
@@ -568,6 +580,7 @@ const CAT_COLORS = {
   'Puntos de lealtad':        '#ffcc00',
   'Millas aéreas':            '#00c7be',
   'Descuentos y promociones': '#ff2d55',
+  'Otros (Beneficios)':       '#a2845e',
   'Otros (beneficios)':       '#a2845e',
   'Otros beneficios':         '#a2845e',
   // Nombres antiguos (por si hay registros históricos)

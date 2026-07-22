@@ -1413,7 +1413,7 @@ window.addEventListener('resize', ()=>{ try{ _paintMethodBtn(); }catch(e){} });
 // R7.2: 'Cashback' dejó de ser beneficio (ahora es categoría de INGRESO) y se
 // agregó 'Dinero electrónico', que se comporta igual que cualquier otro.
 // R8: 'Otros beneficios' → 'Otros (beneficios)' por consistencia con el resto.
-const BEN_TYPES = ['Dinero electrónico','Puntos de lealtad','Puntos TDC','Millas aéreas','Descuentos y promociones','Otros (beneficios)'];
+const BEN_TYPES = ['Dinero electrónico','Puntos de lealtad','Puntos TDC','Millas aéreas','Descuentos y promociones','Otros (Beneficios)'];
 // Unificar: las categorías del tipo "beneficio" SON los tipos de beneficio.
 // Así coinciden sin importar si se registra dentro de un gasto o por separado.
 BEN_TYPES.forEach(t=>{ CATS['beneficio'][t]=['—']; });
