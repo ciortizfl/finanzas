@@ -355,7 +355,6 @@ nav.shrunk .nav-lbl{ opacity: 0; }
 .type-btn:active { transform: scale(0.94); }
 .type-btn.active.t-ingreso { background: var(--green-light); color: var(--green); }
 .type-btn.active.t-egreso  { background: var(--danger-light); color: var(--danger); }
-.type-btn.active.t-ahorro  { background: var(--blue-light);   color: var(--blue); }
 .type-btn.active.t-pasivo  { background: #af52de22;  color: #af52de; }
 
 /* ── Animación de despliegue estilo apple.com (revela de arriba a abajo con expansión) ── */
@@ -589,7 +588,6 @@ select.fsel { display: none; }
 .cat-block:active { transform: scale(0.95); }
 .cat-block.sel-eg { background: var(--danger-light); color: var(--danger); }
 .cat-block.sel-in { background: var(--green-light);  color: var(--green); }
-.cat-block.sel-ah { background: var(--blue-light);   color: var(--blue); }
 .cat-block.sel-pa { background: #af52de22;  color: #af52de; }
 /* Borde de color por categoría (sutil, como en balance/historial) *//* Layout colapsado: categoría elegida + subcategorías lado a lado */
 .cat-collapsed-row { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; align-items: start; margin-bottom: 8px; }
@@ -986,7 +984,6 @@ select.fsel { display: none; }
 }
 .tx-ico.ingreso       { background: var(--green-light); }
 .tx-ico.egreso        { background: var(--danger-light); }
-.tx-ico.ahorro        { background: var(--blue-light); }
 .tx-ico.beneficio { background: #af52de22; }
 .tx-info { flex: 1; min-width: 0; }
 .tx-desc { font-size: 14px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: -0.01em; }
@@ -994,10 +991,9 @@ select.fsel { display: none; }
 .tx-amt { font-size: 14px; font-weight: 600; flex-shrink: 0; text-align: right; letter-spacing: -0.01em; }
 .tx-amt.ingreso       { color: var(--green); }
 .tx-amt.egreso        { color: var(--danger); }
-.tx-amt.ahorro        { color: var(--blue); }
 .tx-amt.beneficio { color: #af52de; }
 
-/* AHORROS *//* FILTER BAR */
+/* FILTER BAR */
 .filter-bar { padding: 0 16px 12px; display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
 .filter-bar::-webkit-scrollbar { display: none; }
 .f-chip {

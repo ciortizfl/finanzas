@@ -1244,7 +1244,7 @@ function txEl(e, showDelete){
     const tcTxt=tc>0 ? ` (TC: ${tagAmt(tc)} MXN)` : '';
     curLine=`<div class="tx-note" style="opacity:0.7">${montoOrig}${tcTxt}</div>`;
   }
-  const sign={ingreso:'+',egreso:'−',ahorro:'→','beneficio':'★'}[e.type]||'';
+  const sign={ingreso:'+',egreso:'−','beneficio':'★'}[e.type]||'';
   const ico=emojiForEntry(e);
   // Los hijos vinculados (desglose/propina/beneficio) no se eliminan independientemente
   const isLinkedChild = !!e.linkedTo;

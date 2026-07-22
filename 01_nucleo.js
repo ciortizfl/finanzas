@@ -340,9 +340,6 @@ const CATS = {
     'Mascotas':   ['Alimento de mascota','Veterinario','Accesorios y juguetes','Estética canina','Medicamentos veterinarios','Guardería','Otros (Mascotas)'],
     'Generosidad':['Regalos','Donativos','Propina','Préstamos','Otros (Generosidad)']
   },
-  ahorro: {
-    'Inversiones':['—'],'Otros (Ahorro)':['—']
-  },
   'beneficio': {} // Se llena dinámicamente desde BEN_TYPES (ver más abajo)
 };
 
@@ -350,9 +347,9 @@ const ICONS = {
   'Hogar':'🏠','Casa':'🏠','Personal':'👤','Alimentos':'🍽️','Ocio':'🎬','Transporte':'🚗',
   'Viajes':'🧳',
   'Mascotas':'🐾','Generosidad':'🤲','Sueldo':'💲','Bono de despensa':'🛒',
-  'Aguinaldo':'🎄','Utilidades':'📊','Fondo de ahorro':'🏦','Reembolsos':'↩️',
-  'Rendimientos':'📈','Renta de propiedad':'🏢','Ventas':'🛍️','Regalos':'🎁','Regalos recibidos':'🎁',
-  'Inversiones':'💹','Cashback':'💳','Puntos TDC':'💎',
+  'Reembolsos':'↩️',
+  'Rendimientos':'📈','Ventas':'🛍️','Regalos':'🎁','Regalos recibidos':'🎁',
+  'Cashback':'💳','Puntos TDC':'💎',
   'Puntos de lealtad':'⭐','Millas aéreas':'✈️','Descuentos y promociones':'🏷️','Otros (Beneficios)':'🫰','Otros (beneficios)':'🫰','Otros beneficios':'🎁','Descuento':'🏷️','Otro beneficio':'🎁',
   'Renta':'🏘️','Hipoteca':'🔑','Mantenimiento':'🔧','Servicios':'⚡',
   'Seguridad':'🔒','Muebles y decoración':'🛋️','Servicio de limpieza':'🧹',
@@ -373,7 +370,7 @@ const ICONS = {
   'Dinero electrónico':'📲',
   'Otros (Hogar)':'📌','Otros (Casa)':'📌','Otros (Personal)':'📌','Otros (Alimentos)':'📌',
   'Otros (Ocio)':'📌','Otros (Transporte)':'📌','Otros (Viajes)':'📌','Otros (Mascotas)':'📌',
-  'Otros (Generosidad)':'📌','Otros (Ingresos)':'📌','Otros (Ahorro)':'📌'
+  'Otros (Generosidad)':'📌','Otros (Ingresos)':'📌'
 };
 
 // ── CATÁLOGO DE EMOJIS (curado, ~150) organizado por grupos temáticos ──
@@ -405,9 +402,7 @@ const CAT_EMOJI_GROUP = {
   'Generosidad':'Trabajo y finanzas',
   'Sueldo':'Trabajo y finanzas',
   'Ventas':'Compras',
-  'Inversiones':'Trabajo y finanzas',
-  'Rendimientos':'Trabajo y finanzas',
-  'Renta de propiedad':'Hogar y servicios'
+  'Rendimientos':'Trabajo y finanzas'
 };
 
 // Emojis personalizados por comercio+subcategoría: { "costco|comida rápida": "🍕" }
@@ -579,18 +574,13 @@ const CAT_COLORS = {
   // Ingresos
   'Sueldo':           '#34c759',
   'Bono de despensa': '#ff9500',
-  'Aguinaldo':        '#ffcc00',
-  'Utilidades':       '#007aff',
-  'Fondo de ahorro':  '#00c7be',
   'Reembolsos':       '#a2845e',
   'Rendimientos':     '#5856d6',
-  'Renta de propiedad':'#af52de',
   'Ventas':           '#ff3b30',
   'Regalos':          '#ff2d55',
   'Regalos recibidos':'#ff2d55',
-  // Ahorros / Beneficios (nombres unificados con BEN_TYPES)
+  // Beneficios (nombres unificados con BEN_TYPES)
   // R7.2: 'Cashback' es ahora categoría de INGRESO; conserva su color.
-  'Inversiones':              '#007aff',
   'Cashback':                 '#ff9500',
   'Dinero electrónico':       '#32ade6',
   'Puntos TDC':               '#af52de',

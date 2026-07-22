@@ -398,13 +398,6 @@ function setType(t) {
     b.classList.remove('active');
     if(b.dataset.t===t) b.classList.add('active');
   });
-  const ahorroBtn=document.getElementById('type-btn-ahorro');
-  if(ahorroBtn){
-    if(t==='ahorro'||t==='beneficio') ahorroBtn.classList.add('active');
-    else ahorroBtn.classList.remove('active');
-  }
-  const subToggle=document.getElementById('ahorro-sub-toggle');
-  if(subToggle) subToggle.style.display='none'; // Oculto: solo se usa ahorro pasivo
   // Show/hide inline toggles (propina + beneficio)
   const inlineToggles=document.getElementById('inline-toggles');
   if(inlineToggles) inlineToggles.style.display=t==='egreso'?'block':'none';
@@ -466,7 +459,7 @@ function buildCatBlocks() {
 
 // Devuelve la clase de color de selección según el tipo actual
 function curColorCls(){
-  return curType==='ingreso'?'sel-in':curType==='ahorro'?'sel-ah':curType==='beneficio'?'sel-pa':'sel-eg';
+  return curType==='ingreso'?'sel-in':curType==='beneficio'?'sel-pa':'sel-eg';
 }
 
 // Renderiza el UI de categorías/subcategorías según el estado actual:
@@ -1001,23 +994,6 @@ document.addEventListener('click', function(ev){
     }
   }
 });
-
-let curAhorroSubType = 'ahorro'; // 'ahorro' | 'beneficio'
-
-
-
-function setAhorroSubType(t){
-  curAhorroSubType=t;
-  setType(t);
-  const activoBtn=document.getElementById('ahorro-sub-activo');
-  const pasivoBtn=document.getElementById('ahorro-sub-pasivo');
-  if(activoBtn){ activoBtn.style.background=t==='ahorro'?'var(--blue)':'var(--surface2)'; activoBtn.style.color=t==='ahorro'?'white':'var(--text3)'; }
-  if(pasivoBtn){ pasivoBtn.style.background=t==='beneficio'?'#af52de':'var(--surface2)'; pasivoBtn.style.color=t==='beneficio'?'white':'var(--text3)'; }
-  const mainBtn=document.getElementById('type-btn-ahorro');
-  const lbl=document.getElementById('ahorro-type-lbl');
-  if(lbl) lbl.textContent=t==='ahorro'?'Ahorro':'Beneficio';
-  if(mainBtn){ mainBtn.className='type-btn active '+(t==='ahorro'?'t-ahorro':'t-pasivo'); mainBtn.querySelector('.icon').textContent=t==='ahorro'?'◎':'★'; }
-}
 
 function selectCat(cat) {
   _catPredicted=false; // elección manual del usuario

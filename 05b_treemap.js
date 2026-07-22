@@ -219,7 +219,7 @@ function renderBalanceTreemap(){
   if(!wrap||!canvas) return;
   _tmCloseTip();
 
-  // Solo para vistas con treemap (egreso/ingreso/beneficio). Bono/ahorro: oculto.
+  // Solo para vistas con treemap (egreso/ingreso/beneficio).
   const showTM = balView==='egreso'||balView==='ingreso'||balView==='beneficio';
   if(!showTM){ wrap.style.display='none'; canvas.innerHTML=''; return; }
   wrap.style.display='';

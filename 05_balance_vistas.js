@@ -11,15 +11,14 @@ function renderBalance(){
   try{ _balSyncTitle(); }catch(e){}   // R9 · título del selector estilo calendario
   const md=monthData();
   const ing=sum(md,'ingreso'), egr=sum(md,'egreso');
-  const aho=sum(md,'ahorro'), pas=sum(md,'beneficio');
+  const pas=sum(md,'beneficio');
   const bal=ing-egr;
 
-  // Subtítulo fijo (el ahorro activo fue eliminado de la app)
   const subEl=document.getElementById('bal-hero-sub');
   if(subEl) subEl.textContent = 'Ingresos − Egresos';
 
   document.getElementById('bal-val').textContent=(bal>=0?'+':'')+fmt(bal);
-  const hasData=ing>0||egr>0||aho>0||pas>0;
+  const hasData=ing>0||egr>0||pas>0;
   const hero=document.getElementById('bal-hero');
   if(!hasData){
     hero.style.background='var(--surface3)';
@@ -34,7 +33,6 @@ function renderBalance(){
   }
   document.getElementById('d-ing').textContent=fmt(ing);
   document.getElementById('d-egr').textContent=fmt(egr);
-  const dAho=document.getElementById('d-aho'); if(dAho) dAho.textContent=fmt(aho);
   document.getElementById('d-pas').textContent=fmt(pas);
   // Ocultar tarjetón de beneficios si no hay movimientos en el mes
   const pasivoStat=document.getElementById('pasivo-stat');
@@ -181,22 +179,14 @@ function renderBalanceCats(animate){
 
   if(!balView){ return; }
 
-  // Solo 'ahorro' (obsoleto) conserva la vista por movimientos individuales.
-  // 'beneficio' ahora se comporta como 'ingreso': plano por categoría (decisión R9).
-  const isAhorro = balView==='ahorro';
   const subset = md.filter(e=>e.type===balView);
 
-  const catTotals={}, catSubTotals={}, catItems={};
+  const catTotals={}, catSubTotals={};
   subset.forEach(e=>{
     catTotals[e.category]=(catTotals[e.category]||0)+e.amountMXN;
-    if(isAhorro){
-      if(!catItems[e.category]) catItems[e.category]=[];
-      catItems[e.category].push(e);
-    } else {
-      if(!catSubTotals[e.category]) catSubTotals[e.category]={};
-      const s=e.subcategory||'—';
-      catSubTotals[e.category][s]=(catSubTotals[e.category][s]||0)+e.amountMXN;
-    }
+    if(!catSubTotals[e.category]) catSubTotals[e.category]={};
+    const s=e.subcategory||'—';
+    catSubTotals[e.category][s]=(catSubTotals[e.category][s]||0)+e.amountMXN;
   });
 
   if(!Object.keys(catTotals).length){
@@ -205,51 +195,20 @@ function renderBalanceCats(animate){
     return;
   }
 
-  if(isAhorro){
-    const sign = balView==='beneficio' ? '★' : '→';
-    const amtColor = balView==='beneficio' ? '#af52de' : 'var(--blue)';
-    Object.entries(catTotals).sort((a,b)=>b[1]-a[1]).forEach(([cat,tot])=>{
-      const color=catColor(cat);
-      const items=(catItems[cat]||[]).sort((a,b)=>b.amountMXN-a.amountMXN);
-      const row=document.createElement('div');
-      row.className='cat-expand-row';
-      row.innerHTML=`
-        <div class="cat-color-bar" style="background:${color}"></div>
-        <div class="cat-expand-hdr" style="padding-left:18px">
-          <span style="font-size:17px;width:28px;text-align:center">${ICONS[cat]||'💰'}</span>
-          <div style="flex:1;font-size:14px;font-weight:500;color:var(--text)">${cat}</div>
-          <div style="font-size:14px;font-weight:600;color:var(--text2)">${fmt(tot)}</div>
-          <span class="cat-expand-chevron">›</span>
-        </div>`;
-      const body=document.createElement('div');
-      body.className='cat-expand-body';
-      items.forEach(e=>{
-        const line=document.createElement('div');
-        line.className='subcat-line';
-        line.innerHTML=`<span class="s-name" style="color:var(--text)">${e.desc}</span><span class="s-val" style="color:${amtColor}">${sign}${fmt(e.amountMXN)}</span>`;
-        body.appendChild(line);
-      });
-      row.appendChild(body);
-      row.querySelector('.cat-expand-hdr').onclick=()=>row.classList.toggle('open');
-      cl.appendChild(row);
-    });
-    const tmw=document.getElementById('bal-treemap-wrap'); if(tmw) tmw.style.display='none';
-  } else {
-    // Egresos / Ingresos / Beneficios: tabla como control del Treemap.
-    buildExpandCatList(cl, catTotals, catSubTotals, {treemap:true});
-    // El desglose por método va ARRIBA de la tabla (justo bajo las tarjetas),
-    // para que tabla y treemap queden continuos. No aplica a beneficios (method null).
-    const mrow=document.getElementById('bal-method-row');
-    if(mrow){
-      mrow.innerHTML='';
-      if(balView!=='beneficio'){
-        renderMethodBreakdown(mrow, subset);
-        // Misma animación de aparición que la tabla
-        if(animate && mrow.firstChild) revealAnimate(mrow);
-      }
+  // Egresos / Ingresos / Beneficios: tabla como control del Treemap.
+  buildExpandCatList(cl, catTotals, catSubTotals, {treemap:true});
+  // El desglose por método va ARRIBA de la tabla (justo bajo las tarjetas),
+  // para que tabla y treemap queden continuos. No aplica a beneficios (method null).
+  const mrow=document.getElementById('bal-method-row');
+  if(mrow){
+    mrow.innerHTML='';
+    if(balView!=='beneficio'){
+      renderMethodBreakdown(mrow, subset);
+      // Misma animación de aparición que la tabla
+      if(animate && mrow.firstChild) revealAnimate(mrow);
     }
-    try{ renderBalanceTreemap(); }catch(e){}
   }
+  try{ renderBalanceTreemap(); }catch(e){}
 
   // Animación en cascada solo cuando el usuario abre la vista (no en re-renders)
   if(animate) revealAnimate(cl, true);

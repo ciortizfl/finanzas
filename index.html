@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Tomín">
 <title>Tomín</title>
-<link rel="stylesheet" href="estilos.css?v=20260721n">
+<link rel="stylesheet" href="estilos.css?v=20260721p">
 </head>
 <body>
 
@@ -53,16 +53,6 @@
       <button class="seg-option active" data-t="egreso" onclick="setType('egreso')"><span class="seg-ico">↓</span><span>Egreso</span></button>
       <button class="seg-option" data-t="ingreso" onclick="setType('ingreso')"><span class="seg-ico">↑</span><span>Ingreso</span></button>
       <button class="seg-option" data-t="beneficio" onclick="setType('beneficio')"><span class="seg-ico">★</span><span>Beneficio</span></button>
-    </div>
-
-    <!-- Ahorro sub-type selector — oculto: solo se usa ahorro pasivo -->
-    <div id="ahorro-sub-toggle" style="display:none;margin-bottom:12px;">
-      <div style="display:flex;gap:8px;width:100%;">
-        <button onclick="setAhorroSubType('ahorro')" id="ahorro-sub-activo"
-          style="flex:1;padding:10px 0;border-radius:100px;border:none;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;background:var(--blue);color:white;transition:all 0.2s;">◎ Activo</button>
-        <button onclick="setAhorroSubType('beneficio')" id="ahorro-sub-pasivo"
-          style="flex:1;padding:10px 0;border-radius:100px;border:none;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;background:var(--surface2);color:var(--text3);transition:all 0.2s;">★ Beneficio</button>
-      </div>
     </div>
 
     <div class="card" id="register-form-card" style="margin-bottom:14px">
@@ -543,7 +533,6 @@
     <button class="f-chip active" id="fchip-todos" onclick="setFilter('todos',this)">Todos</button>
     <button class="f-chip" id="fchip-egreso" onclick="setFilter('egreso',this)">Egresos</button>
     <button class="f-chip" id="fchip-ingreso" onclick="setFilter('ingreso',this)">Ingresos</button>
-    <button class="f-chip" onclick="setFilter('ahorro',this)" style="display:none">Ahorro activo</button>
     <button class="f-chip" id="fchip-beneficio" onclick="setFilter('beneficio',this)">Beneficios</button>
     <button id="method-filter-toggle-btn" onclick="toggleMethodFilters()" style="display:flex;align-items:center;gap:4px;padding:6px 12px;border-radius:100px;border:1.5px solid var(--border2);background:var(--surface2);font-family:inherit;font-size:12px;font-weight:600;color:var(--text2);cursor:pointer;white-space:nowrap;">
       <span id="method-filter-indicator" style="width:7px;height:7px;border-radius:50%;background:var(--border2);flex-shrink:0;transition:background 0.2s;"></span>
@@ -596,18 +585,8 @@
       <div class="type-grid">
         <button class="type-btn t-egreso" data-et="egreso" onclick="setEditType('egreso',this)"><span class="icon">↓</span>Egreso</button>
         <button class="type-btn t-ingreso" data-et="ingreso" onclick="setEditType('ingreso',this)"><span class="icon">↑</span>Ingreso</button>
-        <div id="e-ahorro-type-wrap" style="position:relative;flex:1">
-          <button class="type-btn t-pasivo" id="e-type-btn-ahorro" data-et="beneficio" onclick="setEditType('beneficio',this)" style="width:100%"><span class="icon">★</span><span id="e-ahorro-type-lbl">Beneficio</span></button>
-        </div>
-      </div>
-
-      <!-- Sub-tipo ahorro -->
-      <div id="e-ahorro-sub-toggle" style="display:none;margin-bottom:12px;">
-        <div style="display:flex;gap:8px;width:100%;">
-          <button onclick="setEditAhorroSubType('ahorro')" id="e-ahorro-sub-activo"
-            style="flex:1;padding:10px 0;border-radius:100px;border:none;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;background:var(--blue);color:white;transition:all 0.2s;">◎ Activo</button>
-          <button onclick="setEditAhorroSubType('beneficio')" id="e-ahorro-sub-pasivo"
-            style="flex:1;padding:10px 0;border-radius:100px;border:none;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;background:var(--surface2);color:var(--text3);transition:all 0.2s;">★ Beneficio</button>
+        <div id="e-beneficio-type-wrap" style="position:relative;flex:1">
+          <button class="type-btn t-pasivo" id="e-type-btn-beneficio" data-et="beneficio" onclick="setEditType('beneficio',this)" style="width:100%"><span class="icon">★</span>Beneficio</button>
         </div>
       </div>
 
@@ -889,19 +868,19 @@
   </nav>
 </div>
 
-<script src="01_nucleo.js?v=20260721n"></script>
-<script src="02_registro.js?v=20260721n"></script>
-<script src="03_desgloses.js?v=20260721n"></script>
-<script src="04_guardado_sync.js?v=20260721n"></script>
-<script src="05_balance_vistas.js?v=20260721n"></script>
-<script src="05b_treemap.js?v=20260721n"></script>
-<script src="06_historial.js?v=20260721n"></script>
-<script src="06b_calendario.js?v=20260721n"></script>
-<script src="07_datepicker_fechas.js?v=20260721n"></script>
-<script src="08_edicion.js?v=20260721n"></script>
-<script src="09_edicion_diferir.js?v=20260721n"></script>
-<script src="09b_recordatorios.js?v=20260721n"></script>
-<script src="10_presupuesto_csv_init.js?v=20260721n"></script>
-<script src="11_selectores.js?v=20260721n"></script>
+<script src="01_nucleo.js?v=20260721p"></script>
+<script src="02_registro.js?v=20260721p"></script>
+<script src="03_desgloses.js?v=20260721p"></script>
+<script src="04_guardado_sync.js?v=20260721p"></script>
+<script src="05_balance_vistas.js?v=20260721p"></script>
+<script src="05b_treemap.js?v=20260721p"></script>
+<script src="06_historial.js?v=20260721p"></script>
+<script src="06b_calendario.js?v=20260721p"></script>
+<script src="07_datepicker_fechas.js?v=20260721p"></script>
+<script src="08_edicion.js?v=20260721p"></script>
+<script src="09_edicion_diferir.js?v=20260721p"></script>
+<script src="09b_recordatorios.js?v=20260721p"></script>
+<script src="10_presupuesto_csv_init.js?v=20260721p"></script>
+<script src="11_selectores.js?v=20260721p"></script>
 </body>
 </html>
